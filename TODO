@@ -1,0 +1,11 @@
+# TODO
+- do some code clean-up (ongoing)
+- bring back a way to search across columns
+- make the b3 action, similar to the acme one where there is a configuration defining regexps and what actions to take (it has to be user extendable)
+
+Dir [dir]		Set the current or default directory that zuma itself will assume
+
+# Do we _want_ to do this, really?
+- when colors are changed from the app/column tagline, they should stay active (?)
+- a way to revert the colors back to the default (?)
+
