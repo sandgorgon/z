@@ -291,13 +291,20 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 
 			if(!ZUtilities.isFullPath(stxt)) {
 				var rp  = rawPath
+
+				rp match {
+					case ZWnd.reScratch(d, p) => rp = p
+					case ZWnd.reQuotedScratch(d, p) => rp = p
+					case _ =>
+				}
+
 				if(new File(path).isFile) {
 					if(rp.contains(ZUtilities.separator))  rp = rp.substring(0, rp.lastIndexOf(ZUtilities.separator)) + ZUtilities.separator
 					else rp = ""
 				} else if(!rp.endsWith(ZUtilities.separator)) rp = rp + ZUtilities.separator
 
 				p = rp + stxt
-			}
+			} 
 
 			if(new File(p).exists) {
 				if(indBind)
@@ -559,7 +566,7 @@ object ZWnd {
 	val rePre = """.*?(\S*)$""".r
 	val rePath = """(?s)\s*(\*?)\s*(\S+).*""".r
 	val reQuotedPath = """(?s)\s*(\*?)\s*'\s*([^']+).*'""".r
-	val reScratch = """(?s)\s*(\*?)\s*([^+]*)[+].*""".r
+	val reScratch = """(?s)\s*(\*?)\s*([^+\s]*)[+].*""".r
 	val reQuotedScratch = """(?s)\s*(\*?)\s*'([^+]*)[+].*'.*""".r
 	val reRawTagLine = """(?s)\s*(\*?)\s*(.*)""".r
 

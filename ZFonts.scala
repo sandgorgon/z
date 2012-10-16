@@ -29,7 +29,7 @@ object ZFonts {
 	val SANS_SERIF_MONO = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/VeraMono.ttf")).deriveFont(Font.PLAIN, 12)
 	val SANS_SERIF = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Vera.ttf")).deriveFont(Font.PLAIN, 12)
 	val SERIF = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/VeraSe.ttf")).deriveFont(Font.PLAIN, 12)
-
+	
 	val ge = GraphicsEnvironment.getLocalGraphicsEnvironment
 
 	def registerFonts = {
