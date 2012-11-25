@@ -27,7 +27,14 @@ Command Set (B1 - mouse button 1 'left', B2 - mouse button 2 'middle', B3 - mous
 	B2+drag	Highlight text and upon release of the drag perform B2 action on the highlighted text
 	B3		Search for highlighted text under cursor or text under cursor (text can be a Java regular expression)
 				Search wraps to the beginning of the file.
-				If text is a valid file/directory, it opens the file/directory in a new window
+
+				Highlighted text is evaluated as follows:
+				* valid file/directory - the file/directory is opened in a new window
+				* :n - where n is a line number, go to that line number in the file
+				* :/regexptext - from the current cursor location, go to the text that matches the regexptext given
+				* filenamegiven:n - open filenamegiven and go to line number n
+				* filenamegiven:/regexp - open filenamegiven and from the current cursor location, go to the text that matches the regexp given
+  
 	B3+drag	Highlight text and upon release of the drag perform B3 action on the highlighted text
 	Ctrl + B1	Brace matching selection or generally symbol/char matching selection
 				The following are matched: {}, <>, (), []
