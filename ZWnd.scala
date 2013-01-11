@@ -287,9 +287,9 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		}
 
 		if(!matchre) {
-			var p = stxt
+			var np = stxt
 
-			if(!ZUtilities.isFullPath(stxt)) {
+			if(!ZUtilities.isFullPath(np)) {
 				var rp  = rawPath
 
 				rp match {
@@ -297,26 +297,21 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 					case ZWnd.reQuotedScratch(d, p) => rp = p
 					case _ =>
 				}
-
-				if(new File(path).isFile) {
-					if(rp.contains(ZUtilities.separator))  rp = rp.substring(0, rp.lastIndexOf(ZUtilities.separator)) + ZUtilities.separator
-					else rp = ""
-				} else if(!rp.endsWith(ZUtilities.separator)) rp = rp + ZUtilities.separator
-
-				p = rp + stxt
+
+				if(!rp.startsWith(np)) np = rp + (if(rp.endsWith(ZUtilities.separator)) "" else ZUtilities.separator) + np
 			} 
 
-			if(new File(p).exists) {
+			if(new File(np).exists) {
 				if(indBind)
 				{
-					path = p
+					path = np
 					command("Get")
 					look(loc)
 					return true
 				}
 				else
 				{
-					publish(new ZLookEvent(this, p + loc))
+					publish(new ZLookEvent(this, np + loc))
 					return false
 				}
 			}
@@ -405,7 +400,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		case _ => root
 	}
 
-	def path_=(p : String) = tag.text = tag.text.replace(path, p)
+	def path_=(p : String) = tag.text = tag.text.replace(rawPath, p)
 
 	def rawPath = tag.text match {
 		case ZWnd.reQuotedPath(dirty, p) => p
