@@ -1,7 +1,5 @@
 /*
-$Id$
-
-Copyright (c) 2011. Ramon de Vera Jr.
+Copyright (c) 2013. Ramon de Vera Jr.
 All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -30,7 +28,18 @@ import java.awt.{Toolkit, Dimension, Point, Font}
 
 object z extends SwingApplication {
 	ZFonts.registerFonts
+
 	val mainPanel  =new ZPanel("Help NewCol Put Dump Load")
+
+	val status = new Label("Plan 9 acme inspired") {
+		horizontalAlignment = Alignment.Left
+		font = new Font("Bitstream Vera Sans", Font.PLAIN, 11)
+	}
+
+	val MainWindow = new BorderPanel {
+		layout(status) = BorderPanel.Position.South
+		layout(mainPanel) = BorderPanel.Position.Center
+	}
 
 	listenTo(mainPanel)
 	reactions += {
@@ -48,17 +57,6 @@ object z extends SwingApplication {
 
 		case e : ZColStatusEvent => status.text = <html>{e.properties.get("command.prev").get}</html>.toString
 		case e : ZPanelStatusEvent => status.text = <html>{e.properties.get("command.prev").get}</html>.toString
-	}
-
-	val status = new Label("Plan 9 acme inspired") {
-		horizontalAlignment = Alignment.Left
-		font = new Font("Bitstream Vera Sans", Font.PLAIN, 11)
-	}
-
-
-	val MainWindow = new BorderPanel {
-		layout(status) = BorderPanel.Position.South
-		layout(mainPanel) = BorderPanel.Position.Center
 	}
 
 	def top = new MainFrame {

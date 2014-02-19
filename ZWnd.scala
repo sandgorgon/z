@@ -1,7 +1,5 @@
 /*
-$Id$
-
-Copyright (c) 2011. Ramon de Vera Jr.
+Copyright (c) 2011-2014. Ramon de Vera Jr.
 All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -184,7 +182,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 
 	def command(cmds : String) = if(cmds != null && !cmds.trim.isEmpty) {
 		for(cmd <- cmds.lines.map(_.trim)) {
-			cmd.trim match {
+			cmd match {
 				case "Get" => 
 					get(if(ZWnd.isScratchBuffer(tag.text)) "" else path)
 					dirty = false

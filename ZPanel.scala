@@ -1,7 +1,5 @@
 /*
-$Id$
-
-Copyright (c) 2011. Ramon de Vera Jr.
+Copyright (c) 2013. Ramon de Vera Jr.
 All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of

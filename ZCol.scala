@@ -1,7 +1,5 @@
-/*
-$Id$
-
-Copyright (c) 2011. Ramon de Vera Jr.
+/*
+Copyright (c) 2011-2014. Ramon de Vera Jr.
 All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -156,12 +154,13 @@ class ZCol extends BorderPanel {
 
 					if(o == None) {
 						w =  wnd(n)
+						w.command("Scroll")
 						this += w
 					} else w = o.get
 
-					w.tag.text += " ! " + cmd
+					if(w.tag.text.indexOf(cmd) == -1)  w.tag.text += " ! " + cmd
 					w.root = src.root
-					w.command("! " + cmd)
+					w.command("< " + cmd)
 			}
 		case e : ZLookEvent =>
 			val src = e.source.asInstanceOf[ZWnd]
