@@ -296,7 +296,16 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 					case _ =>
 				}
 
-				if(!rp.startsWith(np)) np = rp + (if(rp.endsWith(ZUtilities.separator)) "" else ZUtilities.separator) + np
+				if(!rp.startsWith(np))
+				{									
+					if(new File(rp).isFile())
+					{
+						if(rp.indexOf(ZUtilities.separator) != -1)   np = rp.substring(0, rp.lastIndexOf(ZUtilities.separator))  + ZUtilities.separator + np
+					} else
+					{
+						np = rp + (if(rp.endsWith(ZUtilities.separator)) "" else ZUtilities.separator) + np
+					}
+				} 
 			} 
 
 			if(new File(np).exists) {
@@ -559,8 +568,8 @@ object ZWnd {
 	val rePre = """.*?(\S*)$""".r
 	val rePath = """(?s)\s*(\*?)\s*(\S+).*""".r
 	val reQuotedPath = """(?s)\s*(\*?)\s*'\s*([^']+).*'""".r
-	val reScratch = """(?s)\s*(\*?)\s*([^+\s]*)[+].*""".r
-	val reQuotedScratch = """(?s)\s*(\*?)\s*'([^+]*)[+].*'.*""".r
+	val reScratch = """^(?s)\s*(\*?)\s*([^+\s]*)[+].*$""".r
+	val reQuotedScratch = """^(?s)\s*(\*?)\s*'([^+]*)[+].*'.*$""".r
 	val reRawTagLine = """(?s)\s*(\*?)\s*(.*)""".r
 
 	val reFont = """Font\s+'(.+)'\s+([0-9]+)""".r
@@ -573,8 +582,8 @@ object ZWnd {
 	val rePut = """Put\s+(\S+).*""".r
 	val reLineNo = """^:([0-9]+)$""".r
 	val reRegExp = """^:/(.+)$""".r
-	val reFilePath = """(.+)(:[0-9]+)""".r
-	val reFilePath2 = """(.+)(:/.+)""".r
+	val reFilePath = """(.+)(:[0-9]+)$""".r
+	val reFilePath2 = """(.+)(:/.+)$""".r
 	val reExternalCmd = """(?s)([\|<!])\s*(.+)\s*$""".r
 	val reWhiteSpace = """(?s)^(\s+).*$""".r
 

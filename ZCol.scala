@@ -163,24 +163,8 @@ class ZCol extends BorderPanel {
 					w.command("< " + cmd)
 			}
 		case e : ZLookEvent =>
-			val src = e.source.asInstanceOf[ZWnd]
-			
+			//val src = e.source.asInstanceOf[ZWnd]
 			look(e.path, false)
-			/*
-			e.path match {
-				case  ZCol.reFileLoc(f, loc) => fileLook(f, loc)
-				case f => 
-					if(new File(f).exists) {
-						var o  = pathWindow(f)
-						if(o == None)  {
-							var w = wnd( if(f.startsWith(src.root + ZUtilities.separator)) f.substring(src.root.length + 1) else f)
-							w.root = src.root
-							this += w
-							w.command("Get")
-						}
-					}
-			}
-			*/
 		case e : ZStatusEvent => publish(new ZStatusEvent(e.source, e.properties))
 	}
 
@@ -309,12 +293,12 @@ class ZCol extends BorderPanel {
 			}
 
 		if(!loc.isEmpty()) w.look(loc)
-		w.tag.text = w.tag.text + " " + loc
+		if(!w.tag.text.contains(loc)) w.tag.text = w.tag.text + " " + loc
 	}
 
 	def pathWindow(p : String) = {
 		val cp = new File(p).getCanonicalPath
-		wnds.find( (w) => new File(w.path).getCanonicalPath.equals(cp) )
+		wnds.find((w) => if(ZWnd.isScratchBuffer(w.rawPath)) false else new File(w.path).getCanonicalPath.equals(cp) )
 	}
 
 	def rawPathWindow(p : String) = wnds.find( (w) => w.rawPath.equals(p) )
