@@ -1,2 +1,1 @@
 Main-Class: z
-Class-Path: scala-library.jar  scala-swing.jar

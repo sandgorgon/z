@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2011-2014. Ramon de Vera Jr.
+Copyright (c) 2011-2015. Ramon de Vera Jr.
 All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -167,7 +167,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 				try {
 					look(ZUtilities.selectedText(e.source.asInstanceOf[ZTextArea], e))
 				} catch {
-					case e => JOptionPane.showMessageDialog(null, e.getMessage, "Look Error", JOptionPane.ERROR_MESSAGE)
+					case e : Throwable => JOptionPane.showMessageDialog(null, e.getMessage, "Look Error", JOptionPane.ERROR_MESSAGE)
 				}
 			}
 
@@ -389,7 +389,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 					return ZUtilities.extCmd(cmd, a, redirectErrStream = true, workdir = p, env = e)
 			}
 		} catch {
-			case e => 
+			case e : Throwable => 
 				JOptionPane.showMessageDialog(null, e.getMessage, "External Command Error", JOptionPane.ERROR_MESSAGE)
 				tag.text = tag.text.replaceAll(ZWnd.CmdExecIndicator, "")
 				null
@@ -435,7 +435,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 			fw.close
 			valid = true
 		} catch {
-			case e => JOptionPane.showMessageDialog(null, e.getMessage, "Put Error", JOptionPane.ERROR_MESSAGE)
+			case e : Throwable => JOptionPane.showMessageDialog(null, e.getMessage, "Put Error", JOptionPane.ERROR_MESSAGE)
 		}
 
 		valid
@@ -447,13 +447,13 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 			val o = new File(f)
 			if(o.isDirectory) 
 				body.text = o.list.toList.sortWith((a,b) => a < b ).
-						map((e) => if(new File(f + File.separator + e) isDirectory) { e + File.separator }  else e).
-							mkString(Properties lineSeparator)
+						map((e) => if(new File(f + File.separator + e).isDirectory) { e + File.separator }  else e).
+							mkString(Properties.lineSeparator)
 			else body.text = Source.fromFile(f).mkString
 			body.caret.position = 0
 			valid = true
 		} catch {
-			case e => JOptionPane.showMessageDialog(null, e.getMessage, "Get Error", JOptionPane.ERROR_MESSAGE)
+			case e : Throwable => JOptionPane.showMessageDialog(null, e.getMessage, "Get Error", JOptionPane.ERROR_MESSAGE)
 		}
 
 		valid

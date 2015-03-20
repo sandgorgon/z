@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2011-2014. Ramon de Vera Jr.
+Copyright (c) 2011-2015. Ramon de Vera Jr.
 All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -32,7 +32,7 @@ import javax.swing.text.Utilities
 import java.awt.Point
 
 object ZUtilities {
-	def separator = File separator
+	def separator = File.separator
 	def isFullPath(s: String) = (new File(s)).isAbsolute 
 
 	def selectedText(ta : ZTextArea, e : MouseEvent) : String = selectedText(ta, ta.peer.viewToModel(e.point))

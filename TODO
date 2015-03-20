@@ -1,9 +1,11 @@
 # TODO
-- do some code clean-up (ongoing)
-- bring back a way to search across columns
-- make the b3 action, similar to the acme one where there is a configuration defining regexps and what actions to take (it has to be user extendable)
+- move to Akka
+- implement Dir [dir] already.
+- do we really want to do the sbt stuff(?), or do we want to just keep it simple - mk/make - need to decide on this at this point before the big push
+- restructure the editor in preparation for client-server architecture, IPC and plumbing - this will be an entertaining exercise the only consequence of this is that the source will become bigger, and I kinda like having the code this small, what can you do right?
 
-Dir [dir]		Set the current or default directory that zuma itself will assume
+# Notes
+Dir [dir]		Set the current or default directory that the z editor itself will assume
 
 # Do we _want_ to do this, really?
 - when colors are changed from the app/column tagline, they should stay active (?)
