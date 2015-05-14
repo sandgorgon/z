@@ -24,3 +24,4 @@ The bash script I use to run the editor,
 
 How to use it is documented in the [Z Help Screen](https://github.com/sandgorgon/z/blob/master/bin/help/main.txt).
 
+The wiki has some guides on usage.
