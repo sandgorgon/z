@@ -160,12 +160,10 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	listenTo(tag.mouse.clicks, body.mouse.clicks)
 	reactions += {
 		case e : MouseClicked =>
-			if(SwingUtilities.isMiddleMouseButton(e.peer)
-				|| (e.peer.isShiftDown && SwingUtilities.isRightMouseButton(e.peer))) 
-				command(ZUtilities.selectedText(e.source.asInstanceOf[ZTextArea], e))
-			else if(SwingUtilities.isRightMouseButton(e.peer)) {
+			if(SwingUtilities.isRightMouseButton(e.peer)) {
 				try {
-					look(ZUtilities.selectedText(e.source.asInstanceOf[ZTextArea], e))
+					val txt = ZUtilities.selectedText(e.source.asInstanceOf[ZTextArea], e)
+					if(!look(txt)) command(txt)
 				} catch {
 					case e : Throwable => JOptionPane.showMessageDialog(null, e.getMessage, "Look Error", JOptionPane.ERROR_MESSAGE)
 				}
@@ -180,9 +178,10 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		case e : ZDirtyTextEvent => dirty = true
 	}
 
-	def command(cmds : String) = if(cmds != null && !cmds.trim.isEmpty) {
+	def command(cmds : String) : Unit = if(cmds != null && !cmds.trim.isEmpty) {
 		for(cmd <- cmds.lines.map(_.trim)) {
 			cmd match {
+				case ZWnd.reExplicitCmd(c) => command(c)
 				case "Get" => 
 					get(if(ZWnd.isScratchBuffer(tag.text)) "" else path)
 					dirty = false
@@ -254,7 +253,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	}
 
 	def look(txt: String) : Boolean  = {
-		if(txt == null || txt.trim.isEmpty)  return false
+		if(txt == null || txt.trim.isEmpty)  return true
 
 		var stxt = ""
 		var loc = ""
@@ -314,13 +313,9 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 					path = np
 					command("Get")
 					look(loc)
-					return true
 				}
-				else
-				{
-					publish(new ZLookEvent(this, np + loc))
-					return false
-				}
+				else publish(new ZLookEvent(this, np + loc))
+				return true
 			}
 		}
 
@@ -329,22 +324,12 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		var p = Pattern.compile(stxt, Pattern.MULTILINE)
 		var m = p.matcher(t)
 		var found = false
-		if(m.find())  found = true
-		else {
-			t = body.text.substring(0, pos)
-			m = p.matcher(t)
-			if(m.find())  {
-				found = true
-				pos = 0
-			}
-		}
-
-		if(found) {
+		if(m.find())  {
 			body.caret.dot = pos + m.start()
 			body.caret.moveDot(pos + m.end())
 			body.requestFocus
 			return true
-		}
+		} 
 
 		return false
 	}
@@ -567,7 +552,7 @@ object ZWnd {
 
 	val rePre = """.*?(\S*)$""".r
 	val rePath = """(?s)\s*(\*?)\s*(\S+).*""".r
-	val reQuotedPath = """(?s)\s*(\*?)\s*'\s*([^']+).*'""".r
+	val reQuotedPath = """(?s)\s*(\*?)\s*'\s*([^']+).*$'""".r
 	val reScratch = """^(?s)\s*(\*?)\s*([^+\s]*)[+].*$""".r
 	val reQuotedScratch = """^(?s)\s*(\*?)\s*'([^+]*)[+].*'.*$""".r
 	val reRawTagLine = """(?s)\s*(\*?)\s*(.*)""".r
@@ -586,6 +571,8 @@ object ZWnd {
 	val reFilePath2 = """(.+)(:/.+)$""".r
 	val reExternalCmd = """(?s)([\|<!])\s*(.+)\s*$""".r
 	val reWhiteSpace = """(?s)^(\s+).*$""".r
+
+	val reExplicitCmd = """%(.+)$""".r
 
 	val reColors = """Color(TBack|TFore|TCaret|TSelFore|TSelBack|Back|Fore|Caret|SelFore|SelBack)\s+(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})""".r
 

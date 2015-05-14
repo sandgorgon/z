@@ -22,6 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import swing.{SplitPane, BorderPanel, Orientation, Panel, Component, FileChooser}
 import swing.event.{KeyPressed, Key, MouseEvent, MouseEntered, MousePressed, MouseDragged, MouseReleased, MouseClicked, Event}
+import javax.swing.JOptionPane
 import collection.immutable.List
 import collection.immutable.HashMap
 
@@ -76,11 +77,14 @@ class ZCol extends BorderPanel {
 			dragSel = false
 			dragSelMark = -1
 		case e : MouseClicked =>			
-			if(SwingUtilities.isMiddleMouseButton(e.peer)
-				|| (e.peer.isShiftDown && SwingUtilities.isRightMouseButton(e.peer))) 
-				command(ZUtilities.selectedText(e.source.asInstanceOf[ZTextArea], e))
-			else if(SwingUtilities.isRightMouseButton(e.peer)) 
-				look(ZUtilities.selectedText(e.source.asInstanceOf[ZTextArea], e))
+			if(SwingUtilities.isRightMouseButton(e.peer)) {
+				try {
+					command(ZUtilities.selectedText(e.source.asInstanceOf[ZTextArea], e))
+				} catch {
+					case e : Throwable => JOptionPane.showMessageDialog(null, e.getMessage, "Look Error", JOptionPane.ERROR_MESSAGE)
+				}
+			}
+
 			publish(new ZColStatusEvent(this, properties))
 		case e : ZCmdEvent =>
 			val src = e.source
@@ -163,7 +167,6 @@ class ZCol extends BorderPanel {
 					w.command("< " + cmd)
 			}
 		case e : ZLookEvent =>
-			//val src = e.source.asInstanceOf[ZWnd]
 			look(e.path, false)
 		case e : ZStatusEvent => publish(new ZStatusEvent(e.source, e.properties))
 	}
@@ -215,15 +218,16 @@ class ZCol extends BorderPanel {
 					wnds.filter(_.rawPath.matches(re)).foreach(_.command(c))
 				case ZCol.reFilteredExec(p, re, c)  if(p.equals("Y")) =>
 					wnds.filterNot(_.rawPath.matches(re)).foreach(_.command(c))
-				case c => wnds.foreach(_.command(c))
+				case c =>
+					if(!look(c, false)) wnds.foreach((w) => if(!w.look(c)) w.command(c))
 			}
 
 			prevCmd = "Cmd: " + cmd
 		}
 	}
 
-	def look(txt : String, traverse : Boolean = true) {
-		if(txt == null || txt.trim.isEmpty)  return
+	def look(txt : String, traverse : Boolean = true) : Boolean = {
+		if(txt == null || txt.trim.isEmpty)  return true
 
 		txt match {
 			case ZCol.reFileLoc(f, loc) => fileLook(f, loc)				
@@ -235,10 +239,14 @@ class ZCol extends BorderPanel {
 						this += w
 						w.command("Get")
 					}
-				} else if(traverse)  wnds.foreach((w) => w.look(s))
+				} else {
+					if(traverse) wnds.foreach((w) => if(!w.look(txt)) w.command(txt))
+					else return false
+				}
 		}
 
 		prevCmd = "Look: " + txt
+		return true
 	}
 
 	def +=(w : ZWnd) = {

@@ -22,6 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import swing.{BorderPanel, Component, Orientation, SplitPane,FileChooser}
 import swing.event.{Event, KeyPressed, Key, MouseEvent, MouseEntered, MousePressed, MouseDragged, MouseReleased, MouseClicked}
+import javax.swing.JOptionPane
 import collection.immutable.{Map, HashMap}
 import io.Source
 
@@ -68,15 +69,18 @@ class ZPanel(initTagText: String) extends BorderPanel {
 		}
 		case e : MouseReleased =>
 			if(dragSel) {
-				if(SwingUtilities.isMiddleMouseButton(e.peer))  command(ZUtilities.selectedText(tag, e))
-				else if(SwingUtilities.isRightMouseButton(e.peer))  look(ZUtilities.selectedText(tag, e))
+				if(SwingUtilities.isMiddleMouseButton(e.peer) || SwingUtilities.isRightMouseButton(e.peer))  command(ZUtilities.selectedText(tag, e))
 			}
 			dragSel = false
 			dragSelMark = -1
 		case e : MouseClicked =>	
-			if(SwingUtilities.isMiddleMouseButton(e.peer) || (e.peer.isShiftDown && SwingUtilities.isRightMouseButton(e.peer))) 
-				command(ZUtilities.selectedText(e.source.asInstanceOf[ZTextArea], e))
-			else if(SwingUtilities.isRightMouseButton(e.peer))  look(ZUtilities.selectedText(e.source.asInstanceOf[ZTextArea], e))
+			if(SwingUtilities.isRightMouseButton(e.peer))  {
+				try {
+					command(ZUtilities.selectedText(e.source.asInstanceOf[ZTextArea], e))
+				} catch {
+					case e : Throwable => JOptionPane.showMessageDialog(null, e.getMessage, "Look Error", JOptionPane.ERROR_MESSAGE)
+				}
+			}
 		case e : ZCmdCloseColEvent => this -= e.source
 		case e : ZMoveColEvent if(cols.length > 1 && cols.contains(e.source))=>
 			val src = e.source
@@ -161,8 +165,9 @@ class ZPanel(initTagText: String) extends BorderPanel {
 		}
 	}
 
-	def look(txt : String) {
-		if(txt == null || txt.trim.isEmpty)  return
+	def look(txt : String) : Boolean = {
+		var  retval = true
+		if(txt == null || txt.trim.isEmpty)  return retval
 
 		txt match {
 			case ZCol.reFileLoc(f, loc) =>
@@ -172,11 +177,14 @@ class ZPanel(initTagText: String) extends BorderPanel {
 				if(new File(s).exists) {
 					if(cols.length < 1)  this += new ZCol
 					cols.last.look(s)
-				} else cols.foreach((c) => c.look(s))
+				} else {
+					cols.foreach((c) => retval = c.look(s))
+				}
 		}
 
 		prevCmd = "Look: " + txt	
 		publish(new ZPanelStatusEvent(this, properties))
+		return retval
 	}
 
 	def +=(col : ZCol):ZCol = {

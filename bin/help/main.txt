@@ -18,31 +18,48 @@ Command Line Options
 
 Command Set (B1 - mouse button 1 'left', B2 - mouse button 2 'middle', B3 - mouse button 3 'right')
 
-	B2		Execute highlighted text or text under cursor as a system command
-			This will open a +Results window  showing the results of running the command
-			If a window had to be created,  the caret will stay in the current position it is at and results will be appended (see Scroll)
-			From the +Results window, you can issue a Kill command to cancel the command
-			If highlighted text is composed of multiple lines, each line is executed as a system command
-	Shift+B3	Same as B2
-	B2+drag	Highlight text and upon release of the drag perform B2 action on the highlighted text
-	B3		Search for highlighted text under cursor or text under cursor (text can be a Java regular expression)
-				Search wraps to the beginning of the file.
+	B3		Perform an action on the highlighted text based on the following logic rules:
+			
+			If the highlighted text is:
 
-				Highlighted text is evaluated as follows:
-				* valid file/directory - the file/directory is opened in a new window
-				* :n - where n is a line number, go to that line number in the file
-				* :/regexptext - from the current cursor location, go to the text that matches the regexptext given
-				* filenamegiven:n - open filenamegiven and go to line number n
-				* filenamegiven:/regexp - open filenamegiven and from the current cursor location, go to the text that matches the regexp given
-  
+			* valid file/directory - the file/directory is opened in a new window
+			* :n - where n is a line number, go to that line number in the file
+			* :/regexptext - from the current cursor location, go to the text that matches the regexptext given
+			* filenamegiven:n - open filenamegiven and go to line number n
+			* filenamegiven:/regexp - open filenamegiven and from the current cursor location, go to the text that matches the regexp given
+
+			If no conditions above was satisfied, assume a text search and highlight the next instance of the text in the window content.
+
+			If the text search fails, then execute the highlighted text as a command. If that happens:
+
+				This will open a +Results window  showing the results of running the command
+				If a window had to be created,  the caret will stay in the current position it is at and results will be appended (see Scroll)
+				From the +Results window, you can issue a Kill command to cancel the command
+				If highlighted text is composed of multiple lines, each line is executed as a system command
+
+
+			It is, of course, possible that a command you want to execute is actually text that exists in the window content,
+			and based on the rules stated above, the way to resolve cases of ambiguity is as follows:
+
+			* Put a percent sign (%) in front of the first non-whitespace character of the whole command and use that.
+				ie.   %Put  or % Put,   instead of Put. Aside, %Put is a little better because you can just B3 that.
+				       %ls -la
+
+			* Of course, you can also put the cursor at the end of the file and that guarantees any highlighted text cannot be searched for,
+			   and thus will be executed as a command. 
+
+			Hopefully, these cases are not too often. But I guess we'll see.
+
+			Yes, this makes B3 function a number of ways based on 'context'. One button to rule them all. :-)
+
 	B3+drag	Highlight text and upon release of the drag perform B3 action on the highlighted text
+	B2+drag	Highlight text and upon release of the drag execute the highlighted text as a command
+
 	Ctrl + B1	Brace matching selection or generally symbol/char matching selection
 				The following are matched: {}, <>, (), []
 				Any other character/symbol when clicked will be used as the starting and
 				ending symbols for a piece of text.
-
-	B3 B3 B3	Triple click selects the whole line
-
+
 	Get		Load the file/directory path specified in the front of the tag line
 	Get [fname]	Load 'fname' but don't change the file path in the tag line
                         		Always relative to the current default directory of zuma
@@ -118,9 +135,7 @@ Command Set (B1 - mouse button 1 'left', B2 - mouse button 2 'middle', B3 - mous
 				if regexp is provided, we will consider lines starting with the matched text as a valid prompt for the input line
 
 	Bind			Do not create new windows, instead replace the current window's contents - if the Look action done by the user will create new windows.
-
-	Any text not listed above is considered an external command to be executed when you B2 the text. 
-
+
 Environment Variables
 
 	The following are environment variables available to any external commands executed from zuma:
@@ -172,7 +187,7 @@ Special Conditions
 
 ---------------------------------------------------------------------------------
 
-Copyright (c) 2012-2015. Ramon de Vera Jr.
+Copyright (c) 2011-2015. Ramon de Vera Jr.
 All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
