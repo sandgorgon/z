@@ -1,7 +1,6 @@
 # TODO
 - move to Akka
 - implement Dir [dir] already.
-- do we really want to do the sbt stuff(?), or do we want to just keep it simple - mk/make - need to decide on this at this point before the big push
 - restructure the editor in preparation for client-server architecture, IPC and plumbing - this will be an entertaining exercise the only consequence of this is that the source will become bigger, and I kinda like having the code this small, what can you do right?
 
 # Notes
