@@ -9,7 +9,7 @@ To build it, go to the root of the source and then,
 
         sbt assembly
 
-	... and you can just copy the files in dist and put it anywhere you want. For example for me, I put it in $HOME/z .
+	... and you can just copy the that jar created in the target directory and put it anywhere you want. For example for me, I put it in a $HOME/z directory.
 
 How to use it is documented in the [Z Help Screen](https://github.com/sandgorgon/z/blob/master/bin/help/main.txt).
 
