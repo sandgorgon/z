@@ -163,9 +163,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 			if(SwingUtilities.isRightMouseButton(e.peer)) {
 				try {
 					val txt = ZUtilities.selectedText(e.source.asInstanceOf[ZTextArea], e)
-					println("text is " + txt)
 					if(!look(txt)) {
-						println("command exec")
 						command(txt)
 					}
 				} catch {
@@ -271,7 +269,6 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 					body.caret.dot = body.lineStart(i)
 					body.caret.moveDot(body.lineEnd(i)-1)
 					body.requestFocus
-					println("2")
 					return true
 				}
 				return false
@@ -322,7 +319,6 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 					look(loc)
 				}
 				else publish(new ZLookEvent(this, np + loc))
-				println("3")
 				return true
 			}
 		}
@@ -333,17 +329,10 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		var m = p.matcher(t)
 		var found = false
 
-			println("pos:  "  + pos)
-			println("stxt: " + stxt)
-			println("t: " + t)
-
 		if(m.find())  {
 			body.caret.dot = pos + m.start()
 			body.caret.moveDot(pos + m.end())
 			body.requestFocus
-			println("pos:  "  + pos)
-			println("stxt: " + stxt)
-			println("t: " + t)
 			return true
 		} 
 
