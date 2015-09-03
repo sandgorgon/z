@@ -11,6 +11,6 @@ To build it, go to the root of the source and then,
 
 	... and you can just copy the jar that was created in the (literal) target directory and put it anywhere you want. For example for me, I put it in a $HOME/z directory.
 
-How to use it is documented in the [Z Help Screen](https://github.com/sandgorgon/z/blob/master/bin/help/main.txt).
+How to use it is documented in the [Z Help Screen](https://github.com/sandgorgon/z/tree/master/src/main/resources/help/main.txt).
 
 The wiki has some guides on usage.
