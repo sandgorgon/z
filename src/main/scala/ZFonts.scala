@@ -24,14 +24,21 @@ import java.awt.{GraphicsEnvironment, Font}
 import java.io.File
 
 object ZFonts {
-	val SANS_SERIF_MONO = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/VeraMono.ttf")).deriveFont(Font.PLAIN, 12)
-	val SANS_SERIF = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Vera.ttf")).deriveFont(Font.PLAIN, 12)
-	val SERIF = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/VeraSe.ttf")).deriveFont(Font.PLAIN, 12)
+	val SANS_SERIF_MONO = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Hack-Regular.ttf")).deriveFont(Font.PLAIN, 12f)
+	val SANS_SERIF_MONO_OBLIQUE = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Hack-RegularOblique.ttf")).deriveFont(Font.PLAIN, 12f)
+	val SANS_SERIF_MONO_BOLD = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Hack-Bold.ttf")).deriveFont(Font.PLAIN, 12f)
+	val SANS_SERIF_MONO_BOLD_OBLIQUE = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Hack-BoldOblique.ttf")).deriveFont(Font.PLAIN, 12f)
+
+	val SANS_SERIF = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Vera.ttf")).deriveFont(Font.PLAIN, 12f)
+	val SERIF = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/VeraSe.ttf")).deriveFont(Font.PLAIN, 12f)
 	
 	val ge = GraphicsEnvironment.getLocalGraphicsEnvironment
 
 	def registerFonts = {
 		ge.registerFont(SANS_SERIF_MONO)
+		ge.registerFont(SANS_SERIF_MONO_OBLIQUE)
+		ge.registerFont(SANS_SERIF_MONO_BOLD)
+		ge.registerFont(SANS_SERIF_MONO_BOLD_OBLIQUE)
 		ge.registerFont(SANS_SERIF)
 		ge.registerFont(SERIF)
 	}

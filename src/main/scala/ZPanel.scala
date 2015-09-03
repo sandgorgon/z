@@ -45,7 +45,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 	var tag = new ZTextArea(initTagText)
 	tag.colors(colorTBack, colorTFore,  colorTCaret, colorTSelBack, colorTSelFore )
 	tag.border = BorderFactory.createMatteBorder(0,0,1,0, Color.BLACK)
-	tag.font = new Font("Bitstream Vera Sans", Font.PLAIN, 12)
+	tag.font = ZFonts.SANS_SERIF_MONO
 
 	layout(tag) = BorderPanel.Position.North
 	layout(render(cols)) = BorderPanel.Position.Center

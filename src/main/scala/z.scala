@@ -33,7 +33,7 @@ object z extends SwingApplication {
 
 	val status = new Label("Plan 9 acme inspired") {
 		horizontalAlignment = Alignment.Left
-		font = new Font("Bitstream Vera Sans", Font.PLAIN, 11)
+		font = ZFonts.SANS_SERIF_MONO
 	}
 
 	val MainWindow = new BorderPanel {
@@ -44,19 +44,17 @@ object z extends SwingApplication {
 	listenTo(mainPanel)
 	reactions += {
 		case e : ZStatusEvent =>
-			status.text = <html><b>
-						{e.properties.get("line.current").get}/{e.properties.get("lines").get}@{e.properties.get("column.current").get}
-						|  Tab: {e.properties.get("tab.size").get}
-						| {if(e.properties.get("line.wrap").get == "true") "Wrap" else "NoWrap"}
-						| {if(e.properties.get("indent.auto").get == "true") "Indent" else "NoIndent"}
-						| {if(e.properties.get("scroll").get == "true") "Scroll" else "NoScroll"}
-						| {e.properties.get("body.font.current").get} {e.properties.get("body.font.current.size").get}
-						{if(e.properties.get("bind").get == "true") " | Bind" else ""}
-						{if(e.properties.get("interactive").get == "true") " | Input: " + ZWnd.rePrompt else ""}
-					</b></html>.toString
+			status.text = e.properties.get("line.current").get + "/" + e.properties.get("lines").get + "@" + e.properties.get("column.current").get +
+						" |  Tab: " + e.properties.get("tab.size").get + 
+						" | " + (if(e.properties.get("line.wrap").get == "true") "Wrap" else "NoWrap") + 
+						" | " + (if(e.properties.get("indent.auto").get == "true") "Indent" else "NoIndent") + 
+						" | " + (if(e.properties.get("scroll").get == "true") "Scroll" else "NoScroll") +
+						" | " + e.properties.get("body.font.current").get + " " + e.properties.get("body.font.current.size").get +
+						(if(e.properties.get("bind").get == "true") " | Bind" else "") + 
+						(if(e.properties.get("interactive").get == "true") " | Input: " + ZWnd.rePrompt else "")
 
-		case e : ZColStatusEvent => status.text = <html>{e.properties.get("command.prev").get}</html>.toString
-		case e : ZPanelStatusEvent => status.text = <html>{e.properties.get("command.prev").get}</html>.toString
+		case e : ZColStatusEvent => status.text = e.properties.get("command.prev").get
+		case e : ZPanelStatusEvent => status.text = e.properties.get("command.prev").get
 	}
 
 	def top = new MainFrame {

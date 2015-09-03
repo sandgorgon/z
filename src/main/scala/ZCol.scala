@@ -45,7 +45,7 @@ class ZCol extends BorderPanel {
 	var tag = new ZTextArea(ZCol.colTagLine)
 	tag.colors(colorTBack, colorTFore,  colorTCaret, colorTSelBack, colorTSelFore )
 	tag.border = BorderFactory.createMatteBorder(0,0,1,0, Color.BLACK)
-	tag.font = new Font("Bitstream Vera Sans", Font.PLAIN, 12)
+	tag.font = ZFonts.SANS_SERIF_MONO
 
 	var body : Panel = new BorderPanel
 

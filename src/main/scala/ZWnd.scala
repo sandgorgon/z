@@ -59,15 +59,15 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	var colorTSelFore = new Color(0x23, 0x2E, 0x6C)
 
 	var tag = new ZTextArea(initTagText, true)
-	tag.font = new Font("Bitstream Vera Sans", Font.PLAIN, 12)
+	tag.font = ZFonts.SANS_SERIF_MONO
 	tag.colors(colorTBack, colorTFore,  colorTCaret, colorTSelBack, colorTSelFore )
 
 	var body = new ZTextArea(initBodyText)
 	body.colors(colorBack, colorFore, colorCaret, colorSelBack, colorSelFore)
 
-	var fontVar = new Font("Bitstream Vera Serif", Font.PLAIN, 13)
-	var fontFixed = new Font("Bitstream Vera Sans Mono", Font.PLAIN, 13)
-	body.font = fontVar
+	var fontVar = ZFonts.SANS_SERIF
+	var fontFixed = ZFonts.SANS_SERIF_MONO.deriveFont(13f)
+	body.font = fontFixed
 	
 	dividerSize = 2
 	topComponent =new ScrollPane(tag) {
