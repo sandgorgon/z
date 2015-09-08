@@ -298,7 +298,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 					case ZWnd.reQuotedScratch(d, p) => rp = p
 					case _ =>
 				}
-
+
 				if(!rp.startsWith(np))
 				{									
 					if(new File(rp).isFile())
