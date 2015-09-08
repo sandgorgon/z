@@ -29,7 +29,7 @@ import java.awt.{Toolkit, Dimension, Point, Font}
 object z extends SwingApplication {
 	ZFonts.registerFonts
 
-	val mainPanel  =new ZPanel("Help NewCol Put Dump Load")
+	val mainPanel = new ZPanel("Help NewCol Put Dump Load")
 
 	val status = new Label("Plan 9 acme inspired") {
 		horizontalAlignment = Alignment.Left
