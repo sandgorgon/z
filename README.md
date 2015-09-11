@@ -3,6 +3,8 @@ z
 
 [Plan 9](http://plan9.bell-labs.com/plan9/) Acme Inspired Editor, done in Scala.
 
+![Screenshot](/img/screenshot.jpg "Title")
+
 Used Scala 2.11.6 and Java 1.7.0_67
 
 To build it, go to the root of the source and then,
