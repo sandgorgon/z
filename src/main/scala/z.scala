@@ -29,6 +29,8 @@ import java.awt.{Toolkit, Dimension, Point, Font}
 object z extends SwingApplication {
 	ZFonts.registerFonts
 
+	var frame:MainFrame = null
+
 	val mainPanel = new ZPanel("Help NewCol Put Dump Load")
 
 	val status = new Label("Plan 9 acme inspired") {
@@ -54,11 +56,12 @@ object z extends SwingApplication {
 						(if(e.properties.get("interactive").get == "true") " | Input: " + ZWnd.rePrompt else "")
 
 		case e : ZColStatusEvent => status.text = e.properties.get("command.prev").get
-		case e : ZPanelStatusEvent => status.text = e.properties.get("command.prev").get
+		case e : ZPanelStatusEvent =>
+						status.text = e.properties.get("command.prev").get
 	}
 
 	def top = new MainFrame {
-		title = new File(".").getCanonicalPath + "- z editor"
+		title = new File(".").getCanonicalPath + " - z editor"
 		iconImage = Toolkit.getDefaultToolkit().createImage(resourceFromClassloader("images/z.png"))
 
 		contents = MainWindow
@@ -89,7 +92,7 @@ object z extends SwingApplication {
 			p += "app.height" -> "400"
 		}
 
-		val frame = top
+		frame = top
 		frame.preferredSize = new Dimension(p.get("app.width").get.toInt, p.get("app.height").get.toInt)
 		frame.pack
 		frame.centerOnScreen

@@ -342,9 +342,9 @@ class ZCol extends BorderPanel {
 }
 
 object ZCol {
-	val colTagLine = "CloseCol Close New Sort"
-	val wndTagLine = "Get Put Zerox Close | Undo Redo Wrap Indent Mark"
-	val cmdTagLine = "Close | Undo Redo Wrap Kill Clear Font Scroll Input"
+	val colTagLine = "CloseCol Close New Sort "
+	val wndTagLine = "Get Put Zerox Close | Undo Redo Wrap Indent Mark "
+	val cmdTagLine = "Close | Undo Redo Wrap Kill Clear Font Scroll Input "
 
 	val reExternalCmd = """(?s)\s*([>!])\s*(.+)\s*$""".r
 	val reFileLoc = """(.+)(:[0-9]+|:/.+)""".r
