@@ -326,12 +326,15 @@ class ZCol extends BorderPanel {
 			i = i + 1
 		})
 
+		p += "tag.text" -> tag.text
 		p
 	}
 
 	def load(p : Map[String, String], prefix : String = "") = {
 		var cnt = p.getOrElse(prefix + "window.count", "0").toInt
-		prevCmd = "Cmd: " + p.getOrElse("command.prev", "")
+		prevCmd = p.getOrElse(prefix + "command.prev", "")
+		tag.text = p.getOrElse(prefix + "tag.text", ZCol.colTagLine)
+
 		for(i <- 1 to cnt)
 		{
 			var w = wnd()
