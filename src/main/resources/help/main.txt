@@ -59,13 +59,14 @@ Command Set (B1 - mouse button 1 'left', B2 - mouse button 2 'middle', B3 - mous
 				The following are matched: {}, <>, (), []
 				Any other character/symbol when clicked will be used as the starting and
 				ending symbols for a piece of text.
-
+
+
 	Get		Load the file/directory path specified in the front of the tag line
 	Get [fname]	Load 'fname' but don't change the file path in the tag line
                         		Always relative to the current default directory of zuma
 	Put		Save the file(if from windows tag line) - or files (if from the column/app tagline) - if dirty
 	Put [fname]	Save the window content as 'fname'
-                        		Always relative to the working directory of zuma
+                        		Always relative to the working directory of z
 
 	New		Create a new window/column
 	New [fname ...] For each 'fname' given, create a new window and load 'fname' (creates a new column when done from the app tag line)
@@ -135,7 +136,8 @@ Command Set (B1 - mouse button 1 'left', B2 - mouse button 2 'middle', B3 - mous
 				if regexp is provided, we will consider lines starting with the matched text as a valid prompt for the input line
 
 	Bind			Do not create new windows, instead replace the current window's contents - if the Look action done by the user will create new windows.
-
+
+
 Environment Variables
 
 	The following are environment variables available to any external commands executed from zuma:
@@ -178,7 +180,7 @@ System Defaults
 	Wrap		off
 	Tab		4
 	Indent		off
-	Font 'Bitstream Vera Serif' 13    'Bitstream Vera Sans Mono', and 'Bitstream Vera Serif' are also available by default from the application.
+	Font            'Hack Regular' 13    'Bitstream Vera Sans Mono', and 'Bitstream Vera Serif' are also available by default from the application.
 
 Special Conditions
 	Filenames with a plus(+) sign prefix are never saved.  They are special filenames that are considered "scratch buffers" by the editor. An example of which is "/home/sandgorgon/+scratch". 
@@ -187,7 +189,7 @@ Special Conditions
 
 ---------------------------------------------------------------------------------
 
-Copyright (c) 2011-2015. Ramon de Vera Jr.
+Copyright (c) 2011-2016. Ramon de Vera Jr.
 All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
