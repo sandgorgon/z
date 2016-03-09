@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2011-2015. Ramon de Vera Jr.
+Copyright (c) 2011-2016. Ramon de Vera Jr.
 All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -39,8 +39,8 @@ object z extends SwingApplication {
 	}
 
 	val MainWindow = new BorderPanel {
-		layout(status) = BorderPanel.Position.South
 		layout(mainPanel) = BorderPanel.Position.Center
+		layout(status) = BorderPanel.Position.South
 	}
 
 	listenTo(mainPanel)
