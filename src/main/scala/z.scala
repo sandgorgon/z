@@ -24,7 +24,8 @@ import swing.{SwingApplication, BorderPanel, Label, Alignment, MainFrame, Orient
 import collection.immutable.{Map, HashMap}
 
 import java.io.File
-import java.awt.{Toolkit, Dimension, Point, Font}
+import java.awt.{Toolkit, Dimension, Font, Window}
+import java.lang.reflect.Method;
 
 object z extends SwingApplication {
 	ZFonts.registerFonts
@@ -98,8 +99,34 @@ object z extends SwingApplication {
 		frame.centerOnScreen
 		frame.visible = true
 		mainPanel.populate(args)
+
+    System.getProperty("os.name") match {
+      case mac if mac.toLowerCase().startsWith("mac os x")=> enableOSXFullscreen(frame.peer);setOSXDockIcon(frame)
+    }
 	}
 
-	def resourceFromClassloader(path: String): java.net.URL = this.getClass.getResource(path)
-	def resourceFromUserDirectory(path: String): java.io.File = new java.io.File(util.Properties.userDir, path)	
+  def enableOSXFullscreen(window: Window) {
+    try {
+      val util = Class.forName("com.apple.eawt.FullScreenUtilities");
+      val method = util.getMethod("setWindowCanFullScreen", classOf[java.awt.Window], java.lang.Boolean.TYPE)
+      method.invoke(null, window, Boolean.box(true))
+    } catch {
+      case e: Exception => e.printStackTrace(System.err);
+    }
+  }
+
+  def setOSXDockIcon(frame: MainFrame) {
+    try {
+      val appClass = Class.forName("com.apple.eawt.Application");
+      val getApplication = appClass.getMethod("getApplication");
+      val application = getApplication.invoke(appClass);
+      val method = application.getClass().getMethod("setDockIconImage", classOf[java.awt.Image])
+      method.invoke(application, frame.iconImage)
+    } catch {
+      case e: Exception => e.printStackTrace(System.err);
+    }
+  }
+
+  def resourceFromClassloader(path: String): java.net.URL = this.getClass.getResource(path)
+  def resourceFromUserDirectory(path: String): java.io.File = new java.io.File(util.Properties.userDir, path)
 }
