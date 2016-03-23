@@ -546,7 +546,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 
 		if(body.lineCount > 0) {
 			body.selectionStart = p.getOrElse(prefix + "selection.start", "0").toInt
-			body.selectionEnd = p.getOrElse(prefix + "selection.end", "0").toInt
+ 			body.selectionEnd = p.getOrElse(prefix + "selection.end", "0").toInt
 		}
 	}
 }
@@ -557,9 +557,9 @@ object ZWnd {
 
 	val rePre = """.*?(\S*)$""".r
 	val rePath = """(?s)\s*(\*?)\s*(\S+).*""".r
-	val reQuotedPath = """(?s)\s*(\*?)\s*'\s*([^']+).*$'""".r
+	val reQuotedPath = """(?s)\s*(\*?)\s*'\s*([^']*)'.*$""".r
 	val reScratch = """^(?s)\s*(\*?)\s*([^+\s]*)[+].*$""".r
-	val reQuotedScratch = """^(?s)\s*(\*?)\s*'([^+]*)[+].*'.*$""".r
+	val reQuotedScratch = """^(?s)\s*(\*?)\s*'([^'+]*)[+].*'.*$""".r
 	val reRawTagLine = """(?s)\s*(\*?)\s*(.*)""".r
 
 	val reFont = """Font\s+'(.+)'\s+([0-9]+)""".r
@@ -577,7 +577,7 @@ object ZWnd {
 	val reExternalCmd = """(?s)([\|<!])\s*(.+)\s*$""".r
 	val reWhiteSpace = """(?s)^(\s+).*$""".r
 
-	val reExplicitCmd = """%(.+)$""".r
+	val reExplicitCmd = """%\s*(.+)$""".r
 
 	val reColors = """Color(TBack|TFore|TCaret|TSelFore|TSelBack|Back|Fore|Caret|SelFore|SelBack)\s+(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})""".r
 

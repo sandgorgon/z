@@ -31,6 +31,9 @@ import java.awt.{Color, Font}
 import javax.swing.{JOptionPane, SwingUtilities, BorderFactory}
 
 class ZCol extends BorderPanel {
+	val wnd = genWnd(_ : String)
+	val cmdWnd = genWnd(_ : String, ZCol.cmdTagLine)
+
 	var wnds : List[ZWnd] = Nil
 
 	var colorTBack = new Color(0xFF, 0xFF, 0xFF)
@@ -157,7 +160,7 @@ class ZCol extends BorderPanel {
 					var w : ZWnd = null
 
 					if(o == None) {
-						w =  wnd(n)
+						w =  cmdWnd(n)
 						w.command("Scroll")
 						this += w
 					} else w = o.get
@@ -198,7 +201,7 @@ class ZCol extends BorderPanel {
 			cmd.trim match {
 				case "Lt" => publish(new ZMoveColEvent("Lt", this))
 				case "Rt" => publish(new ZMoveColEvent("Rt", this))
-				case "New" => this += wnd()
+				case "New" => this += genWnd()
 				case "Sort" => 
 					wnds = wnds.sortWith((a, b) => a.path.compareTo(b.path) > 0)
 					refresh
@@ -210,7 +213,7 @@ class ZCol extends BorderPanel {
 
 					if(!cancel)  publish(new ZCmdCloseColEvent(this))
 				case ZCol.reExternalCmd(op, cmd) =>
-					var w = wnd("+Cmd")
+					var w = cmdWnd("+Cmd")
 					this += w
 					w.tag.text = w.tag.text + " ! " + cmd
 					w.command("! " + cmd)
@@ -277,7 +280,9 @@ class ZCol extends BorderPanel {
 		}
 	}
 
-	def wnd(p : String = "+") = new ZWnd(p + " " + ZCol.wndTagLine,  "")
+	def genWnd(p : String = "+", tag : String = ZCol.wndTagLine) = new ZWnd(p + " " + tag, "")
+
+	//def wnd(p : String = "+") = new ZWnd(p + " " + ZCol.wndTagLine,  "")
 
 	def closeWnd(w : ZWnd) : Boolean  = {
 		if(w.dirty && !ZWnd.isScratchBuffer(w.rawPath) && (new File(w.path)).isFile) {
@@ -337,7 +342,7 @@ class ZCol extends BorderPanel {
 
 		for(i <- 1 to cnt)
 		{
-			var w = wnd()
+			var w = genWnd()
 			this += w
 			w.load(p, prefix + "window." + i.toString + ".")
 		}
@@ -346,7 +351,7 @@ class ZCol extends BorderPanel {
 
 object ZCol {
 	val colTagLine = "CloseCol Close New Sort "
-	val wndTagLine = "Get Put Zerox Close | Undo Redo Wrap Indent Mark "
+	val wndTagLine = "Get Put Zerox Close | Undo Redo Wrap Indent Mark Bind "
 	val cmdTagLine = "Close | Undo Redo Wrap Kill Clear Font Scroll Input "
 
 	val reExternalCmd = """(?s)\s*([>!])\s*(.+)\s*$""".r

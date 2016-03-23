@@ -100,9 +100,10 @@ object z extends SwingApplication {
 		frame.visible = true
 		mainPanel.populate(args)
 
-    System.getProperty("os.name") match {
-      case mac if mac.toLowerCase().startsWith("mac os x")=> enableOSXFullscreen(frame.peer);setOSXDockIcon(frame)
-    }
+	    System.getProperty("os.name") match {
+	      case mac if mac.toLowerCase().startsWith("mac os x")=> enableOSXFullscreen(frame.peer);setOSXDockIcon(frame)
+          case _ =>
+    	}
 	}
 
   def enableOSXFullscreen(window: Window) {
