@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2011-2016. Ramon de Vera Jr.
+Copyright (c) 2011-2017. Ramon de Vera Jr.
 All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -101,7 +101,9 @@ object z extends SwingApplication {
 		mainPanel.populate(args)
 
 	    System.getProperty("os.name") match {
-	      case mac if mac.toLowerCase().startsWith("mac os x")=> enableOSXFullscreen(frame.peer);setOSXDockIcon(frame)
+	      case mac if mac.toLowerCase().startsWith("mac os x")=> 
+			enableOSXFullscreen(frame.peer)
+			setOSXDockIcon(frame)
           case _ =>
     	}
 	}

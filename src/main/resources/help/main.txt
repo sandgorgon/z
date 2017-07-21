@@ -8,8 +8,8 @@ Usage:
 Command Line Options
 	-c 			Create a new column and put succeeding files/directory paths into this new column
 	-! 'cmd arg1 ...'	Execute the 'cmd' in the last file/directory path opened
-	-c! 'cmd arg1 ...'	Execute the 'cmd' across the current column
-	-a! 'cmd arg1 ...'	Execute the 'cmd' across all the current columns 
+	-c! 'cmd arg1 ...'	Execute the 'cmd' on the current column
+	-a! 'cmd arg1 ...'	Execute the 'cmd' in the app tagline - which can, depending on the command, be done across all columns.
 	-l 're'			Look for the regular expression text 're' in the last file/directory path opened
 	-cl 're'			Look for the regular expression text 're' in the current column
 	-al 're'			Look for the regular expression text 're' across the current columns defined
@@ -25,8 +25,8 @@ Command Set (B1 - mouse button 1 'left', B2 - mouse button 2 'middle', B3 - mous
 			* a valid file/directory - the file/directory is opened in a new window
 			* :n - where n is a line number, go to that line number in the file
 			* :/regexptext - from the current cursor location, go to the text that matches the regexptext given
-			* filenamegiven:n - open filenamegiven and go to line number n
-			* filenamegiven:/regexp - open filenamegiven and from the current cursor location, go to the text that matches the regexp given
+			* filename:n - open filename and go to line number n
+			* filename:/regexp - open filename and from the current cursor location, go to the text that matches the regexp given
 
 			If no conditions above was satisfied, assume a text search and highlight the next instance of the text in the window content.
 
@@ -189,7 +189,7 @@ Special Conditions
 
 ---------------------------------------------------------------------------------
 
-Copyright (c) 2011-2016. Ramon de Vera Jr.
+Copyright (c) 2011-2017. Ramon de Vera Jr.
 All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of

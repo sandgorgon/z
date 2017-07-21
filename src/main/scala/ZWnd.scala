@@ -58,11 +58,11 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	var colorTSelBack =new Color(0xFF, 0xFF, 0xE0)
 	var colorTSelFore = new Color(0x23, 0x2E, 0x6C)
 
-	var tag = new ZTextArea(initTagText, true)
+	val tag = new ZTextArea(initTagText, true)
 	tag.font = ZFonts.SANS_SERIF_MONO
 	tag.colors(colorTBack, colorTFore,  colorTCaret, colorTSelBack, colorTSelFore )
 
-	var body = new ZTextArea(initBodyText)
+	val body = new ZTextArea(initBodyText)
 	body.colors(colorBack, colorFore, colorCaret, colorSelBack, colorSelFore)
 
 	var fontVar = ZFonts.SANS_SERIF
@@ -443,7 +443,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 			body.caret.position = 0
 			valid = true
 		} catch {
-			case e : Throwable => JOptionPane.showMessageDialog(null, e.getMessage, "Get Error", JOptionPane.ERROR_MESSAGE)
+			case e : Throwable => JOptionPane.showMessageDialog(null, f + " " + e.getMessage, "Get Error", JOptionPane.ERROR_MESSAGE)
 		}
 
 		valid

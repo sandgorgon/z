@@ -257,7 +257,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 
 	def populate(args : Array[String]) = {
 		var w : ZWnd = null
-		var col  = this += new ZCol
+		var col : ZCol = null
 
 		var action = ""
 		args.foreach((a) => {
@@ -277,7 +277,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 						case "look" if(w != null) =>
 							w.tag.text = w.tag.text + " " + txt
 							w.look(txt)
-						case "colLook" => 
+						case "colLook" if(col != null) => 
 							col.tag.text = col.tag.text + " " + txt
 							col.look(txt)
 						case "appLook" => 
@@ -286,13 +286,14 @@ class ZPanel(initTagText: String) extends BorderPanel {
 						case "command" if(w != null) => 
 							w.tag.text = w.tag.text + " " + txt
 							w.command(txt)
-						case "colCommand" => 
+						case "colCommand" if(col != null)  => 
 							col.tag.text = col.tag.text + " " + txt
 							col.command(txt)
 						case "appCommand" => 
 							tag.text = tag.text + " " + txt
 							command(txt) 
 						case _ => 
+							if(col == null) col = this += new ZCol
 							w = col.wnd(a)
 							col += w
 							w.command("Get")
@@ -302,12 +303,16 @@ class ZPanel(initTagText: String) extends BorderPanel {
 	}
 
 	def load(s : String = "z.dump") = {
-		var p = ZSettings.load(new File(s))
-		var cnt = p.getOrElse("column.count", "0").toInt
-		prevCmd = "Cmd: " + p.getOrElse("command.prev", "")
-		for(i <- 1 to cnt) {
-			val c = this += new ZCol
-			c.load(p, "column." + i.toString + "." )
+		val path = new File(s)
+
+		if(path.exists) {
+			var p = ZSettings.load(path)
+			var cnt = p.getOrElse("column.count", "0").toInt
+			prevCmd = "Cmd: " + p.getOrElse("command.prev", "")
+			for(i <- 1 to cnt) {
+				val c = this += new ZCol
+				c.load(p, "column." + i.toString + "." )
+			}
 		}
 	}
 
