@@ -144,7 +144,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 	}
 
 	def command(cmds : String) = if(cmds != null && !cmds.trim.isEmpty) {
-		for(cmd <- cmds.lines.map(_.trim)) {
+		for(cmd <- cmds.split('\n')) {
 			cmd.trim match {
 				case "NewCol" => this += new ZCol
 				case "Load" => load()
