@@ -1,6 +1,7 @@
 # TODO
 - remodel work to new(er) Scala version
-	- might need to remodel the Actor franmework (or use Akka?)
+	- switch over (and refactor) to coursier-backed Scala 3.x.x with JDK 17
+	- might need to remodel the Actor franmework as well (Akka?)
 - implement Dir [dir] already.
 - restructure the editor in preparation for client-server architecture
 	- IPC and plumbing
