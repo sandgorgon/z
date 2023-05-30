@@ -1,7 +1,9 @@
 # TODO
-- move to Akka
+- remodel work to new(er) Scala version
+	- might need to remodel the Actor franmework (or use Akka?)
 - implement Dir [dir] already.
-- restructure the editor in preparation for client-server architecture, IPC and plumbing - this will be an entertaining exercise the only consequence of this is that the source will become bigger, and I kinda like having the code this small, what can you do right?
+- restructure the editor in preparation for client-server architecture
+	- IPC and plumbing
 
 # Notes
 Dir [dir]		Set the current or default directory that the z editor itself will assume
