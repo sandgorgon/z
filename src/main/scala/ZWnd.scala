@@ -181,7 +181,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	}
 
 	def command(cmds : String) : Unit = if(cmds != null && !cmds.trim.isEmpty) {
-		for(cmd <- cmds.lines.map(_.trim)) {
+		for(cmd <- cmds.split('\n')) {
 			cmd match {
 				case ZWnd.reExplicitCmd(c) => command(c)
 				case "Get" => 

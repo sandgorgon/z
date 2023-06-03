@@ -197,7 +197,7 @@ class ZCol extends BorderPanel {
 	}
 
 	def command(cmds : String) = {
-		for(cmd <- cmds.lines.map(_.trim)) {
+		for(cmd <- cmds.split('\n')) {
 			cmd.trim match {
 				case "Lt" => publish(new ZMoveColEvent("Lt", this))
 				case "Rt" => publish(new ZMoveColEvent("Rt", this))
