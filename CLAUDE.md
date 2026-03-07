@@ -34,9 +34,9 @@ Each level has a **tag line** (top, `ZTextArea`) and a **body** (bottom, `ZTextA
 ### Key Classes
 
 - **`z.scala`** — Entry point (`SwingApplication`). Manages the `MainFrame`, loads/saves window geometry from `~/.z`, handles OS X fullscreen. Creates the top-level `ZPanel`.
-- **`ZPanel.scala`** — The application-level panel. Manages a `List[ZCol]` rendered as nested `SplitPane`s. Handles app-level commands (`NewCol`, `Help`, `Dump`, `Load`, `Fonts`). Dispatches unknown commands down to all columns.
+- **`ZPanel.scala`** — The application-level panel. Manages a `List[ZCol]` rendered as nested `SplitPane`s. Handles app-level commands (`NewCol`, `Help`, `Dump`, `Load`, `Fonts`). Dispatches unknown commands down to all columns. `nextCol`/`prevCol` return `Option[ZCol]`.
 - **`ZCol.scala`** — A column panel. Manages a `List[ZWnd]` rendered as nested horizontal `SplitPane`s. Handles column-level commands (`New`, `Sort`, `CloseCol`, `Lt`/`Rt` for column moves). Dispatches unknown commands to all its windows.
-- **`ZWnd.scala`** — A single editor window (a `SplitPane` with tag on top, body below). Handles file I/O (`Get`/`Put`), external command execution (`< > | !`), interactive process I/O, color/font changes, and all window-level commands. Uses `scala.actors` for async external command output streaming.
+- **`ZWnd.scala`** — A single editor window (a `SplitPane` with tag on top, body below). Handles file I/O (`Get`/`Put`), external command execution (`< > | !`), interactive process I/O, color/font changes, and all window-level commands. Uses Thread-based callbacks with EDT marshaling (`SwingUtilities.invokeLater`) for async external command output streaming. `cmdProcess` and `cmdProcessWriter` are `Option[...]` types.
 - **`ZTextArea.scala`** — Extended `swing.TextArea` with undo/redo (`UndoManager`), brace matching (Ctrl+B1), dirty tracking via `ZDirtyTextEvent`/`ZCleanTextEvent`, and helper methods for line/selection manipulation.
 - **`ZUtilities.scala`** — Static utilities: text selection logic, brace/symbol matching (`symMatch`), external process launching (`extCmd`), and shell command tokenization (handles single-quoted tokens).
 - **`ZFonts.scala`** — Registers bundled fonts (Hack, Bitstream Vera) from classpath resources.

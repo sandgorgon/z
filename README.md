@@ -5,7 +5,7 @@ z
 
 ![Screenshot](/img/screenshot.jpg "Title")
 
-Used Scala 2.11.6 and Java 1.7.0_67
+Built with Scala 3.8.2, sbt 1.10.7, and Java 11+.
 
 To build it, go to the root of the source and then,
 
