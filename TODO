@@ -1,0 +1,12 @@
+# TODO
+- move to Akka
+- implement Dir [dir] already.
+- restructure the editor in preparation for client-server architecture, IPC and plumbing - this will be an entertaining exercise the only consequence of this is that the source will become bigger, and I kinda like having the code this small, what can you do right?
+
+# Notes
+Dir [dir]		Set the current or default directory that the z editor itself will assume
+
+# Do we _want_ to do this, really?
+- when colors are changed from the app/column tagline, they should stay active (?)
+- a way to revert the colors back to the default (?)
+
