@@ -61,8 +61,8 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	var colorTBack = new Color(0x4A, 0x61, 0x95)
 	var colorTFore = new Color(0xFF, 0xFF, 0xFF)
 	var colorTCaret = new Color(0xC7, 0xC7, 0xC7)
-	var colorTSelBack =new Color(0xFF, 0xFF, 0xE0)
-	var colorTSelFore = new Color(0x23, 0x2E, 0x6C)
+	var colorTSelBack = new Color(0xFF, 0xFF, 0xFF)   // white — inverted from tag blue
+	var colorTSelFore = new Color(0x4A, 0x61, 0x95)   // tag blue — inverted from tag white
 
 	val tag = new ZTextArea(initTagText, true)
 	tag.font = ZFonts.SANS_SERIF_MONO

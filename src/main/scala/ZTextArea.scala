@@ -122,6 +122,7 @@ class ZTextArea(txt : String = "", wrap : Boolean = false) extends TextArea(txt)
 		caret.color = crt
 		peer.setSelectionColor(backSel)
 		peer.setSelectedTextColor(foreSel)
+		peer.setUseSelectedTextColor(true)
 		peer.setCurrentLineHighlightColor(new Color(
 			math.max(0, back.getRed   - 20),
 			math.max(0, back.getGreen - 20),
