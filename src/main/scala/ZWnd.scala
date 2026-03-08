@@ -33,6 +33,7 @@ import javax.swing.text.{Utilities, DefaultCaret}
 import javax.swing.{JOptionPane, ScrollPaneConstants, SwingUtilities}
 import java.util.regex.Pattern
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
+import org.eclipse.lsp4j.{Diagnostic, DiagnosticSeverity, CompletionItem}
 
 class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(Orientation.Horizontal) {
 	var rootPath = new File(".").getAbsolutePath
@@ -41,6 +42,11 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	var indInteractive = false
 	var indBind = false
 	var indHilite = false
+	var indLsp    = false
+	var lspClient: Option[ZLspClient] = None
+	val lspParser = new ZLspDiagnosticParser
+	val hoverTimer     = new javax.swing.Timer(500, null)
+	val didChangeTimer = new javax.swing.Timer(400, null)
 	var cmdProcess : Option[Process] = None
 	var cmdProcessWriter : Option[BufferedWriter] = None
 	var dragSel = false
@@ -64,6 +70,50 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 
 	val body = new ZTextArea(initBodyText)
 	body.colors(colorBack, colorFore, colorCaret, colorSelBack, colorSelFore)
+
+	// LSP parser (squiggly underlines) — registered even before Lsp is enabled
+	body.peer.addParser(lspParser)
+
+	var hoverPoint: java.awt.Point = new java.awt.Point(0, 0)
+
+	hoverTimer.addActionListener(_ => {
+		lspClient.foreach { c =>
+			try {
+				val dot  = body.peer.viewToModel2D(hoverPoint).toInt
+				val line = body.lineNo(dot)
+				val col  = dot - body.lineStart(line)
+				c.hover(line, col, text =>
+					javax.swing.SwingUtilities.invokeLater(() => {
+						body.lspTooltip = if (text.isEmpty) null else text
+						if (text.nonEmpty) {
+							val pt = hoverPoint
+							javax.swing.ToolTipManager.sharedInstance().mouseMoved(
+								new java.awt.event.MouseEvent(body.peer,
+									java.awt.event.MouseEvent.MOUSE_MOVED,
+									System.currentTimeMillis(), 0, pt.x, pt.y, 0, false)
+							)
+						}
+					})
+				)
+			} catch { case _: Throwable => }
+		}
+	})
+	hoverTimer.setRepeats(false)
+
+	didChangeTimer.addActionListener(_ => lspClient.foreach(_.didChange(body.text)))
+	didChangeTimer.setRepeats(false)
+
+	body.peer.addMouseMotionListener(new java.awt.event.MouseMotionAdapter {
+		override def mouseMoved(e: java.awt.event.MouseEvent): Unit = {
+			if (indLsp) { hoverPoint = e.getPoint; hoverTimer.restart() }
+		}
+	})
+
+	body.peer.getDocument.addDocumentListener(new javax.swing.event.DocumentListener {
+		def insertUpdate(e: javax.swing.event.DocumentEvent): Unit  = if (indLsp) didChangeTimer.restart()
+		def removeUpdate(e: javax.swing.event.DocumentEvent): Unit  = if (indLsp) didChangeTimer.restart()
+		def changedUpdate(e: javax.swing.event.DocumentEvent): Unit = {}
+	})
 
 	var fontVar = ZFonts.SANS_SERIF
 	var fontFixed = ZFonts.SANS_SERIF_MONO.deriveFont(13f)
@@ -114,7 +164,9 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 
 	listenTo(tag.keys, body.keys)
 	reactions += {
-		case e : KeyPressed if((e.key == Key.F) && e.peer.isControlDown()) =>			
+		case e : KeyPressed if e.key == Key.Space && e.peer.isControlDown() =>
+			command("Complete")
+		case e : KeyPressed if((e.key == Key.F) && e.peer.isControlDown()) =>
 			val ta = if(e.source.hashCode == tag.hashCode) tag else body
 			var p = path
 
@@ -264,6 +316,41 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 					if(t.equals("SelFore"))  colorSelFore  = applyColor(colorSelFore,  (r.toInt, g.toInt, b.toInt))
 					if(t.startsWith("T")) tag.colors(colorTBack, colorTFore, colorTCaret, colorTSelBack, colorTSelFore)
 					else body.colors(colorBack, colorFore, colorCaret, colorSelBack, colorSelFore)
+				case "Lsp"                       =>
+					if (!indLsp) {
+						val langId = ZLangRegistry.langIdFor(path)
+						ZLspManager.serverCmd(langId).foreach { cmd =>
+							val client = new ZLspClient(langId, cmd, path, rootUri(), onDiagnostics)
+							client.start(() => javax.swing.SwingUtilities.invokeLater(() => {
+								client.didOpen(body.text)
+								command("Check")
+							}))
+							lspClient = Some(client)
+							ZLspManager.register(client)
+							indLsp = true
+						}
+					}
+				case ZWnd.reLsp("off")           =>
+					lspClient.foreach { c =>
+						c.didClose()
+						c.shutdown()
+						ZLspManager.unregister(c)
+					}
+					lspClient = None
+					indLsp = false
+					lspParser.clearDiagnostics()
+					body.peer.forceReparsing(0)
+				case "Check"                     =>
+					lspClient.foreach(_.didChange(body.text))
+				case "Complete"                  =>
+					lspClient.foreach { c =>
+						val dot  = body.caret.dot
+						val line = body.lineNo(dot)
+						val col  = dot - body.lineStart(line)
+						c.completion(line, col, items =>
+							javax.swing.SwingUtilities.invokeLater(() => showCompletionPopup(items, dot))
+						)
+					}
 				case _                           => publish(new ZCmdEvent(this, cmd))
 			}
 		}
@@ -393,6 +480,86 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 				tag.text = tag.text.replaceAll(ZWnd.CmdExecIndicator, "")
 				None
 		}
+	}
+
+	private def rootUri(): String = {
+		val path = new java.io.File(root).getCanonicalPath
+		s"file://$path/"   // path starts with / giving file:///...
+	}
+
+	private def onDiagnostics(diags: List[Diagnostic]): Unit = {
+		lspParser.setDiagnostics(diags)
+		val content = diags.map { d =>
+			val sev = Option(d.getSeverity) match {
+				case Some(DiagnosticSeverity.Error)       => "error"
+				case Some(DiagnosticSeverity.Warning)     => "warning"
+				case Some(DiagnosticSeverity.Information) => "info"
+				case _                                    => "hint"
+			}
+			val ln = d.getRange.getStart.getLine + 1
+			s"${path}:${ln}: ${sev}: ${d.getMessage}"
+		}.mkString("\n")
+		javax.swing.SwingUtilities.invokeLater(() => {
+			body.peer.forceReparsing(0)
+			publish(new ZDiagnosticsReadyEvent(this, content))
+		})
+	}
+
+	private def showCompletionPopup(items: List[CompletionItem], caretOffset: Int): Unit = {
+		try {
+			if (items.isEmpty) return
+			val popup = new javax.swing.JPopupMenu()
+			items.take(50).foreach { item =>
+				val detail = Option(item.getDetail).filter(_.nonEmpty).map(" — " + _).getOrElse("")
+				val mi = new javax.swing.JMenuItem(item.getLabel + detail)
+				mi.addActionListener(_ => applyCompletion(item, caretOffset))
+				popup.add(mi)
+			}
+			val dot  = body.caret.dot
+			val rect = body.peer.modelToView2D(dot)
+			popup.show(body.peer, rect.getX.toInt, (rect.getY + rect.getHeight).toInt)
+		} catch {
+			case e: Throwable =>
+				javax.swing.JOptionPane.showMessageDialog(null, e.getMessage, "Complete Error", javax.swing.JOptionPane.ERROR_MESSAGE)
+		}
+	}
+
+	private def applyCompletion(item: CompletionItem, caretOffset: Int): Unit = {
+		try {
+			val doc = body.peer.getDocument
+			Option(item.getTextEdit) match {
+				case Some(e) if e.isLeft =>
+					val edit = e.getLeft
+					val r    = edit.getRange
+					val s    = body.lineStart(r.getStart.getLine) + r.getStart.getCharacter
+					val end  = body.lineStart(r.getEnd.getLine)   + r.getEnd.getCharacter
+					doc.remove(s, end - s)
+					doc.insertString(s, edit.getNewText, null)
+				case Some(e) if e.isRight =>
+					val edit = e.getRight
+					val r    = edit.getInsert
+					val s    = body.lineStart(r.getStart.getLine) + r.getStart.getCharacter
+					val end  = body.lineStart(r.getEnd.getLine)   + r.getEnd.getCharacter
+					doc.remove(s, end - s)
+					doc.insertString(s, edit.getNewText, null)
+				case _ =>
+					val text = Option(item.getInsertText).filter(_.nonEmpty).getOrElse(item.getLabel)
+					doc.insertString(caretOffset, text, null)
+			}
+		} catch { case e: Throwable => javax.swing.JOptionPane.showMessageDialog(null, e.getMessage, "Complete Error", javax.swing.JOptionPane.ERROR_MESSAGE) }
+		body.requestFocus()
+	}
+
+	// Called by ZCol.closeWnd to clean up LSP before removing the window.
+	def close(): Unit = {
+		hoverTimer.stop()
+		didChangeTimer.stop()
+		lspClient.foreach { c =>
+			try { c.didClose() }  catch { case _: Throwable => }
+			try { c.shutdown() }  catch { case _: Throwable => }
+			ZLspManager.unregister(c)
+		}
+		lspClient = None
 	}
 
 	def root = rootPath
@@ -592,6 +759,7 @@ object ZWnd {
 	val reExplicitCmd = """%\s*(.+)$""".r
 
 	val reHilite = """Hilite\s+(\S+)""".r
+	val reLsp    = """Lsp\s+(.+)""".r
 	val reTheme  = """Theme\s+(\S+)""".r
 	val reColors = """Color(TBack|TFore|TCaret|TSelFore|TSelBack|Back|Fore|Caret|SelFore|SelBack)\s+(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})""".r
 
@@ -605,5 +773,7 @@ object ZWnd {
 }
 
 class ZCmdEvent(val source : ZWnd, val command : String) extends Event
+class ZDiagnosticsReadyEvent(val source: ZWnd, val content: String) extends Event
 class ZLookEvent(val source : ZWnd, val path : String) extends Event
 class ZStatusEvent(val source : ZWnd, val properties : Map[String, String]) extends Event
+

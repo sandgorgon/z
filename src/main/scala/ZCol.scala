@@ -165,6 +165,16 @@ class ZCol extends BorderPanel {
 					w.root = src.root
 					w.command("< " + cmd)
 			}
+		case e : ZDiagnosticsReadyEvent =>
+			val src = e.source
+			val n   = src.rawPath + "+Diagnostics"
+			val w   = rawPathWindow(n).getOrElse {
+				val nw = wnd(n)
+				this += nw
+				nw
+			}
+			w.root = src.root
+			w.body.text = e.content
 		case e : ZLookEvent =>
 			look(e.path, false)
 		case e : ZStatusEvent => publish(new ZStatusEvent(e.source, e.properties))
@@ -285,7 +295,8 @@ class ZCol extends BorderPanel {
 			if(JOptionPane.showConfirmDialog(null, "[" + w.path + " is dirty]. Continue?", "Close Confirmation", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.CANCEL_OPTION)
 				return false
 		}
-			
+
+		w.close()
 		this -= w
 		true
 	}

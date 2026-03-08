@@ -1,5 +1,6 @@
 val swing = "org.scala-lang.modules" %% "scala-swing" % "3.0.0"
 val rsta  = "com.fifesoft"            %  "rsyntaxtextarea" % "3.4.0"
+val lsp4j = "org.eclipse.lsp4j"      %  "org.eclipse.lsp4j" % "0.23.1"
 val test  = "org.scalatest"          %% "scalatest" % "3.2.18" % "test"
 
 
@@ -13,7 +14,7 @@ lazy val root = (project in file("."))
   .settings(
     commonSettings,
     name := "z",
-    libraryDependencies ++= Seq(swing, rsta, test),
+    libraryDependencies ++= Seq(swing, rsta, lsp4j, test),
     assembly / assemblyJarName := "z.jar",
     assembly / assemblyMergeStrategy := {
       case PathList("META-INF", _*) => MergeStrategy.discard

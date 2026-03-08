@@ -74,6 +74,7 @@ object z extends SwingApplication {
 			p += "app.height" ->d.getHeight.toInt.toString
 
 			ZSettings.dump(p, new File(util.Properties.userHome + ZUtilities.separator + ".z"), "Z Global Settings")
+			ZLspManager.shutdown()
 			System.exit(0)
 		}
 	}
@@ -93,6 +94,7 @@ object z extends SwingApplication {
 			p += "app.height" -> "400"
 		}
 
+		ZLspManager.loadConf()
 		frame = top
 		frame.preferredSize = new Dimension(p.get("app.width").get.toInt, p.get("app.height").get.toInt)
 		frame.pack()

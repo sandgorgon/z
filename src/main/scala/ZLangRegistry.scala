@@ -99,4 +99,44 @@ object ZLangRegistry {
 
 	def forLang(lang: String): String =
 		byName.getOrElse(lang.toLowerCase, SyntaxConstants.SYNTAX_STYLE_NONE)
+
+	// File extension → LSP language ID (used for didOpen and server selection)
+	private val langIdByExt: Map[String, String] = Map(
+		"go"         -> "go",
+		"py"         -> "python",
+		"java"       -> "java",
+		"scala"      -> "scala",
+		"sc"         -> "scala",
+		"sbt"        -> "scala",
+		"sh"         -> "shellscript",
+		"bash"       -> "shellscript",
+		"zsh"        -> "shellscript",
+		"js"         -> "javascript",
+		"ts"         -> "typescript",
+		"kt"         -> "kotlin",
+		"rb"         -> "ruby",
+		"rs"         -> "rust",
+		"cpp"        -> "cpp",
+		"cc"         -> "cpp",
+		"hpp"        -> "cpp",
+		"c"          -> "c",
+		"h"          -> "c",
+		"cs"         -> "csharp",
+		"sql"        -> "sql",
+		"json"       -> "json",
+		"yaml"       -> "yaml",
+		"yml"        -> "yaml",
+		"xml"        -> "xml",
+		"html"       -> "html",
+		"htm"        -> "html",
+		"css"        -> "css",
+		"md"         -> "markdown",
+		"lua"        -> "lua",
+		"php"        -> "php",
+	)
+
+	def langIdFor(path: String): String = {
+		val ext = path.split('.').lastOption.map(_.toLowerCase).getOrElse("")
+		langIdByExt.getOrElse(ext, "plaintext")
+	}
 }

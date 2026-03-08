@@ -29,7 +29,11 @@ import javax.swing.event.{UndoableEditListener, UndoableEditEvent}
 import org.fife.ui.rsyntaxtextarea.{RSyntaxTextArea, SyntaxConstants}
 
 class ZTextArea(txt : String = "", wrap : Boolean = false) extends TextArea(txt) {
-	override lazy val peer: RSyntaxTextArea = new RSyntaxTextArea(txt) with SuperMixin
+	var lspTooltip: String = null
+
+	override lazy val peer: RSyntaxTextArea = new RSyntaxTextArea(txt) with SuperMixin {
+		override def getToolTipText(e: java.awt.event.MouseEvent): String = lspTooltip
+	}
 
 	border = null
 	tabSize = 4

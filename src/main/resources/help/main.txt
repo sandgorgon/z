@@ -1,191 +1,230 @@
-Z Feature Set
-=================
+Z — Plan 9 Acme-Inspired Editor
+================================
 
-Usage:
+USAGE
 
-	z [file|dir|options] [...]
-
-Command Line Options
-	-c 			Create a new column and put succeeding files/directory paths into this new column
-	-! 'cmd arg1 ...'	Execute the 'cmd' in the last file/directory path opened
-	-c! 'cmd arg1 ...'	Execute the 'cmd' on the current column
-	-a! 'cmd arg1 ...'	Execute the 'cmd' in the app tagline - which can, depending on the command, be done across all columns.
-	-l 're'			Look for the regular expression text 're' in the last file/directory path opened
-	-cl 're'			Look for the regular expression text 're' in the current column
-	-al 're'			Look for the regular expression text 're' across the current columns defined
-	
-	Any other text not preceded with the switches (and their parameters) defined above are considered file/directory paths.
-
-Command Set (B1 - mouse button 1 'left', B2 - mouse button 2 'middle', B3 - mouse button 3 'right')
-
-	B3		Perform an action on the highlighted text (or the piece of text that you B3 on) based on the following logic rules:
-			
-			If the highlighted text, or piece of text you B3 on, is:
-
-			* a valid file/directory - the file/directory is opened in a new window
-			* :n - where n is a line number, go to that line number in the file
-			* :/regexptext - from the current cursor location, go to the text that matches the regexptext given
-			* filename:n - open filename and go to line number n
-			* filename:/regexp - open filename and from the current cursor location, go to the text that matches the regexp given
-
-			If no conditions above was satisfied, assume a text search and highlight the next instance of the text in the window content.
-
-			If the text search fails, then execute the highlighted text as a command. If that happens:
-
-				This will open a +Results window  showing the results of running the command
-				If a window had to be created,  the caret will stay in the current position it is at and results will be appended (see Scroll)
-				From the +Results window, you can issue a Kill command to cancel the command
-				If highlighted text is composed of multiple lines, each line is executed as a system command
+    z [file|dir|options] [...]
 
 
-			It is, of course, possible that a command you want to execute is actually text that exists in the window content,
-			and based on the rules stated above, the way to resolve cases of ambiguity is as follows:
+COMMAND LINE OPTIONS
 
-			* Put a percent sign (%) in front of the first non-whitespace character of the whole command and use that.
-				ie.   %Put  or % Put,   instead of Put. Aside, %Put is a little better because you can just B3 that.
-				       %ls -la
+    -c               Create a new column; succeeding paths go into it
+    -! 'cmd ...'     Execute cmd in the last file/directory opened
+    -c! 'cmd ...'    Execute cmd in the current column
+    -a! 'cmd ...'    Execute cmd from the app tag line (affects all columns)
+    -l 're'          Search for regexp 're' in the last file/directory opened
+    -cl 're'         Search for regexp 're' in the current column
+    -al 're'         Search for regexp 're' across all columns
 
-			* Of course, you can also put the cursor at the end of the file and that guarantees any highlighted text cannot be searched for,
-			   and thus will be executed as a command. 
-
-			Hopefully, these cases are not too often. But I guess we'll see.
-
-			Yes, this makes B3 function a number of ways based on 'context'. One button to rule them all. :-)
-
-	B3+drag	Highlight text and upon release of the drag perform B3 action on the highlighted text
-	B2+drag	Highlight text and upon release of the drag execute the highlighted text as a command
-
-	Ctrl + B1	Brace matching selection or generally symbol/char matching selection
-				The following are matched: {}, <>, (), []
-				Any other character/symbol when clicked will be used as the starting and
-				ending symbols for a piece of text.
+    Any argument not preceded by a switch is treated as a file or directory path.
 
 
-	Get		Load the file/directory path specified in the front of the tag line
-	Get [fname]	Load 'fname' but don't change the file path in the tag line
-                        		Always relative to the current default directory of zuma
-	Put		Save the file(if from windows tag line) - or files (if from the column/app tagline) - if dirty
-	Put [fname]	Save the window content as 'fname'
-                        		Always relative to the working directory of z
+MOUSE BUTTONS
 
-	New		Create a new window/column
-	New [fname ...] For each 'fname' given, create a new window and load 'fname' (creates a new column when done from the app tag line)
-	Zerox		Open a new window containing a copy of the current file in the window (window tag line only)
-	Close		Close the window or the windows of a column/app if done from  the appropriate window/column/app tagline
-	CloseCol	Close the column and all the windows in it, dirty windows are confirmed
-	CLOSE	Same as Close, except for this time the dirtiness of the windows are ignored
-	Lt		Move the window/column to the left
-	Rt		Move the window/column to the right
-	Dn		Move the window down in the column
-	Up		Move the window up in the column
+    B1  Left button — standard cursor/selection
+    B2  Middle button
+    B3  Right button
 
-	Wrap		Toggles line wrap on or off.
-	Indent		Toggles line indention on or off.
-	Tab n		Set the tab space to be 'n'.
-	Mark		Bookmark the current line location you are at.
-	Clean		Toggles the file status to indicate that it is dirty(modified) or not
-	Clear		Clear the content of the window(s)
-	Cut		Cut the selected text in the window content and snarf it
-	Paste		Paste the text in the snarf/copy buffer
-	Snarf		Copy the selected text in the window content into the snarf/copy buffer - it is not called 'Copy' since we're keeping to its roots
-	Undo		Undo the current editing changes
-	Redo		Redo the changes that were undone
-	Kill		Kill the command/process tied to the window 
-	Scroll		Toggles scrolling behavior on or off.
-				Used mostly when working with +Results windows.
-				if on, scrolling will be the default scrolling behavior we expect
-				if off, any updates to the text (say text appends) will not auto scroll the content and move the caret
+    B3          Act on the highlighted text (or word under cursor) using these rules, in order:
 
-	Sort		Sort the windows in a column lexicographically, if done from the app tag line, it will still sort the columns separately not all together.
+                  1. Valid file/directory path  →  open in a new window
+                  2. :n                         →  go to line n in the current file
+                  3. :/regexp                   →  search forward for regexp from current position
+                  4. filename:n                 →  open filename at line n
+                  5. filename:/regexp           →  open filename, search forward for regexp
+                  6. (none of the above)        →  search forward for the text in the current window
+                  7. (search fails)             →  execute the text as a command
+                     · Results appear in a +Results window
+                     · Use Kill to cancel a running command
+                     · Multiple lines: each line is run as a separate command
 
-	> cmd		Send the selected text in the window content as stdin for cmd
-	< cmd		Send the stdout of cmd to replace the current text selection in the window content
-			If no text is selected, then output is placed where the caret is
-	| cmd		Send the selected text in the window content as stdin for cmd and replace the selection with the stdout of cmd
-	! cmd		Run the command and replace the entire window content with its results (almost similar to '< cmd')
-			From the app tagline, the command is executed and the results sent to a new window in the right most column. The column is created if no columns exist.
-			From the column tagline, the command is executed and the results sent to a new window in the column.
+                To force text to be treated as a command (bypassing look/search):
+                  · Prefix it with %  e.g.  %Put  or  %ls -la
+                  · Or place the caret at the end of the file before acting
 
-	X 'regexp' cmd		Run the command on all windows whose path conforms to the single quote delimited Java regexp
-	Y 'regexp' cmd		Run the command on all windows whose path does not conform to the single quote delimited Java regexp
+    B3+drag     Select text, then on release perform the B3 action on the selection
+    B2+drag     Select text, then on release execute the selection as a command
+
+    Ctrl+B1     Brace/symbol matching selection.  Matched pairs: {}  <>  ()  []
+                Any other character is used as both the open and close delimiter.
 
 
-	Font			Toggle the font being used (variable/fixed font)
-	FONT			Toggle the font being used (variable/fixed font)
-	Font 'name' [pt] 	Change the variable font being used to the font name given. You can optionally change the point size of the font as well.
-				- you need the single quotes only if the font name has spaces
-	FONT 'name' [pt]	Change the fixed font being used to the font name given. You can optionally change the point size of the font as well.
-                                			- you need the single quotes only if the font name has spaces
-	Fonts               	See the list of font names known by the application (app tag line only)
+FILE COMMANDS
 
-	Color(TBack|TFore|TCaret|TSelBack|TSelFore) intR intG intB
-				Change the tag line colors - background|foreground|caret|selection background|selection foreground
+    Get              Load the file/directory from the window's tag line path
+    Get [fname]      Load fname without changing the tag line path
+    Put              Save the file if dirty (window tag line), or all dirty files (column/app)
+    Put [fname]      Save window content as fname
 
-	Color(Back|Fore|Caret|SelBack|SelFore) intR intG intB
-				Change the body line colors - background|foreground|caret|selection background|selection foreground
+    New              Create a new empty window (or column, from the app tag line)
+    New [fname ...]  Create a new window for each fname and load it
+    Zerox            Clone the current window into a new window (window tag line only)
 
-	Dump [fname]		Dump the state of the column(s)
-				From the app tag line, If no fname given, then it defaults to the filename 'zuma.dump' and will be saved in the current work directory
-				From the column tag line, fname is required.
-				
-	Load [fname] [...]	Load a number of saved states in the order given
+    Dump [fname]     Save the full editor state to fname (default: zuma.dump in working dir)
+                     From a column tag line, fname is required.
+    Load [fname ...] Restore one or more previously saved editor states
 
 
-	Input [regexp]		Done from the tag line/content of a window where an external command is running.
-				If no parameters, toggle the capability to send entered line text to the external command started, and use this regexp '.*[>$%#]' to define the prompt
-				if regexp is provided, we will consider lines starting with the matched text as a valid prompt for the input line
+WINDOW MANAGEMENT
 
-	Bind			Do not create new windows, instead replace the current window's contents - if the Look action done by the user will create new windows.
+    Close       Close the window; or all windows in a column/app (from their tag lines)
+    CloseCol    Close the column and all its windows (dirty windows prompt for confirmation)
+    CLOSE       Like Close but ignores dirty state — no confirmation
+
+    Lt / Rt     Move the window or column left/right
+    Up / Dn     Move the window up/down within its column
+    Sort        Sort windows in a column alphabetically (from app tag line: sorts each column separately)
 
 
-Environment Variables
+EDITING COMMANDS
 
-	The following are environment variables available to any external commands executed from zuma:
+    Wrap        Toggle line wrap
+    Indent      Toggle auto-indent (preserves leading whitespace on new lines)
+    Tab n       Set tab width to n spaces
+    Mark        Bookmark the current line
+    Clean       Toggle the dirty (modified) flag
+    Clear       Erase all content in the window(s)
+    Scroll      Toggle auto-scroll behaviour (useful for +Results windows)
+                  on  — caret and view follow new output (default)
+                  off — new output does not move the caret or scroll the view
 
-	Z_FP - the canonical path from the window's tag line
-	Z_LOCAL_FP - the file path 'as is' from the window's tag line
+    Cut         Cut selected text to the snarf buffer
+    Snarf       Copy selected text to the snarf buffer (the Acme name for clipboard)
+    Paste       Paste from the snarf buffer
+    Undo        Undo last edit
+    Redo        Redo last undone edit
+    Kill        Kill the external process attached to the window
 
-Command Scope
 
-	The scope of the commands change depending on what tag line you used to execute the command.
+EXTERNAL COMMANDS
 
-	In example, if you B2 a piece of text 'Put' in the column tag line, then that command will be executed across all windows of that column.
-	Another example is, if you B2 a piece of text 'Clean' in the app tag line, then all columns and their windows will have their dirty status toggled.
-	A further example, if you B2 a piece of text 'Put' in the window tag line, then that command will only apply for that window/file.
-	If you are in the content pane of a window and you B2 a piece of text, the tag line it assumes is the window tag line.
+    < cmd       Replace the current selection (or insert at caret) with cmd's stdout
+    > cmd       Send the current selection as stdin to cmd
+    | cmd       Pipe the selection through cmd; replace selection with stdout
+    ! cmd       Run cmd and replace the entire window content with its output
+                From the app tag line: output goes to a new window in the rightmost column
+                From a column tag line: output goes to a new window in that column
 
-Editing Keyboard Actions
-	Ctrl + [Home|End]		Go to top/bottom of the file	
-	Ctrl + [LeftArrow|Right Arrow]	Go to prev/next word
-	Ctrl + [Backspace|Delete]	Delete word to the left/right of cursor
-	Shirt + Cursor			Select from current caret position
-	Shift + Ctrl + Cursor		Select from current caret position (word per word)
-	Ctrl + A				Select All
+    X 'regexp' cmd    Run cmd in every window whose path matches regexp
+    Y 'regexp' cmd    Run cmd in every window whose path does not match regexp
 
-	Ctrl+X		Cut
-	Ctrl+C		Snarf
-	Ctrl+V		Paste
-	Ctrl+Z		Undo
 
-	Home/End	Go to start/end of line
-	Backspace	Delete character at current caret position
-	Delete		Delete character to the left
-	PageUp	Page up
-	PageDn	Page down
-	Ctrl + F	Complete the path just to the left of the cursor by opening a selection dialog box.
-			In example, if you type in '/u/user/' (caret is just after the last slash '/') and you do the key combination, 
-			then, a selection dialog box will appear and you can complete the path from there.
+INTERACTIVE PROCESS INPUT
 
-System Defaults
-	Wrap		off
-	Tab		4
-	Indent		off
-	Font            'Hack Regular' 13    'Bitstream Vera Sans Mono', and 'Bitstream Vera Serif' are also available by default from the application.
+    Input [regexp]  Toggle line-at-a-time input mode for a window running an external process.
+                    Without regexp, uses '.*[>$%#]' to identify prompt lines.
+                    With regexp, lines matching it are treated as prompts; text entered after
+                    the prompt is sent to the process on Enter.
 
-Special Conditions
-	Filenames with a plus(+) sign prefix are never saved.  They are special filenames that are considered "scratch buffers" by the editor. An example of which is "/home/sandgorgon/+scratch". 
-	But when you do a 'Dump' of the app, they will be preserved as part of the dump since you may want some of the scratch buffers next time you load the Dump file.
-	Use them at will.
+    Bind            Replace the current window's content on Look/navigate instead of opening
+                    a new window.
+
+
+APPEARANCE
+
+    Font              Toggle between variable and fixed fonts
+    FONT              Toggle between variable and fixed fonts
+    Font 'name' [pt]  Set the variable-width font (quotes required if name has spaces)
+    FONT 'name' [pt]  Set the fixed-width font (quotes required if name has spaces)
+    Fonts             List all available font names (app tag line only)
+
+    Color(Back|Fore|Caret|SelBack|SelFore) R G B
+                      Set body colours (integers 0–255)
+    Color(TBack|TFore|TCaret|TSelBack|TSelFore) R G B
+                      Set tag line colours (integers 0–255)
+
+    Hilite            Enable syntax highlighting, auto-detecting language from the file extension
+    Hilite [lang]     Enable syntax highlighting for a specific language
+                      (e.g.  Hilite scala   Hilite go   Hilite python)
+    Hilite off        Disable syntax highlighting
+    Theme [name]      Apply a colour theme to the highlighted body
+                      (e.g.  Theme monokai   Theme idea   Theme z)
+                      The built-in 'z' theme matches the editor's default colour scheme.
+    CLine             Toggle current-line highlight
+
+
+LANGUAGE SERVER PROTOCOL (LSP)
+
+    Lsp             Start an LSP server for the current file's language. Enables:
+                      · Squiggly underlines for errors and warnings
+                      · Hover tooltips with type info and documentation
+                      · Code completion (Ctrl+Space or the Complete command)
+                      · A +Diagnostics scratch window updated on each save/check
+                    Server commands are configured in ~/.zlsp, one entry per line:
+                      langId = server-command
+                    Example:
+                      go     = gopls
+                      python = pylsp
+                      scala  = metals
+
+    Lsp off         Shut down the LSP server for the window and clear diagnostics
+    Check           Re-send the current buffer to the LSP server to refresh diagnostics
+    Complete        Show a completion popup at the caret position (also Ctrl+Space)
+
+
+KEYBOARD SHORTCUTS
+
+    Navigation
+      Ctrl+Home / Ctrl+End          Go to top / bottom of file
+      Ctrl+Left / Ctrl+Right        Previous / next word
+      Home / End                    Start / end of line
+      PageUp / PageDn               Page up / down
+
+    Selection
+      Shift+cursor                  Extend selection by character
+      Shift+Ctrl+cursor             Extend selection by word
+      Ctrl+A                        Select all
+
+    Editing
+      Ctrl+X                        Cut
+      Ctrl+C                        Snarf (copy)
+      Ctrl+V                        Paste
+      Ctrl+Z                        Undo
+      Ctrl+Backspace / Ctrl+Delete  Delete word left / right
+      Backspace                     Delete character before caret
+      Delete                        Delete character after caret
+
+    Tools
+      Ctrl+B1                       Brace/symbol matching selection
+      Ctrl+F                        Open a file-chooser to complete the path at the caret
+      Ctrl+Space                    LSP code completion (requires Lsp to be active)
+
+
+COMMAND SCOPE
+
+    Commands behave differently depending on which tag line they are executed from:
+
+      Window tag line   →  affects only that window
+      Column tag line   →  affects all windows in the column
+      App tag line      →  affects all columns and their windows
+
+    Executing a command from a window's body is equivalent to the window tag line.
+
+
+ENVIRONMENT VARIABLES
+
+    These are available to any external command launched by z:
+
+      Z_FP        The canonical (absolute) path from the window's tag line
+      Z_LOCAL_FP  The path exactly as it appears in the tag line
+
+
+SCRATCH BUFFERS
+
+    Any filename containing a + is a scratch buffer and is never written to disk.
+    Example: +scratch   /home/user/+notes   /tmp/+Results
+
+    Scratch buffers are included in Dump state so they survive across sessions.
+
+
+SYSTEM DEFAULTS
+
+    Wrap      off
+    Tab       4
+    Indent    off
+    Font      Hack Regular 13
+              (Bitstream Vera Sans Mono and Bitstream Vera Serif are also bundled)
+
 
 ---------------------------------------------------------------------------------
 
@@ -193,19 +232,18 @@ Copyright (c) 2011-2026. Ramon de Vera Jr.
 All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in 
-the Software without restriction, including without limitation the rights to use
-, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of 
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
 subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER 
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
