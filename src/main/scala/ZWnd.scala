@@ -279,6 +279,8 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 				case "Indent"                    => indIndent = !indIndent
 				case "Clear"                     => body.text = ""
 				case "Bind"                      => indBind = !indBind
+				case ZWnd.reDirQuoted(d)         => applyDir(d)
+				case ZWnd.reDir(d)               => applyDir(d)
 				case ZWnd.reTab(t)               => if(t != null && !t.isEmpty) body.tabSize = t.toInt
 				case ZWnd.reFont(font, pt)       =>
 					fontVar = new Font(font, Font.PLAIN, pt.toInt)
@@ -480,6 +482,12 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 				tag.text = tag.text.replaceAll(ZWnd.CmdExecIndicator, "")
 				None
 		}
+	}
+
+	private def applyDir(d: String): Unit = {
+		val f = new File(if(ZUtilities.isFullPath(d)) d else root + File.separator + d)
+		if(f.isDirectory) root = f.getCanonicalPath
+		else JOptionPane.showMessageDialog(null, s"Dir: not a directory: $d", "Dir Error", JOptionPane.ERROR_MESSAGE)
 	}
 
 	private def rootUri(): String = {
@@ -758,7 +766,9 @@ object ZWnd {
 
 	val reExplicitCmd = """%\s*(.+)$""".r
 
-	val reHilite = """Hilite\s+(\S+)""".r
+	val reDirQuoted = """Dir\s+'(.+)'""".r
+	val reDir       = """Dir\s+(\S+)""".r
+	val reHilite    = """Hilite\s+(\S+)""".r
 	val reLsp    = """Lsp\s+(.+)""".r
 	val reTheme  = """Theme\s+(\S+)""".r
 	val reColors = """Color(TBack|TFore|TCaret|TSelFore|TSelBack|Back|Fore|Caret|SelFore|SelBack)\s+(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})""".r

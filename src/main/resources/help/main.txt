@@ -119,6 +119,11 @@ INTERACTIVE PROCESS INPUT
     Bind            Replace the current window's content on Look/navigate instead of opening
                     a new window.
 
+    Dir <path>      Change the window's root directory to path (absolute or relative to the
+                    current root). Affects how relative tag line paths are resolved, where
+                    external commands run, and the LSP workspace root. Has no effect on
+                    windows whose tag line already contains an absolute path.
+
 
 APPEARANCE
 
