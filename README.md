@@ -36,6 +36,19 @@ How to use it is documented in the [Z Help Screen](https://github.com/sandgorgon
 
 The wiki has some guides on usage.
 
+## Installation
+
+Pre-built packages for Linux, macOS, and Windows are available on the [Releases](https://github.com/sandgorgon/z/releases) page.
+
+| Platform | Package | Notes |
+|---|---|---|
+| Linux | `.deb` or ZIP | ZIP includes `install.sh` |
+| macOS | `.dmg` or ZIP | Unsigned — right-click → Open to bypass Gatekeeper |
+| Windows | `.msi` or ZIP | Unsigned — choose "More info → Run anyway" in SmartScreen |
+
+All native packages (`.deb`, `.dmg`, `.msi`) bundle a JRE — no separate Java installation required.
+The ZIP packages require Java 11+ and include an install script.
+
 ## Features
 
 - **Acme-style mouse chording** — B3 (right-click) to look/navigate/execute, B2-drag to execute selected text

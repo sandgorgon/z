@@ -1,0 +1,215 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+
+  # ── Build the fat JAR once on Linux ──────────────────────────────────────────
+  build-jar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.sbt
+            ~/.ivy2/cache
+            ~/.coursier/cache
+          key: sbt-${{ hashFiles('build.sbt', 'project/*.sbt', 'project/*.properties') }}
+
+      - name: Build fat JAR
+        run: sbt assembly
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: z-jar
+          path: target/scala-3.8.2/z.jar
+
+
+  # ── Linux: ZIP + .deb ────────────────────────────────────────────────────────
+  package-linux:
+    needs: build-jar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: z-jar
+          path: dist/
+
+      - name: Strip version prefix
+        id: ver
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Create Linux ZIP
+        run: |
+          DIR="z-${{ github.ref_name }}-linux"
+          mkdir -p "$DIR"
+          cp dist/z.jar  "$DIR/"
+          cp bin/z        "$DIR/"
+          cp install.sh   "$DIR/"
+          cp README.md    "$DIR/"
+          chmod +x "$DIR/z" "$DIR/install.sh"
+          zip -r "${DIR}.zip" "$DIR/"
+
+      - name: Create .deb
+        run: |
+          jpackage \
+            --type deb \
+            --name z \
+            --app-version ${{ steps.ver.outputs.VERSION }} \
+            --input dist/ \
+            --main-jar z.jar \
+            --dest native/ \
+            --java-options "-Dawt.useSystemAAFontSettings=on" \
+            --java-options "-Dswing.aatext=true" \
+            --description "Plan 9 Acme-inspired text editor" \
+            --vendor "Ramon de Vera Jr." \
+            --linux-shortcut
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            z-${{ github.ref_name }}-linux.zip
+            native/*.deb
+
+
+  # ── macOS: ZIP + .dmg ────────────────────────────────────────────────────────
+  package-macos:
+    needs: build-jar
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: z-jar
+          path: dist/
+
+      - name: Strip version prefix
+        id: ver
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Create macOS ZIP
+        run: |
+          DIR="z-${{ github.ref_name }}-mac"
+          mkdir -p "$DIR"
+          cp dist/z.jar  "$DIR/"
+          cp bin/z        "$DIR/"
+          cp install.sh   "$DIR/"
+          cp README.md    "$DIR/"
+          chmod +x "$DIR/z" "$DIR/install.sh"
+          zip -r "${DIR}.zip" "$DIR/"
+
+      - name: Create .dmg
+        run: |
+          jpackage \
+            --type dmg \
+            --name z \
+            --app-version ${{ steps.ver.outputs.VERSION }} \
+            --input dist/ \
+            --main-jar z.jar \
+            --dest native/ \
+            --java-options "-Dawt.useSystemAAFontSettings=on" \
+            --java-options "-Dswing.aatext=true" \
+            --description "Plan 9 Acme-inspired text editor" \
+            --vendor "Ramon de Vera Jr."
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            z-${{ github.ref_name }}-mac.zip
+            native/*.dmg
+
+
+  # ── Windows: ZIP + .msi ──────────────────────────────────────────────────────
+  package-windows:
+    needs: build-jar
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: z-jar
+          path: dist/
+
+      - name: Strip version prefix
+        id: ver
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Create Windows ZIP
+        shell: pwsh
+        run: |
+          $dir = "z-${{ github.ref_name }}-windows"
+          New-Item -ItemType Directory -Force -Path $dir
+          Copy-Item dist/z.jar  $dir/
+          Copy-Item bin/z.bat   $dir/
+          Copy-Item install.bat $dir/
+          Copy-Item README.md   $dir/
+          Compress-Archive -Path $dir -DestinationPath "z-${{ github.ref_name }}-windows.zip"
+
+      # WiX 3.11 is pre-installed on windows-latest; ensure it is on the PATH
+      - name: Add WiX 3 to PATH
+        shell: pwsh
+        run: |
+          $wix = "C:\Program Files (x86)\WiX Toolset v3.11\bin"
+          if (Test-Path $wix) { echo $wix >> $env:GITHUB_PATH }
+          else { choco install wixtoolset --version 3.11.2 -y }
+
+      - name: Create .msi
+        shell: pwsh
+        run: |
+          jpackage `
+            --type msi `
+            --name z `
+            --app-version ${{ steps.ver.outputs.VERSION }} `
+            --input dist/ `
+            --main-jar z.jar `
+            --dest native/ `
+            --java-options "-Dswing.aatext=true" `
+            --description "Plan 9 Acme-inspired text editor" `
+            --vendor "Ramon de Vera Jr." `
+            --win-menu `
+            --win-shortcut
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            z-${{ github.ref_name }}-windows.zip
+            native/*.msi
