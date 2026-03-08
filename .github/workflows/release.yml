@@ -185,13 +185,13 @@ jobs:
           Copy-Item README.md   $dir/
           Compress-Archive -Path $dir -DestinationPath "z-${{ github.ref_name }}-windows.zip"
 
-      # WiX 3.11 is pre-installed on windows-latest; ensure it is on the PATH
+      # Find whichever WiX 3.x version is pre-installed and add it to PATH
       - name: Add WiX 3 to PATH
         shell: pwsh
         run: |
-          $wix = "C:\Program Files (x86)\WiX Toolset v3.11\bin"
-          if (Test-Path $wix) { echo $wix >> $env:GITHUB_PATH }
-          else { choco install wixtoolset --version 3.11.2 -y }
+          $wix = Get-Item "C:\Program Files (x86)\WiX Toolset v3*\bin" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($wix) { echo $wix.FullName >> $env:GITHUB_PATH }
+          else { Write-Error "WiX 3.x not found" }
 
       - name: Create .msi
         shell: pwsh
