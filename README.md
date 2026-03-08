@@ -7,11 +7,30 @@ z
 
 Built with Scala 3.8.2, sbt 1.10.7, and Java 11+.
 
-To build it, go to the root of the source and then,
+To build and install:
 
-        sbt assembly
+```sh
+sbt assembly
+mkdir -p ~/.local/lib/z
+cp target/scala-3.8.2/z.jar ~/.local/lib/z/z.jar
+```
 
-... and you can just copy the jar that was created in the (literal) target directory and put it anywhere you want. For example for me, I put it in a $HOME/z directory.
+Then create a launcher script at `~/bin/z` (or anywhere on your `$PATH`):
+
+```sh
+#!/bin/sh
+exec java \
+    -Dawt.useSystemAAFontSettings=on \
+    -Dswing.aatext=true \
+    -jar "${HOME}/.local/lib/z/z.jar" \
+    "$@"
+```
+
+Make it executable:
+
+```sh
+chmod +x ~/bin/z
+```
 
 How to use it is documented in the [Z Help Screen](https://github.com/sandgorgon/z/tree/master/src/main/resources/help/main.txt).
 

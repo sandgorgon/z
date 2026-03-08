@@ -9,8 +9,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Run Commands
 
 ```bash
-# Build the fat JAR (output: target/z.jar)
+# Build the fat JAR (output: target/scala-3.8.2/z.jar)
 sbt assembly
+
+# Deploy to the installed location
+cp target/scala-3.8.2/z.jar ~/.local/lib/z/z.jar
 
 # Run tests
 sbt test
@@ -21,8 +24,8 @@ sbt "testOnly HelloSpec"
 # Run the editor from source (requires Java)
 sbt run
 
-# Run the built JAR
-java -jar target/z.jar [file|dir|options...]
+# Run the built JAR directly
+java -jar target/scala-3.8.2/z.jar [file|dir|options...]
 ```
 
 ## Architecture
