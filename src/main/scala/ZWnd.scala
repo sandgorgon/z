@@ -204,9 +204,10 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 				case "Cut"                       => body.cut()
 				case "Paste"                     => body.paste()
 				case "Snarf"                     => body.copy()
-				case "Redo"                      => if(body.undomgr.canRedo) { body.undomgr.redo; dirty }
-				case "Undo"                      => if(body.undomgr.canUndo) body.undomgr.undo else clean
+				case "Redo"                      => body.redo()
+				case "Undo"                      => body.undo()
 				case "Wrap"                      => body.lineWrap = !body.lineWrap
+				case "CLine"                     => body.clineHighlight = !body.clineHighlight
 				case "Indent"                    => indIndent = !indIndent
 				case "Clear"                     => body.text = ""
 				case "Bind"                      => indBind = !indBind
@@ -316,7 +317,8 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 					command("Get")
 					look(loc)
 				}
-				else publish(new ZLookEvent(this, np + loc))
+				else
+ publish(new ZLookEvent(this, np + loc))
 				return true
 			}
 		}
@@ -332,7 +334,8 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 			body.caret.moveDot(pos + m.end())
 			body.requestFocus()
 			return true
-		} 
+		}
+ 
 
 		return false
 	}
