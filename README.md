@@ -42,9 +42,9 @@ Pre-built packages for Linux, macOS, and Windows are available on the [Releases]
 
 | Platform | Package | Notes |
 |---|---|---|
-| Linux | `.deb` or ZIP | ZIP includes `install.sh` |
-| macOS | `.dmg` or ZIP | Unsigned — right-click → Open to bypass Gatekeeper |
-| Windows | `.msi` or ZIP | Unsigned — choose "More info → Run anyway" in SmartScreen |
+| Linux | `z-editor_X.X.X_amd64.deb` or ZIP | ZIP includes `install.sh` |
+| macOS | `z-X.X.X.dmg` or ZIP | Unsigned — right-click → Open to bypass Gatekeeper |
+| Windows | `z-X.X.X.msi` or ZIP | Unsigned — choose "More info → Run anyway" in SmartScreen |
 
 All native packages (`.deb`, `.dmg`, `.msi`) bundle a JRE — no separate Java installation required.
 The ZIP packages require Java 11+ and include an install script.
