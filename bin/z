@@ -1,0 +1,6 @@
+#!/bin/sh
+exec java \
+    -Dawt.useSystemAAFontSettings=on \
+    -Dswing.aatext=true \
+    -jar "$(dirname "$0")/z.jar" \
+    "$@"
