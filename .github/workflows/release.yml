@@ -85,6 +85,7 @@ jobs:
             --java-options "-Dswing.aatext=true" \
             --description "Plan 9 Acme-inspired text editor" \
             --vendor "Ramon de Vera Jr." \
+            --linux-package-name z-editor \
             --linux-shortcut
 
       - name: Upload to release
