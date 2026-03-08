@@ -32,6 +32,7 @@ import java.awt.ComponentOrientation.RIGHT_TO_LEFT
 import javax.swing.text.{Utilities, DefaultCaret}
 import javax.swing.{JOptionPane, ScrollPaneConstants, SwingUtilities}
 import java.util.regex.Pattern
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 
 class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(Orientation.Horizontal) {
 	var rootPath = new File(".").getAbsolutePath
@@ -39,6 +40,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	var indScroll = true
 	var indInteractive = false
 	var indBind = false
+	var indHilite = false
 	var cmdProcess : Option[Process] = None
 	var cmdProcessWriter : Option[BufferedWriter] = None
 	var dragSel = false
@@ -208,6 +210,20 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 				case "Undo"                      => body.undo()
 				case "Wrap"                      => body.lineWrap = !body.lineWrap
 				case "CLine"                     => body.clineHighlight = !body.clineHighlight
+				case "Hilite"                    =>
+					val first = !indHilite
+					indHilite = true
+					body.hilite(ZLangRegistry.forPath(path))
+					if(first) ZTheme("z", body)
+				case ZWnd.reHilite("off")        =>
+					indHilite = false
+					body.hilite(SyntaxConstants.SYNTAX_STYLE_NONE)
+				case ZWnd.reHilite(lang)         =>
+					val first = !indHilite
+					indHilite = true
+					body.hilite(ZLangRegistry.forLang(lang))
+					if(first) ZTheme("z", body)
+				case ZWnd.reTheme(theme)         => ZTheme(theme, body)
 				case "Indent"                    => indIndent = !indIndent
 				case "Clear"                     => body.text = ""
 				case "Bind"                      => indBind = !indBind
@@ -435,6 +451,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 			else body.text = Source.fromFile(f).mkString
 			body.caret.position = 0
 			valid = true
+			if(indHilite) body.hilite(ZLangRegistry.forPath(f))
 		} catch {
 			case e : Throwable => JOptionPane.showMessageDialog(null, f + " " + e.getMessage, "Get Error", JOptionPane.ERROR_MESSAGE)
 		}
@@ -469,7 +486,8 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		p += "tab.size" -> String.valueOf(body.tabSize)
 		p += "indent.auto" -> (if(indIndent) "true" else "false")
 		p += "interactive" -> (if(indInteractive) "true" else "false")
-		p += "bind" -> (if(indBind) "true" else "false")
+		p += "bind"   -> (if(indBind)   "true" else "false")
+		p += "hilite" -> (if(indHilite) "true" else "false")
 		p += "lines" -> String.valueOf(body.lineCount)
 		p += "line.current" -> String.valueOf(body.currLineNo + 1)
 		p += "line.wrap" -> (if(body.lineWrap) "true" else "false")
@@ -535,6 +553,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		dirty = if(p.getOrElse(prefix + "dirty", "false").equals("true"))  true  else  false
 		scroll = if(p.getOrElse(prefix + "scroll", "false").equals("true"))  true  else false 
 
+		indHilite = if(p.getOrElse(prefix + "hilite", "false").equals("true")) true else false
 		if(!dirty)  command("Get") else  body.text = p.getOrElse(prefix + "body.text", "")
 
 		if(body.lineCount > 0) {
@@ -572,6 +591,8 @@ object ZWnd {
 
 	val reExplicitCmd = """%\s*(.+)$""".r
 
+	val reHilite = """Hilite\s+(\S+)""".r
+	val reTheme  = """Theme\s+(\S+)""".r
 	val reColors = """Color(TBack|TFore|TCaret|TSelFore|TSelBack|Back|Fore|Caret|SelFore|SelBack)\s+(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})""".r
 
 	val CmdExecIndicator = " <!> "
