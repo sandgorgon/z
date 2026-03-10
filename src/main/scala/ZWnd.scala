@@ -437,6 +437,8 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 			} 
 
 			if(new File(np).exists) {
+				if(new File(np).getCanonicalPath == new File(root).getCanonicalPath && loc.isEmpty)
+					return true
 				if(indBind)
 				{
 					path = np
