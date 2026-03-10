@@ -41,8 +41,10 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	var indScroll = true
 	var indInteractive = false
 	var indBind = false
-	var indHilite = false
-	var indLsp    = false
+	var indHilite   = false
+	var indLsp      = false
+	var indLineNums = false
+
 	var lspClient: Option[ZLspClient] = None
 	val lspParser = new ZLspDiagnosticParser
 	val hoverTimer     = new javax.swing.Timer(500, null)
@@ -124,10 +126,23 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 			peer.setComponentOrientation(RIGHT_TO_LEFT)
 	}
 
-	bottomComponent = new ScrollPane(body) {
-			peer.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS)
-			peer.setComponentOrientation(RIGHT_TO_LEFT)
+	val bodyScroll = new org.fife.ui.rtextarea.RTextScrollPane(body.peer, false) {
+		setComponentOrientation(RIGHT_TO_LEFT)
+		override def doLayout(): Unit = {
+			super.doLayout()
+			val vsb = getVerticalScrollBar
+			val rh  = getRowHeader
+			val vp  = getViewport
+			if (rh != null && vsb != null) {
+				val vsbW = if (vsb.isVisible) vsb.getWidth else 0
+				rh.setBounds(vsbW, rh.getY, rh.getWidth, rh.getHeight)
+				vp.setBounds(vsbW + rh.getWidth, vp.getY, vp.getWidth, vp.getHeight)
+			}
+		}
 	}
+	bodyScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS)
+	bottomComponent = swing.Component.wrap(bodyScroll)
+	styleGutter()
 
 	listenTo(tag.mouse.moves, body.mouse.moves)
 	reactions += {
@@ -262,6 +277,10 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 				case "Undo"                      => body.undo()
 				case "Wrap"                      => body.lineWrap = !body.lineWrap
 				case "CLine"                     => body.clineHighlight = !body.clineHighlight
+				case "Ln"                        =>
+					indLineNums = !indLineNums
+					bodyScroll.setLineNumbersEnabled(indLineNums)
+					styleGutter()
 				case "Hilite"                    =>
 					val first = !indHilite
 					indHilite = true
@@ -285,12 +304,14 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 				case ZWnd.reFont(font, pt)       =>
 					fontVar = new Font(font, Font.PLAIN, pt.toInt)
 					body.font = fontVar
+					styleGutter()
 				case ZWnd.reFONT(font, pt)       =>
 					fontFixed = new Font(font, Font.PLAIN, pt.toInt)
 					body.font = fontFixed
+					styleGutter()
 				case ZWnd.reTagFont(font, pt)    => tag.font = new Font(font, Font.PLAIN, pt.toInt)
-				case "Font"                      => body.font = fontVar
-				case "FONT"                      => body.font = fontFixed
+				case "Font"                      => body.font = fontVar; styleGutter()
+				case "FONT"                      => body.font = fontFixed; styleGutter()
 				case "Input"                     => indInteractive = !indInteractive
 				case ZWnd.reInput(prompt)        => ZWnd.rePrompt = prompt.r
 				case "Kill"                      =>
@@ -317,7 +338,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 					if(t.equals("SelBack"))  colorSelBack  = applyColor(colorSelBack,  (r.toInt, g.toInt, b.toInt))
 					if(t.equals("SelFore"))  colorSelFore  = applyColor(colorSelFore,  (r.toInt, g.toInt, b.toInt))
 					if(t.startsWith("T")) tag.colors(colorTBack, colorTFore, colorTCaret, colorTSelBack, colorTSelFore)
-					else body.colors(colorBack, colorFore, colorCaret, colorSelBack, colorSelFore)
+					else { body.colors(colorBack, colorFore, colorCaret, colorSelBack, colorSelFore); styleGutter() }
 				case "Lsp"                       =>
 					if (!indLsp) {
 						val langId = ZLangRegistry.langIdFor(path)
@@ -644,6 +665,22 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		indScroll = b
 	}
 
+	private def styleGutter(): Unit = {
+		val g = bodyScroll.getGutter
+		g.setBackground(new Color(
+			math.max(0, colorBack.getRed   - 15),
+			math.max(0, colorBack.getGreen - 15),
+			math.max(0, colorBack.getBlue  - 15)
+		))
+		g.setLineNumberColor(new Color(
+			colorFore.getRed / 2 + colorBack.getRed / 2,
+			colorFore.getGreen / 2 + colorBack.getGreen / 2,
+			colorFore.getBlue / 2 + colorBack.getBlue / 2
+		))
+		g.setLineNumberFont(body.peer.getFont)
+		g.setBorderColor(colorBack)
+	}
+
 	def applyColor(c : Color, colors : Tuple3[Int, Int, Int]) : Color = {
 		def valid(i : Int) = (i >= 0) && (i  <= 255)
 		if(valid(colors._1) && valid(colors._2) && valid(colors._3))  new Color(colors._1, colors._2, colors._3)
@@ -661,8 +698,9 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		p += "tab.size" -> String.valueOf(body.tabSize)
 		p += "indent.auto" -> (if(indIndent) "true" else "false")
 		p += "interactive" -> (if(indInteractive) "true" else "false")
-		p += "bind"   -> (if(indBind)   "true" else "false")
-		p += "hilite" -> (if(indHilite) "true" else "false")
+		p += "bind"         -> (if(indBind)     "true" else "false")
+		p += "hilite"       -> (if(indHilite)   "true" else "false")
+		p += "line.numbers" -> (if(indLineNums) "true" else "false")
 		p += "lines" -> String.valueOf(body.lineCount)
 		p += "line.current" -> String.valueOf(body.currLineNo + 1)
 		p += "line.wrap" -> (if(body.lineWrap) "true" else "false")
@@ -728,7 +766,10 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		dirty = if(p.getOrElse(prefix + "dirty", "false").equals("true"))  true  else  false
 		scroll = if(p.getOrElse(prefix + "scroll", "false").equals("true"))  true  else false 
 
-		indHilite = if(p.getOrElse(prefix + "hilite", "false").equals("true")) true else false
+		indHilite   = if(p.getOrElse(prefix + "hilite",       "false").equals("true")) true else false
+		indLineNums = if(p.getOrElse(prefix + "line.numbers", "false").equals("true")) true else false
+		if(indLineNums) bodyScroll.setLineNumbersEnabled(true)
+		styleGutter()
 		if(!dirty)  command("Get") else  body.text = p.getOrElse(prefix + "body.text", "")
 
 		if(body.lineCount > 0) {

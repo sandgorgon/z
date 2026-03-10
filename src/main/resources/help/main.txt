@@ -60,7 +60,7 @@ FILE COMMANDS
     New [fname ...]  Create a new window for each fname and load it
     Zerox            Clone the current window into a new window (window tag line only)
 
-    Dump [fname]     Save the full editor state to fname (default: zuma.dump in working dir)
+    Dump [fname]     Save the full editor state to fname (default: z.dump in working dir)
                      From a column tag line, fname is required.
     Load [fname ...] Restore one or more previously saved editor states
 
@@ -146,6 +146,7 @@ APPEARANCE
                       (e.g.  Theme monokai   Theme idea   Theme z)
                       The built-in 'z' theme matches the editor's default colour scheme.
     CLine             Toggle current-line highlight
+    Ln                Toggle line numbers in the body gutter
 
 
 LANGUAGE SERVER PROTOCOL (LSP)
@@ -227,6 +228,7 @@ SYSTEM DEFAULTS
     Wrap      off
     Tab       4
     Indent    off
+    Ln        off
     Font      Hack Regular 13
               (Bitstream Vera Sans Mono and Bitstream Vera Serif are also bundled)
 
