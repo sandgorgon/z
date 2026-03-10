@@ -28,6 +28,7 @@ MOUSE BUTTONS
     B3          Act on the highlighted text (or word under cursor) using these rules, in order:
 
                   1. Valid file/directory path  →  open in a new window
+                     (supports ~, ./, and ../ — see PATH SYNTAX below)
                   2. :n                         →  go to line n in the current file
                   3. :/regexp                   →  search forward for regexp from current position
                   4. filename:n                 →  open filename at line n
@@ -120,9 +121,26 @@ INTERACTIVE PROCESS INPUT
                     a new window.
 
     Dir <path>      Change the window's root directory to path (absolute or relative to the
-                    current root). Affects how relative tag line paths are resolved, where
-                    external commands run, and the LSP workspace root. Has no effect on
-                    windows whose tag line already contains an absolute path.
+                    current root). Supports ~, ./, and ../ path prefixes.
+                    Affects how relative tag line paths are resolved, where external commands
+                    run, and the LSP workspace root. Has no effect on windows whose tag line
+                    already contains an absolute path.
+
+
+PATH SYNTAX
+
+    Paths in tag lines, B3 navigation, Get/Put commands, and Dir support the
+    following prefix expansions:
+
+      ~             Expands to the user's home directory
+      ~/foo         Expands to $HOME/foo
+      .             Expands to the window's current root directory
+      ./foo         Expands to root/foo
+      ..            Expands to the parent of the window's current root
+      ../foo        Expands to root/../foo  (canonicalized)
+
+    Expansion is invisible — the tag line keeps the text as typed, and the
+    resolved absolute path is used only when reading, writing, or navigating.
 
 
 APPEARANCE

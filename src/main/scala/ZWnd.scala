@@ -413,7 +413,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		}
 
 		if(!matchre) {
-			var np = stxt
+			var np = ZUtilities.expandPath(stxt, root)
 
 			if(!ZUtilities.isFullPath(np)) {
 				var rp  = rawPath
@@ -506,7 +506,8 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	}
 
 	private def applyDir(d: String): Unit = {
-		val f = new File(if(ZUtilities.isFullPath(d)) d else root + File.separator + d)
+		val ed = ZUtilities.expandPath(d, root)
+		val f  = new File(if(ZUtilities.isFullPath(ed)) ed else root + File.separator + ed)
 		if(f.isDirectory) root = f.getCanonicalPath
 		else JOptionPane.showMessageDialog(null, s"Dir: not a directory: $d", "Dir Error", JOptionPane.ERROR_MESSAGE)
 	}
@@ -595,10 +596,18 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	def root_=(s : String) = { rootPath = new File(s).getCanonicalPath }
 
 	def path = tag.text match {
-		case ZWnd.reQuotedScratch(dirty, p) =>if(ZUtilities.isFullPath(p)) p else new File(root + ZUtilities.separator + p).getCanonicalPath
-		case ZWnd.reScratch(dirty, p) => if(ZUtilities.isFullPath(p)) p else new File(root + ZUtilities.separator + p).getCanonicalPath
-		case ZWnd.reQuotedPath(dirty, p) => if(ZUtilities.isFullPath(p))  p else new File(root + ZUtilities.separator + p).getCanonicalPath
-		case ZWnd.rePath(dirty, p) => if(ZUtilities.isFullPath(p))  p else new File(root + ZUtilities.separator + p).getCanonicalPath
+		case ZWnd.reQuotedScratch(dirty, p) =>
+			val ep = ZUtilities.expandPath(p, root)
+			if(ZUtilities.isFullPath(ep)) ep else new File(root + ZUtilities.separator + ep).getCanonicalPath
+		case ZWnd.reScratch(dirty, p) =>
+			val ep = ZUtilities.expandPath(p, root)
+			if(ZUtilities.isFullPath(ep)) ep else new File(root + ZUtilities.separator + ep).getCanonicalPath
+		case ZWnd.reQuotedPath(dirty, p) =>
+			val ep = ZUtilities.expandPath(p, root)
+			if(ZUtilities.isFullPath(ep)) ep else new File(root + ZUtilities.separator + ep).getCanonicalPath
+		case ZWnd.rePath(dirty, p) =>
+			val ep = ZUtilities.expandPath(p, root)
+			if(ZUtilities.isFullPath(ep)) ep else new File(root + ZUtilities.separator + ep).getCanonicalPath
 		case _ => root
 	}
 
