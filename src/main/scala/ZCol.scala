@@ -238,13 +238,16 @@ class ZCol extends BorderPanel {
 	def look(txt : String, traverse : Boolean = true) : Boolean = {
 		if(txt == null || txt.trim.isEmpty)  return true
 
+		val contextRoot = wnds.headOption.map(_.root).getOrElse(".")
+
 		txt match {
-			case ZCol.reFileLoc(f, loc) => fileLook(f, loc)				
-			case s => 
-				if(new File(s).exists) {
-					val o  = pathWindow(s)
+			case ZCol.reFileLoc(f, loc) => fileLook(f, loc)
+			case s =>
+				val expanded = ZUtilities.expandPath(s, contextRoot)
+				if(new File(expanded).exists) {
+					val o  = pathWindow(expanded)
 					if(o == None)  {
-						val w = wnd(s)
+						val w = wnd(expanded)
 						this += w
 						w.command("Get")
 					}
@@ -302,8 +305,10 @@ class ZCol extends BorderPanel {
 	}
 
 	def fileLook(f : String, loc : String) = {
-		val w = rawPathWindow(f).orElse(pathWindow(f)).getOrElse {
-			val n = wnd(f)
+		val contextRoot = wnds.headOption.map(_.root).getOrElse(".")
+		val ef = ZUtilities.expandPath(f, contextRoot)
+		val w  = rawPathWindow(ef).orElse(pathWindow(ef)).getOrElse {
+			val n = wnd(ef)
 			this += n
 			n.command("Get")
 			n
@@ -355,7 +360,7 @@ class ZCol extends BorderPanel {
 
 object ZCol {
 	val colTagLine = "CloseCol Close New Sort "
-	val wndTagLine = "Get Put Zerox Close | Undo Redo Wrap Indent Mark Bind "
+	val wndTagLine = "Get Put Zerox Close | Undo Redo Wrap Ln Indent Mark Bind "
 	val cmdTagLine = "Close | Undo Redo Wrap Kill Clear Font Scroll Input "
 
 	val reExternalCmd = """(?s)\s*([>!])\s*(.+)\s*$""".r

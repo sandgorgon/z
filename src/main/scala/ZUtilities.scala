@@ -34,6 +34,18 @@ object ZUtilities {
 	def separator = File.separator
 	def isFullPath(s: String) = (new File(s)).isAbsolute
 
+	def expandPath(s: String, root: String): String = {
+		if(s == null || s.isBlank) return s
+		val home = System.getProperty("user.home")
+		if(s == "~")
+			new File(home).getCanonicalPath
+		else if(s.startsWith("~/"))
+			new File(home + separator + s.drop(2)).getCanonicalPath
+		else if(s == "." || s == ".." || s.startsWith("./") || s.startsWith("../"))
+			new File(root + separator + s).getCanonicalPath
+		else s
+	}
+
 	def selectedText(ta : ZTextArea, e : MouseEvent) : String = selectedText(ta, ta.peer.viewToModel2D(e.point).toInt)
 	def selectedText(ta : ZTextArea, pt : Point) : String = selectedText(ta, ta.peer.viewToModel2D(pt).toInt)
 	def selectedText(ta : ZTextArea, pos : Int) : String = {
