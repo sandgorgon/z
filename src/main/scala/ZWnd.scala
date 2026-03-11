@@ -752,7 +752,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		body.tabSize = p.getOrElse(prefix + "tab.size", "4").toInt
 		body.lineWrap = if(p.getOrElse(prefix + "line.wrap", "false").equals("true")) true else false
 
-		fontFixed = new Font(p.getOrElse(prefix + "body.font.fixed", fontFixed.getFontName), Font.PLAIN, p.getOrElse(prefix + "body.font.size", fontFixed.getSize.toString).toInt)
+		fontFixed = new Font(p.getOrElse(prefix + "body.font.fixed", fontFixed.getFontName), Font.PLAIN, p.getOrElse(prefix + "body.font.fixed.size", fontFixed.getSize.toString).toInt)
 		fontVar = new Font(p.getOrElse(prefix + "body.font.variable", fontVar.getFontName), Font.PLAIN, p.getOrElse(prefix + "body.font.variable.size", fontVar.getSize.toString).toInt)
 		body.font = new Font(p.getOrElse(prefix + "body.font.current", body.font.getFontName), Font.PLAIN, p.getOrElse(prefix + "body.font.current.size", body.font.getSize.toString).toInt)
 		colorBack = new Color(p.getOrElse(prefix + "body.color.back", String.valueOf(colorBack.getRGB())).toInt)
@@ -762,7 +762,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		colorSelFore = new Color(p.getOrElse(prefix + "body.color.selfore", String.valueOf(colorSelFore.getRGB())).toInt)
 		body.colors(colorBack, colorFore, colorCaret, colorSelBack, colorSelFore)
 
-		tag.font = new Font(p.getOrElse(prefix + "tag.font", body.font.getFontName), Font.PLAIN, p.getOrElse(prefix + "tag.font.size", body.font.getSize.toString).toInt)
+		tag.font = new Font(p.getOrElse(prefix + "tag.font", body.font.getFontName), Font.PLAIN, p.getOrElse(prefix + "tag.size", body.font.getSize.toString).toInt)
 		colorTBack = new Color(p.getOrElse(prefix + "tag.color.back", String.valueOf(colorTBack.getRGB())).toInt)
 		colorTFore  = new Color(p.getOrElse(prefix + "tag.color.fore", String.valueOf(colorTFore.getRGB())).toInt)
 		colorTCaret  = new Color(p.getOrElse(prefix + "tag.color.caret", String.valueOf(colorTCaret.getRGB())).toInt)
@@ -791,7 +791,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 }
 
 object ZWnd {
-	var rePrompt = """[^\$%>\?]*[\$%>\?]\s*(.+)\s*""".r
+	var rePrompt = """[^\$%>\?#]*[\$%>\?#]\s*(.+)\s*""".r
 	val reInput = """Input\s+(.+)""".r
 
 	val rePre = """.*?(\S*)$""".r
@@ -804,7 +804,7 @@ object ZWnd {
 	val reFont = """Font\s+'(.+)'\s+([0-9]+)""".r
 	val reFONT = """FONT\s+'(.+)'\s+([0-9]+)""".r
 	val reTagFont = """TagFont\s+'(.+)'\s+([0-9]+)""".r
-	val reTab = """Tab\s+([0-9]+)?""".r
+	val reTab = """Tab\s+([0-9]+)""".r
 	val reQuotedGet = """Get\s+'(.+)'""".r
 	val reGet = """Get\s+(\S+)""".r
 	val reQuotedPut = """Put\s+'(.+)'.*""".r
