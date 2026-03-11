@@ -69,6 +69,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	val tag = new ZTextArea(initTagText, true)
 	tag.font = ZFonts.SANS_SERIF_MONO
 	tag.colors(colorTBack, colorTFore,  colorTCaret, colorTSelBack, colorTSelFore )
+	tag.rows = 1
 
 	val body = new ZTextArea(initBodyText)
 	body.colors(colorBack, colorFore, colorCaret, colorSelBack, colorSelFore)
@@ -414,7 +415,6 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 
 		if(!matchre) {
 			var np = ZUtilities.expandPath(stxt, root)
-
 			if(!ZUtilities.isFullPath(np)) {
 				var rp  = rawPath
 
@@ -446,7 +446,8 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 					look(loc)
 				}
 				else
- publish(new ZLookEvent(this, np + loc))
+					publish(new ZLookEvent(this, np + loc))
+
 				return true
 			}
 		}
