@@ -57,13 +57,16 @@ FILE COMMANDS
     Put              Save the file if dirty (window tag line), or all dirty files (column/app)
     Put [fname]      Save window content as fname
 
-    New              Create a new empty window (or column, from the app tag line)
+    New              Create a new empty window; from the app tag line, creates one in each column
     New [fname ...]  Create a new window for each fname and load it
+    NewCol           Create a new column (app tag line only)
     Zerox            Clone the current window into a new window (window tag line only)
 
     Dump [fname]     Save the full editor state to fname (default: z.dump in working dir)
                      From a column tag line, fname is required.
     Load [fname ...] Restore one or more previously saved editor states
+
+    Help             Open this help text (app tag line only)
 
 
 WINDOW MANAGEMENT
@@ -83,11 +86,11 @@ EDITING COMMANDS
     Indent      Toggle auto-indent (preserves leading whitespace on new lines)
     Tab n       Set tab width to n spaces
     Mark        Bookmark the current line
-    Clean       Toggle the dirty (modified) flag
+    Clean / Dirty   Toggle the dirty (modified) flag
     Clear       Erase all content in the window(s)
     Scroll      Toggle auto-scroll behaviour (useful for +Results windows)
-                  on  — caret and view follow new output (default)
-                  off — new output does not move the caret or scroll the view
+                  on  — caret and view follow new output
+                  off — new output does not move the caret or scroll the view (default)
 
     Cut         Cut selected text to the snarf buffer
     Snarf       Copy selected text to the snarf buffer (the Acme name for clipboard)
@@ -100,7 +103,6 @@ EDITING COMMANDS
 EXTERNAL COMMANDS
 
     < cmd       Replace the current selection (or insert at caret) with cmd's stdout
-    > cmd       Send the current selection as stdin to cmd
     | cmd       Pipe the selection through cmd; replace selection with stdout
     ! cmd       Run cmd and replace the entire window content with its output
                 From the app tag line: output goes to a new window in the rightmost column
@@ -113,7 +115,7 @@ EXTERNAL COMMANDS
 INTERACTIVE PROCESS INPUT
 
     Input [regexp]  Toggle line-at-a-time input mode for a window running an external process.
-                    Without regexp, uses '.*[>$%#]' to identify prompt lines.
+                    Without regexp, uses lines ending in >, $, %, ?, or # as prompts.
                     With regexp, lines matching it are treated as prompts; text entered after
                     the prompt is sent to the process on Enter.
 
@@ -145,11 +147,12 @@ PATH SYNTAX
 
 APPEARANCE
 
-    Font              Toggle between variable and fixed fonts
-    FONT              Toggle between variable and fixed fonts
-    Font 'name' [pt]  Set the variable-width font (quotes required if name has spaces)
-    FONT 'name' [pt]  Set the fixed-width font (quotes required if name has spaces)
+    Font              Apply the stored variable-width font to the body
+    FONT              Apply the stored fixed-width font to the body
+    Font 'name' pt    Set and apply the variable-width font
+    FONT 'name' pt    Set and apply the fixed-width font
     Fonts             List all available font names (app tag line only)
+    TagFont 'name' pt Set the tag line font for the window
 
     Color(Back|Fore|Caret|SelBack|SelFore) R G B
                       Set body colours (integers 0–255)
