@@ -153,6 +153,18 @@ class ZCol extends BorderPanel {
 					w.root = src.root
 					w.externalCmd(">", cmd, Some(Option(src.body.selected).getOrElse(src.body.text)))
 				case ZCol.reExternalCmd(op, cmd) if(op.equals("!")) => command("! " + cmd)
+				case "Props" =>
+					val n = src.rawPath + "+Props"
+					val w = rawPathWindow(n).getOrElse {
+						val nw = wnd(n + " Close")
+						this += nw
+						nw
+					}
+					w.root = src.root
+					w.body.text = src.properties.toSeq.sortBy(_._1)
+						.map { case (k, v) => s"$k = $v" }
+						.mkString(util.Properties.lineSeparator)
+					w.dirty = false
 				case cmd =>
 					val n = src.rawPath + "+Results"
 					val w = rawPathWindow(n).getOrElse {
@@ -211,6 +223,16 @@ class ZCol extends BorderPanel {
 				case "Sort" => 
 					wnds = wnds.sortWith((a, b) => a.path.compareTo(b.path) > 0)
 					refresh
+				case "Props" =>
+					val w = rawPathWindow("+Props").getOrElse {
+						val nw = wnd("+Props Close")
+						this += nw
+						nw
+					}
+					w.body.text = properties.toSeq.sortBy(_._1)
+						.map { case (k, v) => s"$k = $v" }
+						.mkString(util.Properties.lineSeparator)
+					w.dirty = false
 				case "CloseCol" => 
 					var cancel = false
 					wnds.foreach((w) => if(!cancel) {
