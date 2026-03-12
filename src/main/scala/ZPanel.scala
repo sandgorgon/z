@@ -159,6 +159,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 					cols.foreach(_.command(cmd))
 				case ZPanel.reTagFont(font, pt) =>
 					ZFonts.defaultTag = new Font(font, Font.PLAIN, pt.toInt)
+					tag.font = ZFonts.defaultTag
 					cols.foreach(_.command(cmd))
 				case "Fonts" => fonts
 				case "Help" => help
@@ -326,6 +327,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 				p.getOrElse("app.font.tag",      ZFonts.defaultTag.getFontName),
 				Font.PLAIN,
 				p.getOrElse("app.font.tag.size", ZFonts.defaultTag.getSize.toString).toInt)
+			tag.font = ZFonts.defaultTag
 			for(i <- 1 to cnt) {
 				val c = this += new ZCol
 				c.load(p, "column." + i.toString + "." )

@@ -73,6 +73,7 @@ sbt test
 - **Line numbers** — toggle with `Ln`
 - **Path expansion** — tag lines and commands support `~`, `./`, and `../` prefixes
 - **Root directory control** — `Dir <path>` changes where relative paths resolve, where external commands run, and the LSP workspace root; works from window, column, or app tag line
+- **Font control** — `Font`/`FONT` set the variable/fixed-width body font; `TagFont` sets the tag line font. All three cascade from the app tag line (sets editor-wide default), column tag line (that column), or window tag line (that window only)
 - **Keyboard shortcuts** for navigation, selection, editing, and tools — see the help screen for the full list
 
 Full command reference: [Z Help Screen](https://github.com/sandgorgon/z/tree/master/src/main/resources/help/main.txt)
