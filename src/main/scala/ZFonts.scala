@@ -44,4 +44,8 @@ object ZFonts {
 	}
 
 	def familyNames = ge.getAvailableFontFamilyNames
+
+	var defaultFixed: Font = SANS_SERIF_MONO.deriveFont(Font.PLAIN, 13f)
+	var defaultVar:   Font = SANS_SERIF
+	var defaultTag:   Font = SANS_SERIF_MONO
 }

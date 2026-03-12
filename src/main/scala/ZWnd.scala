@@ -67,7 +67,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	var colorTSelFore = new Color(0x4A, 0x61, 0x95)   // tag blue — inverted from tag white
 
 	val tag = new ZTextArea(initTagText, true)
-	tag.font = ZFonts.SANS_SERIF_MONO
+	tag.font = ZFonts.defaultTag
 	tag.colors(colorTBack, colorTFore,  colorTCaret, colorTSelBack, colorTSelFore )
 	tag.rows = 1
 
@@ -118,8 +118,8 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		def changedUpdate(e: javax.swing.event.DocumentEvent): Unit = {}
 	})
 
-	var fontVar = ZFonts.SANS_SERIF
-	var fontFixed = ZFonts.SANS_SERIF_MONO.deriveFont(13f)
+	var fontVar   = ZFonts.defaultVar
+	var fontFixed = ZFonts.defaultFixed
 	body.font = fontFixed
 	
 	dividerSize = 2

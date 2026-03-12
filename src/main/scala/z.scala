@@ -59,6 +59,7 @@ object z extends SwingApplication {
 		case e : ZColStatusEvent => status.text = e.properties.get("command.prev").get
 		case e : ZPanelStatusEvent =>
 						status.text = e.properties.get("command.prev").get
+						e.properties.get("app.dir").foreach(d => frame.title = d + " - z editor")
 	}
 
 	def top = new MainFrame {
