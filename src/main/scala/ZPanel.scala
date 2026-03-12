@@ -148,7 +148,8 @@ class ZPanel(initTagText: String) extends BorderPanel {
 				case ZPanel.reLoad(p) => load(p)
 				case "Dump" => dump()
 				case ZPanel.reDump(p) => dump(p)
-				case "Dir" => println("TODO: Dir command")
+				case ZPanel.reDirQuoted(d) => dispatchDir(d, s"Dir '$d'")
+				case ZPanel.reDir(d)       => dispatchDir(d, s"Dir $d")
 				case "Fonts" => fonts
 				case "Help" => help
 				case ZCol.reExternalCmd(op, cmd) =>
@@ -238,6 +239,16 @@ class ZPanel(initTagText: String) extends BorderPanel {
 		col += w
 	}
 
+	private def dispatchDir(d: String, cmd: String): Unit = {
+		val cwd = new File(".").getCanonicalPath
+		val ed  = ZUtilities.expandPath(d, cwd)
+		if(ZUtilities.isFullPath(ed) && !new File(ed).isDirectory) {
+			JOptionPane.showMessageDialog(null, s"Dir: not a directory: $d", "Dir Error", JOptionPane.ERROR_MESSAGE)
+			return
+		}
+		cols.foreach(_.command(cmd))
+	}
+
 	def populate(args : Array[String]) = {
 		var w : ZWnd = null
 		var col : ZCol = null
@@ -319,8 +330,10 @@ class ZPanel(initTagText: String) extends BorderPanel {
 }
 
 object ZPanel {
-	val reLoad = """Load\s+(.+)""".r
-	val reDump = """Dump\s+(.+)""".r
+	val reLoad      = """Load\s+(.+)""".r
+	val reDump      = """Dump\s+(.+)""".r
+	val reDirQuoted = """Dir\s+'(.+)'""".r
+	val reDir       = """Dir\s+(\S+)""".r
 }
 
 class ZPanelStatusEvent(val source : ZPanel, val properties : Map[String, String]) extends Event

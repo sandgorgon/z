@@ -1,13 +1,25 @@
-z
-=
+# z
 
-[Plan 9](http://plan9.bell-labs.com/plan9/) Acme Inspired Editor, done in Scala.
+A [Plan 9 Acme](https://9p.io/plan9/)-inspired text editor written in Scala. It follows the Acme mouse-chording model: right-click executes or navigates, middle-click-drag selects and runs — keeping your hands on the mouse and out of modal menus. There is no command palette, no sidebar, and no plugin system; just text, tag lines, and commands.
 
-![Screenshot](/img/screenshot.jpg "Title")
+![z editor showing multiple columns and windows with syntax highlighting](/img/screenshot.jpg)
 
 Built with Scala 3.8.2, sbt 1.10.7, and Java 11+.
 
-To build and install:
+## Installation
+
+Pre-built packages for Linux, macOS, and Windows are available on the [Releases](https://github.com/sandgorgon/z/releases) page.
+
+| Platform | Package | Notes |
+|---|---|---|
+| Linux | `z-editor_X.X.X_amd64.deb` or ZIP | ZIP includes `install.sh` |
+| macOS | `z-X.X.X.dmg` or ZIP | Unsigned — right-click → Open to bypass Gatekeeper |
+| Windows | `z-X.X.X.msi` or ZIP | Unsigned — choose "More info → Run anyway" in SmartScreen |
+
+All native packages (`.deb`, `.dmg`, `.msi`) bundle a JRE — no separate Java installation required.
+The ZIP packages require Java 11+ and include an install script.
+
+## Build from Source
 
 ```sh
 sbt assembly
@@ -32,22 +44,11 @@ Make it executable:
 chmod +x ~/bin/z
 ```
 
-How to use it is documented in the [Z Help Screen](https://github.com/sandgorgon/z/tree/master/src/main/resources/help/main.txt).
+To run the tests:
 
-The wiki has some guides on usage.
-
-## Installation
-
-Pre-built packages for Linux, macOS, and Windows are available on the [Releases](https://github.com/sandgorgon/z/releases) page.
-
-| Platform | Package | Notes |
-|---|---|---|
-| Linux | `z-editor_X.X.X_amd64.deb` or ZIP | ZIP includes `install.sh` |
-| macOS | `z-X.X.X.dmg` or ZIP | Unsigned — right-click → Open to bypass Gatekeeper |
-| Windows | `z-X.X.X.msi` or ZIP | Unsigned — choose "More info → Run anyway" in SmartScreen |
-
-All native packages (`.deb`, `.dmg`, `.msi`) bundle a JRE — no separate Java installation required.
-The ZIP packages require Java 11+ and include an install script.
+```sh
+sbt test
+```
 
 ## Features
 
@@ -58,6 +59,20 @@ The ZIP packages require Java 11+ and include an install script.
   - Hover tooltips with type information and documentation
   - Code completion popup via `Complete` or **Ctrl+Space**
   - Diagnostics listed in a `+Diagnostics` scratch window
-  - Configure servers in `~/.zlsp` (one `langId = command` per line, e.g. `go = gopls`)
+  - Configure servers in `~/.zlsp` (one `langId = command` per line):
+    ```
+    go     = gopls
+    python = pylsp
+    scala  = metals
+    ```
 - **Session persistence** — `Dump` / `Load` save and restore the full editor layout
-- **Scratch buffers** — filenames containing `+` are never written to disk
+- **Scratch buffers** — filenames containing `+` are never written to disk (e.g. `+scratch`, `+Results`)
+- **Batch commands** — `X 'regexp' cmd` / `Y 'regexp' cmd` run a command across matching/non-matching windows
+- **Interactive processes** — `Input` mode lets you send text line-by-line to a running process
+- **Brace matching** — Ctrl+B1 selects the region between matching `{}` `[]` `()` `<>` or any delimiter pair
+- **Line numbers** — toggle with `Ln`
+- **Path expansion** — tag lines and commands support `~`, `./`, and `../` prefixes
+- **Root directory control** — `Dir <path>` changes where relative paths resolve, where external commands run, and the LSP workspace root; works from window, column, or app tag line
+- **Keyboard shortcuts** for navigation, selection, editing, and tools — see the help screen for the full list
+
+Full command reference: [Z Help Screen](https://github.com/sandgorgon/z/tree/master/src/main/resources/help/main.txt)
