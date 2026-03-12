@@ -48,7 +48,7 @@ class ZCol extends BorderPanel {
 	val tag = new ZTextArea(ZCol.colTagLine)
 	tag.colors(colorTBack, colorTFore,  colorTCaret, colorTSelBack, colorTSelFore )
 	tag.border = BorderFactory.createMatteBorder(0,0,1,0, Color.BLACK)
-	tag.font = ZFonts.SANS_SERIF_MONO
+	tag.font = ZFonts.defaultTag
 
 	val body : Panel = new BorderPanel
 
@@ -227,6 +227,9 @@ class ZCol extends BorderPanel {
 					wnds.filter(_.rawPath.matches(re)).foreach(_.command(c))
 				case ZCol.reFilteredExec(p, re, c)  if(p.equals("Y")) =>
 					wnds.filterNot(_.rawPath.matches(re)).foreach(_.command(c))
+				case ZCol.reTagFont(font, pt) =>
+					tag.font = new Font(font, Font.PLAIN, pt.toInt)
+					wnds.foreach(_.command(cmd))
 				case c =>
 					if(!look(c, false)) wnds.foreach((w) => if(!w.look(c)) w.command(c))
 			}
@@ -329,6 +332,8 @@ class ZCol extends BorderPanel {
 		var p = new HashMap[String, String]
 		p += "window.count" -> String.valueOf(wnds.length)
 		p += "command.prev" -> prevCmd
+		p += "tag.font"     -> tag.font.getFontName
+		p += "tag.size"     -> tag.font.getSize.toString
 		p
 	}
 
@@ -348,6 +353,10 @@ class ZCol extends BorderPanel {
 		val cnt = p.getOrElse(prefix + "window.count", "0").toInt
 		prevCmd = p.getOrElse(prefix + "command.prev", "")
 		tag.text = p.getOrElse(prefix + "tag.text", ZCol.colTagLine)
+		tag.font = new Font(
+			p.getOrElse(prefix + "tag.font", ZFonts.defaultTag.getFontName),
+			Font.PLAIN,
+			p.getOrElse(prefix + "tag.size", ZFonts.defaultTag.getSize.toString).toInt)
 
 		for(i <- 1 to cnt)
 		{
@@ -366,6 +375,7 @@ object ZCol {
 	val reExternalCmd = """(?s)\s*([>!])\s*(.+)\s*$""".r
 	val reFileLoc = """(.+)(:[0-9]+|:/.+)""".r
 	val reFilteredExec = """(?s)\s*(X|Y)\s+'([^']+)'\s+(.+)\s*$""".r
+	val reTagFont = """TagFont\s+'(.+)'\s+([0-9]+)""".r
 }
 
 class ZCmdCloseColEvent(val source : ZCol) extends Event

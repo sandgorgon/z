@@ -67,7 +67,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	var colorTSelFore = new Color(0x4A, 0x61, 0x95)   // tag blue — inverted from tag white
 
 	val tag = new ZTextArea(initTagText, true)
-	tag.font = ZFonts.SANS_SERIF_MONO
+	tag.font = ZFonts.defaultTag
 	tag.colors(colorTBack, colorTFore,  colorTCaret, colorTSelBack, colorTSelFore )
 	tag.rows = 1
 
@@ -118,8 +118,8 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		def changedUpdate(e: javax.swing.event.DocumentEvent): Unit = {}
 	})
 
-	var fontVar = ZFonts.SANS_SERIF
-	var fontFixed = ZFonts.SANS_SERIF_MONO.deriveFont(13f)
+	var fontVar   = ZFonts.defaultVar
+	var fontFixed = ZFonts.defaultFixed
 	body.font = fontFixed
 	
 	dividerSize = 2
@@ -511,7 +511,19 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	private def applyDir(d: String): Unit = {
 		val ed = ZUtilities.expandPath(d, root)
 		val f  = new File(if(ZUtilities.isFullPath(ed)) ed else root + File.separator + ed)
-		if(f.isDirectory) root = f.getCanonicalPath
+		if(f.isDirectory) {
+			val newRoot = f.getCanonicalPath
+			if(newRoot != root) {
+				val rp = tag.text match {
+					case ZWnd.reQuotedPath(_, p) => p
+					case ZWnd.rePath(_, p)       => p
+					case _                       => ""
+				}
+				if(rp.nonEmpty && !ZUtilities.isFullPath(ZUtilities.expandPath(rp, root)))
+					dirty = true
+				root = newRoot
+			}
+		}
 		else JOptionPane.showMessageDialog(null, s"Dir: not a directory: $d", "Dir Error", JOptionPane.ERROR_MESSAGE)
 	}
 
@@ -742,7 +754,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 
 	def dump : Map[String, String] = {
 		var p = properties
-		p += "body.text" -> (if(dirty) body.text else "")
+		p += "body.text" -> (if(dirty || ZWnd.isScratchBuffer(tag.text)) body.text else "")
 		p += "tag.text" -> tag.text
 		p
 	}

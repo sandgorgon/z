@@ -32,7 +32,7 @@ object z extends SwingApplication {
 
 	var frame:MainFrame = null
 
-	val mainPanel = new ZPanel("Help NewCol Put Dump Load ")
+	val mainPanel = new ZPanel("Help NewCol Put Dump Load Dir ")
 
 	val status = new Label("Plan 9 acme inspired") {
 		horizontalAlignment = Alignment.Left
@@ -59,6 +59,7 @@ object z extends SwingApplication {
 		case e : ZColStatusEvent => status.text = e.properties.get("command.prev").get
 		case e : ZPanelStatusEvent =>
 						status.text = e.properties.get("command.prev").get
+						e.properties.get("app.dir").foreach(d => frame.title = d + " - z editor")
 	}
 
 	def top = new MainFrame {

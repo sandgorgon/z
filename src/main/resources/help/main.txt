@@ -122,11 +122,14 @@ INTERACTIVE PROCESS INPUT
     Bind            Replace the current window's content on Look/navigate instead of opening
                     a new window.
 
-    Dir <path>      Change the window's root directory to path (absolute or relative to the
-                    current root). Supports ~, ./, and ../ path prefixes.
+    Dir <path>      Change the root directory to path (absolute or relative to the current
+                    root). Supports ~, ./, and ../ path prefixes.
                     Affects how relative tag line paths are resolved, where external commands
-                    run, and the LSP workspace root. Has no effect on windows whose tag line
-                    already contains an absolute path.
+                    run, and the LSP workspace root.
+                    From the app or column tag line, applies to all windows in scope.
+                    Windows with a relative tag line path are marked dirty when the root
+                    changes (their path now resolves differently). Windows with an absolute
+                    tag line path are unaffected.
 
 
 PATH SYNTAX
@@ -152,7 +155,10 @@ APPEARANCE
     Font 'name' pt    Set and apply the variable-width font
     FONT 'name' pt    Set and apply the fixed-width font
     Fonts             List all available font names (app tag line only)
-    TagFont 'name' pt Set the tag line font for the window
+    TagFont 'name' pt Set the tag line font. From a window tag line, affects that window
+                      only. From a column tag line, affects the column and all its windows.
+                      From the app tag line, affects all tag lines editor-wide and sets the
+                      default for new windows.
 
     Color(Back|Fore|Caret|SelBack|SelFore) R G B
                       Set body colours (integers 0–255)

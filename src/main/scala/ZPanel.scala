@@ -41,6 +41,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 	var  dragSel = false
 	var dragSelMark = -1
 	var prevCmd = ""
+	var currentDir = new File(".").getCanonicalPath
 
 	val tag = new ZTextArea(initTagText)
 	tag.colors(colorTBack, colorTFore,  colorTCaret, colorTSelBack, colorTSelFore )
@@ -148,7 +149,18 @@ class ZPanel(initTagText: String) extends BorderPanel {
 				case ZPanel.reLoad(p) => load(p)
 				case "Dump" => dump()
 				case ZPanel.reDump(p) => dump(p)
-				case "Dir" => println("TODO: Dir command")
+				case ZPanel.reDirQuoted(d) => dispatchDir(d, s"Dir '$d'")
+				case ZPanel.reDir(d)       => dispatchDir(d, s"Dir $d")
+				case ZPanel.reFont(font, pt) =>
+					ZFonts.defaultVar = new Font(font, Font.PLAIN, pt.toInt)
+					cols.foreach(_.command(cmd))
+				case ZPanel.reFONT(font, pt) =>
+					ZFonts.defaultFixed = new Font(font, Font.PLAIN, pt.toInt)
+					cols.foreach(_.command(cmd))
+				case ZPanel.reTagFont(font, pt) =>
+					ZFonts.defaultTag = new Font(font, Font.PLAIN, pt.toInt)
+					tag.font = ZFonts.defaultTag
+					cols.foreach(_.command(cmd))
 				case "Fonts" => fonts
 				case "Help" => help
 				case ZCol.reExternalCmd(op, cmd) =>
@@ -238,6 +250,16 @@ class ZPanel(initTagText: String) extends BorderPanel {
 		col += w
 	}
 
+	private def dispatchDir(d: String, cmd: String): Unit = {
+		val ed = ZUtilities.expandPath(d, currentDir)
+		if(ZUtilities.isFullPath(ed) && !new File(ed).isDirectory) {
+			JOptionPane.showMessageDialog(null, s"Dir: not a directory: $d", "Dir Error", JOptionPane.ERROR_MESSAGE)
+			return
+		}
+		if(ZUtilities.isFullPath(ed)) currentDir = ed
+		cols.foreach(_.command(cmd))
+	}
+
 	def populate(args : Array[String]) = {
 		var w : ZWnd = null
 		var col : ZCol = null
@@ -292,6 +314,20 @@ class ZPanel(initTagText: String) extends BorderPanel {
 			val p = ZSettings.load(path)
 			val cnt = p.getOrElse("column.count", "0").toInt
 			prevCmd = "Cmd: " + p.getOrElse("command.prev", "")
+			currentDir = p.getOrElse("app.dir", currentDir)
+			ZFonts.defaultFixed = new Font(
+				p.getOrElse("app.font.fixed",      ZFonts.defaultFixed.getFontName),
+				Font.PLAIN,
+				p.getOrElse("app.font.fixed.size", ZFonts.defaultFixed.getSize.toString).toInt)
+			ZFonts.defaultVar = new Font(
+				p.getOrElse("app.font.variable",      ZFonts.defaultVar.getFontName),
+				Font.PLAIN,
+				p.getOrElse("app.font.variable.size", ZFonts.defaultVar.getSize.toString).toInt)
+			ZFonts.defaultTag = new Font(
+				p.getOrElse("app.font.tag",      ZFonts.defaultTag.getFontName),
+				Font.PLAIN,
+				p.getOrElse("app.font.tag.size", ZFonts.defaultTag.getSize.toString).toInt)
+			tag.font = ZFonts.defaultTag
 			for(i <- 1 to cnt) {
 				val c = this += new ZCol
 				c.load(p, "column." + i.toString + "." )
@@ -301,8 +337,15 @@ class ZPanel(initTagText: String) extends BorderPanel {
 
 	def properties : Map[String, String] = {
 		var p = new HashMap[String, String]
-		p += "column.count" -> String.valueOf(cols.length)
-		p += "command.prev" -> prevCmd
+		p += "column.count"          -> String.valueOf(cols.length)
+		p += "command.prev"          -> prevCmd
+		p += "app.dir"               -> currentDir
+		p += "app.font.fixed"        -> ZFonts.defaultFixed.getFontName
+		p += "app.font.fixed.size"   -> ZFonts.defaultFixed.getSize.toString
+		p += "app.font.variable"     -> ZFonts.defaultVar.getFontName
+		p += "app.font.variable.size"-> ZFonts.defaultVar.getSize.toString
+		p += "app.font.tag"          -> ZFonts.defaultTag.getFontName
+		p += "app.font.tag.size"     -> ZFonts.defaultTag.getSize.toString
 		p
 	}
 
@@ -319,8 +362,13 @@ class ZPanel(initTagText: String) extends BorderPanel {
 }
 
 object ZPanel {
-	val reLoad = """Load\s+(.+)""".r
-	val reDump = """Dump\s+(.+)""".r
+	val reLoad      = """Load\s+(.+)""".r
+	val reDump      = """Dump\s+(.+)""".r
+	val reDirQuoted = """Dir\s+'(.+)'""".r
+	val reDir       = """Dir\s+(\S+)""".r
+	val reFont      = """Font\s+'(.+)'\s+([0-9]+)""".r
+	val reFONT      = """FONT\s+'(.+)'\s+([0-9]+)""".r
+	val reTagFont   = """TagFont\s+'(.+)'\s+([0-9]+)""".r
 }
 
 class ZPanelStatusEvent(val source : ZPanel, val properties : Map[String, String]) extends Event
