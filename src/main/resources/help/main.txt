@@ -67,6 +67,8 @@ FILE COMMANDS
     Load [fname ...] Restore one or more previously saved editor states
 
     Help             Open this help text (app tag line only)
+    Props            Open a +Props scratch window showing current properties for the
+                     app, column, or window (depending on which tag line it is run from)
 
 
 WINDOW MANAGEMENT

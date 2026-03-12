@@ -163,6 +163,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 					cols.foreach(_.command(cmd))
 				case "Fonts" => fonts
 				case "Help" => help
+				case "Props" => props
 				case ZCol.reExternalCmd(op, cmd) =>
 					if(cols.length < 1)  this += new ZCol
 					cols.last.command("! " + cmd)
@@ -246,6 +247,16 @@ class ZPanel(initTagText: String) extends BorderPanel {
 		val w = col.wnd("+Help")
 		w.command("Scroll")
 		w.body.text = Source.fromURL(this.getClass.getResource("help/main.txt")).mkString
+		w.dirty = false
+		col += w
+	}
+
+	def props = {
+		val col = if(cols.isEmpty) this += new ZCol else cols.last
+		val w = col.wnd("+Props Close")
+		w.body.text = properties.toSeq.sortBy(_._1)
+			.map { case (k, v) => s"$k = $v" }
+			.mkString(util.Properties.lineSeparator)
 		w.dirty = false
 		col += w
 	}

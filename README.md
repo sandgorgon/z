@@ -66,6 +66,7 @@ sbt test
     scala  = metals
     ```
 - **Session persistence** — `Dump` / `Load` save and restore the full editor layout
+- **Property inspection** — `Props` opens a `+Props` scratch window listing the current properties of the app, column, or window (depending on where it is run from)
 - **Scratch buffers** — filenames containing `+` are never written to disk (e.g. `+scratch`, `+Results`)
 - **Batch commands** — `X 'regexp' cmd` / `Y 'regexp' cmd` run a command across matching/non-matching windows
 - **Interactive processes** — `Input` mode lets you send text line-by-line to a running process

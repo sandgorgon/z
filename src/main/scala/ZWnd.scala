@@ -87,7 +87,10 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 				val col  = dot - body.lineStart(line)
 				c.hover(line, col, text =>
 					javax.swing.SwingUtilities.invokeLater(() => {
-						body.lspTooltip = if (text.isEmpty) null else text
+						body.lspTooltip = if (text.isEmpty) null else
+						"<html><pre>" +
+						text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") +
+						"</pre></html>"
 						if (text.nonEmpty) {
 							val pt = hoverPoint
 							javax.swing.ToolTipManager.sharedInstance().mouseMoved(
