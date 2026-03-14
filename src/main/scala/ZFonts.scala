@@ -24,13 +24,13 @@ import java.awt.{GraphicsEnvironment, Font}
 import java.io.File
 
 object ZFonts {
-	val SANS_SERIF_MONO = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Hack-Regular.ttf")).deriveFont(Font.PLAIN, 12f)
-	val SANS_SERIF_MONO_OBLIQUE = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Hack-RegularOblique.ttf")).deriveFont(Font.PLAIN, 12f)
-	val SANS_SERIF_MONO_BOLD = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Hack-Bold.ttf")).deriveFont(Font.PLAIN, 12f)
-	val SANS_SERIF_MONO_BOLD_OBLIQUE = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Hack-BoldOblique.ttf")).deriveFont(Font.PLAIN, 12f)
+	val SANS_SERIF_MONO = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Hack-Regular.ttf")).deriveFont(Font.PLAIN, 14f)
+	val SANS_SERIF_MONO_OBLIQUE = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Hack-RegularOblique.ttf")).deriveFont(Font.PLAIN, 14f)
+	val SANS_SERIF_MONO_BOLD = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Hack-Bold.ttf")).deriveFont(Font.PLAIN, 14f)
+	val SANS_SERIF_MONO_BOLD_OBLIQUE = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Hack-BoldOblique.ttf")).deriveFont(Font.PLAIN, 14f)
 
-	val SANS_SERIF = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Vera.ttf")).deriveFont(Font.PLAIN, 12f)
-	val SERIF = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/VeraSe.ttf")).deriveFont(Font.PLAIN, 12f)
+	val SANS_SERIF = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/Vera.ttf")).deriveFont(Font.PLAIN, 14f)
+	val SERIF = Font.createFont(Font.TRUETYPE_FONT, this.getClass.getResourceAsStream("fonts/VeraSe.ttf")).deriveFont(Font.PLAIN, 14f)
 	
 	val ge = GraphicsEnvironment.getLocalGraphicsEnvironment
 
@@ -45,7 +45,7 @@ object ZFonts {
 
 	def familyNames = ge.getAvailableFontFamilyNames
 
-	var defaultFixed: Font = SANS_SERIF_MONO.deriveFont(Font.PLAIN, 13f)
+	var defaultFixed: Font = SANS_SERIF_MONO.deriveFont(Font.PLAIN, 14f)
 	var defaultVar:   Font = SANS_SERIF
 	var defaultTag:   Font = SANS_SERIF_MONO
 }

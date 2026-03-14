@@ -314,9 +314,7 @@ class ZCol extends BorderPanel {
 		}
 	}
 
-	def genWnd(p : String = "+", tag : String = ZCol.wndTagLine) = new ZWnd(p + " " + tag, "")
-
-	//def wnd(p : String = "+") = new ZWnd(p + " " + ZCol.wndTagLine,  "")
+	def genWnd(p : String = "+", tag : String = ZCol.wndTagLine) = new ZWnd((if(p.contains(" ")) s"'$p'" else p) + " " + tag, "")
 
 	def closeWnd(w : ZWnd) : Boolean  = {
 		if(w.dirty && !ZWnd.isScratchBuffer(w.rawPath) && (new File(w.path)).isFile) {
