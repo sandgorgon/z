@@ -278,6 +278,9 @@ class ZPanel(initTagText: String) extends BorderPanel {
 		var action = ""
 		args.foreach((a) => {
 			a match {
+				case "-h" | "--help" | "-help" =>
+					System.out.println(Source.fromURL(this.getClass.getResource("help/main.txt")).mkString)
+					System.exit(1)
 				case "-c" => 
 					col = this += new ZCol
 					action = ""
