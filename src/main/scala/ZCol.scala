@@ -221,7 +221,7 @@ class ZCol extends BorderPanel {
 				case "Rt" => publish(new ZMoveColEvent("Rt", this))
 				case "New" => this += genWnd()
 				case "Sort" => 
-					wnds = wnds.sortWith((a, b) => a.path.compareTo(b.path) > 0)
+					wnds = wnds.sortWith((a, b) => a.path.compareTo(b.path) < 0)
 					refresh
 				case "Props" =>
 					val w = rawPathWindow("+Props").getOrElse {

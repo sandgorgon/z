@@ -8,10 +8,13 @@ USAGE
 
 COMMAND LINE OPTIONS
 
+    -h, --help       Print this help text to stdout and exit
+
     -c               Create a new column; succeeding paths go into it
     -! 'cmd ...'     Execute cmd in the last file/directory opened
     -c! 'cmd ...'    Execute cmd in the current column
     -a! 'cmd ...'    Execute cmd from the app tag line (affects all columns)
+    -r               Reset: treat subsequent arguments as file/directory paths
     -l 're'          Search for regexp 're' in the last file/directory opened
     -cl 're'         Search for regexp 're' in the current column
     -al 're'         Search for regexp 're' across all columns
@@ -52,19 +55,23 @@ MOUSE BUTTONS
 
 FILE COMMANDS
 
-    Get              Load the file/directory from the window's tag line path
+    Get              Load the file/directory from the window's tag line path.
+                     For a directory: shows a sorted listing; subdirectories are marked
+                     with a trailing /.
     Get [fname]      Load fname without changing the tag line path
-    Put              Save the file if dirty (window tag line), or all dirty files (column/app)
+    Put              Save the file to disk (no-op for scratch buffers and directories).
+                     From a column or app tag line, saves all files in scope.
     Put [fname]      Save window content as fname
 
     New              Create a new empty window; from the app tag line, creates one in each column
-    New [fname ...]  Create a new window for each fname and load it
     NewCol           Create a new column (app tag line only)
     Zerox            Clone the current window into a new window (window tag line only)
 
     Dump [fname]     Save the full editor state to fname (default: z.dump in working dir)
-                     From a column tag line, fname is required.
-    Load [fname ...] Restore one or more previously saved editor states
+                     App tag line only.
+    Load [fname]     Restore a previously saved editor state (default: z.dump in working dir)
+                     App tag line only. Note: syntax highlighting (Hilite) is not
+                     automatically re-applied on load — run Hilite again if needed.
 
     Help             Open this help text (app tag line only)
     Props            Open a +Props scratch window showing current properties for the
@@ -73,7 +80,7 @@ FILE COMMANDS
 
 WINDOW MANAGEMENT
 
-    Close       Close the window; or all windows in a column/app (from their tag lines)
+    Close       Close the window (prompts if dirty); or all windows in a column/app
     CloseCol    Close the column and all its windows (dirty windows prompt for confirmation)
     CLOSE       Like Close but ignores dirty state — no confirmation
 
@@ -87,12 +94,13 @@ EDITING COMMANDS
     Wrap        Toggle line wrap
     Indent      Toggle auto-indent (preserves leading whitespace on new lines)
     Tab n       Set tab width to n spaces
-    Mark        Bookmark the current line
+    Mark        Append a bookmark for the current line to a path+Mark scratch window.
+                Each bookmark is recorded as  filename:linenum  line-content.
     Clean / Dirty   Toggle the dirty (modified) flag
     Clear       Erase all content in the window(s)
     Scroll      Toggle auto-scroll behaviour (useful for +Results windows)
-                  on  — caret and view follow new output
-                  off — new output does not move the caret or scroll the view (default)
+                  on  — caret and view follow new output (default)
+                  off — new output does not move the caret or scroll the view
 
     Cut         Cut selected text to the snarf buffer
     Snarf       Copy selected text to the snarf buffer (the Acme name for clipboard)
@@ -105,21 +113,30 @@ EDITING COMMANDS
 EXTERNAL COMMANDS
 
     < cmd       Replace the current selection (or insert at caret) with cmd's stdout
+    > cmd       Send the current selection (or full text if nothing selected) as stdin to cmd;
+                output goes to a +Results window
     | cmd       Pipe the selection through cmd; replace selection with stdout
     ! cmd       Run cmd and replace the entire window content with its output
                 From the app tag line: output goes to a new window in the rightmost column
                 From a column tag line: output goes to a new window in that column
 
-    X 'regexp' cmd    Run cmd in every window whose path matches regexp
-    Y 'regexp' cmd    Run cmd in every window whose path does not match regexp
+    External commands run with their working directory set to the directory containing
+    the window's file (or the tag path itself if it is a directory). While a command
+    is running, <!> appears in the window's tag line; it is removed on completion or Kill.
+
+    X 'regexp' cmd    Run cmd in every window whose path fully matches regexp
+    Y 'regexp' cmd    Run cmd in every window whose path does not fully match regexp
+                      Note: matching is anchored (Java .matches). Use .*foo.* to match paths
+                      containing "foo".
 
 
 INTERACTIVE PROCESS INPUT
 
-    Input [regexp]  Toggle line-at-a-time input mode for a window running an external process.
-                    Without regexp, uses lines ending in >, $, %, ?, or # as prompts.
-                    With regexp, lines matching it are treated as prompts; text entered after
-                    the prompt is sent to the process on Enter.
+    Input           Toggle line-at-a-time input mode for a window running an external process.
+                    Uses lines ending in >, $, %, ?, or # as the prompt pattern (default).
+                    Text typed after the prompt is sent to the process on Enter.
+    Input [regexp]  Set the prompt-detection regexp without toggling interactive mode.
+                    Lines matching regexp are treated as prompts.
 
     Bind            Replace the current window's content on Look/navigate instead of opening
                     a new window.
@@ -172,7 +189,7 @@ APPEARANCE
                       (e.g.  Hilite scala   Hilite go   Hilite python)
     Hilite off        Disable syntax highlighting
     Theme [name]      Apply a colour theme to the highlighted body
-                      (e.g.  Theme monokai   Theme idea   Theme z)
+                      Available themes: z  dark  druid  eclipse  idea  monokai  vs
                       The built-in 'z' theme matches the editor's default colour scheme.
     CLine             Toggle current-line highlight
     Ln                Toggle line numbers in the body gutter
@@ -181,11 +198,14 @@ APPEARANCE
 LANGUAGE SERVER PROTOCOL (LSP)
 
     Lsp             Start an LSP server for the current file's language. Enables:
-                      · Squiggly underlines for errors and warnings
+                      · Squiggly underlines for errors, warnings, and info messages
                       · Hover tooltips with type info and documentation
                       · Code completion (Ctrl+Space or the Complete command)
-                      · A +Diagnostics scratch window updated on each save/check
-                    Server commands are configured in ~/.zlsp, one entry per line:
+                      · A +Diagnostics scratch window, updated as you type
+                    Built-in server defaults (no config needed):
+                      go, python, java, scala, javascript, typescript,
+                      rust, kotlin, shellscript
+                    Override or add servers in ~/.z/lsp.conf (key = value, one per line):
                       langId = server-command
                     Example:
                       go     = gopls
@@ -193,7 +213,8 @@ LANGUAGE SERVER PROTOCOL (LSP)
                       scala  = metals
 
     Lsp off         Shut down the LSP server for the window and clear diagnostics
-    Check           Re-send the current buffer to the LSP server to refresh diagnostics
+    Check           Force an immediate diagnostic refresh (diagnostics also update automatically
+                    as you type, after a short debounce)
     Complete        Show a completion popup at the caret position (also Ctrl+Space)
 
 
@@ -215,6 +236,7 @@ KEYBOARD SHORTCUTS
       Ctrl+C                        Snarf (copy)
       Ctrl+V                        Paste
       Ctrl+Z                        Undo
+      Ctrl+R                        Redo
       Ctrl+Backspace / Ctrl+Delete  Delete word left / right
       Backspace                     Delete character before caret
       Delete                        Delete character after caret
@@ -240,8 +262,8 @@ ENVIRONMENT VARIABLES
 
     These are available to any external command launched by z:
 
-      Z_FP        The canonical (absolute) path from the window's tag line
-      Z_LOCAL_FP  The path exactly as it appears in the tag line
+      Z_FP        The canonical absolute path (symlinks fully resolved)
+      Z_LOCAL_FP  The absolute path after ~ and ./ expansion (symlinks not resolved)
 
 
 SCRATCH BUFFERS
@@ -258,8 +280,11 @@ SYSTEM DEFAULTS
     Tab       4
     Indent    off
     Ln        off
-    Font      Hack Regular 13
-              (Bitstream Vera Sans Mono and Bitstream Vera Serif are also bundled)
+    CLine     on
+    FONT      Hack Regular 14        (fixed-width body font; the body starts with this)
+    Font      Bitstream Vera Sans 14 (variable-width body font)
+    TagFont   Hack Regular 14
+              (Bitstream Vera Sans and Bitstream Vera Serif are also bundled)
 
 
 ---------------------------------------------------------------------------------
