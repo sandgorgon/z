@@ -1,12 +1,12 @@
 #!/bin/sh
 # Installer for z — Plan 9 Acme-inspired text editor
-# Installs to ~/.local/lib/z/z.jar with a launcher at ~/bin/z
+# Installs to ~/.local/lib/z/z.jar with a launcher at ~/.local/bin/z
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INSTALL_DIR="${HOME}/.local/lib/z"
-BIN_DIR="${HOME}/bin"
+BIN_DIR="${HOME}/.local/bin"
 
 echo "Installing z..."
 mkdir -p "${INSTALL_DIR}" "${BIN_DIR}"
@@ -29,4 +29,4 @@ echo "Done."
 echo "  JAR:      ${INSTALL_DIR}/z.jar"
 echo "  Launcher: ${BIN_DIR}/z"
 echo ""
-echo "Make sure ${BIN_DIR} is on your PATH, then run: z"
+echo "Make sure ${BIN_DIR} is on your PATH (it usually is by default), then run: z"
