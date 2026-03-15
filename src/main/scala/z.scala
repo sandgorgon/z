@@ -74,18 +74,31 @@ object z extends SwingApplication {
 			p += "app.width" -> d.getWidth.toInt.toString
 			p += "app.height" ->d.getHeight.toInt.toString
 
-			ZSettings.dump(p, new File(util.Properties.userHome + ZUtilities.separator + ".z"), "Z Global Settings")
+			val zDir = new File(util.Properties.userHome + ZUtilities.separator + ".z")
+			if(!zDir.exists) zDir.mkdirs()
+			ZSettings.dump(p, new File(zDir, "settings"), "Z Global Settings")
 			ZLspManager.shutdown()
 			System.exit(0)
 		}
 	}
 
 	override def startup(args: Array[String]) = {
-		var f = new File(util.Properties.userHome + ZUtilities.separator + ".z")
+		val zDir     = new File(util.Properties.userHome + ZUtilities.separator + ".z")
+		val settings = new File(zDir, "settings")
 		var p : Map[String, String] = null
 
-		if(f.exists) {
-			p = ZSettings.load(f)
+		// Migrate: if ~/.z is an old flat file, move its content to ~/.z/settings
+		if(zDir.exists && zDir.isFile) {
+			val old = ZSettings.load(zDir)
+			zDir.delete()
+			zDir.mkdirs()
+			ZSettings.dump(old, settings, "Z Global Settings")
+		} else if(!zDir.exists) {
+			zDir.mkdirs()
+		}
+
+		if(settings.exists) {
+			p = ZSettings.load(settings)
 
 			if(p.get("app.width") == None || p.get("app.width").get.toInt < 10)  p += "app.width" -> "600"
 			if(p.get("app.height") == None || p.get("app.height").get.toInt < 10)  p += "app.height" -> "400"
