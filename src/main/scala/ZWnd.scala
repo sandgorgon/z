@@ -487,21 +487,20 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 
 		val localFp = path
 		val f = new File(localFp)
-		val workDir = if(f.isFile()) f.getParentFile.getCanonicalPath else localFp
 		val env = new HashMap[String, String] + ("Z_LOCAL_FP" -> localFp) + ("Z_FP" -> f.getCanonicalPath)
 
 		tag.text = tag.text + ZWnd.CmdExecIndicator
 		try {
 			op match {
-				case "<" => ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(workDir), env = Some(env))
-				case ">" => ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, input = in, workdir = Some(workDir), env = Some(env))
+				case "<" => ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(root), env = Some(env))
+				case ">" => ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, input = in, workdir = Some(root), env = Some(env))
 				case "|" =>
 					val sel = Option(body.selected).getOrElse("")
 					body.selected = ""
-					ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, input = Some(sel), workdir = Some(workDir), env = Some(env))
+					ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, input = Some(sel), workdir = Some(root), env = Some(env))
 				case "!" =>
 					body.text = ""
-					ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(workDir), env = Some(env))
+					ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(root), env = Some(env))
 			}
 		} catch {
 			case e : Throwable =>
@@ -674,6 +673,10 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 			else body.text = Source.fromFile(f).mkString
 			body.caret.position = 0
 			valid = true
+			val absPath = ZUtilities.expandPath(f, root)
+			val absFile = new File(absPath)
+			root = if(absFile.isDirectory) absFile.getCanonicalPath
+			       else Option(absFile.getParentFile).map(_.getCanonicalPath).getOrElse(root)
 			if(indHilite) body.hilite(ZLangRegistry.forPath(f))
 		} catch {
 			case e : Throwable => JOptionPane.showMessageDialog(null, f + " " + e.getMessage, "Get Error", JOptionPane.ERROR_MESSAGE)
