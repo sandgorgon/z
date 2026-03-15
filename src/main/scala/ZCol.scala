@@ -42,6 +42,7 @@ class ZCol extends BorderPanel {
 	var colorTSelBack =new Color(0x96, 0x96, 0x96)
 	var colorTSelFore = new Color(0xFF, 0xFF, 0xFF)
 	var prevCmd = ""
+	var currentDir = new File(".").getCanonicalPath
 	var dragSel = false
 	var dragSelMark = -1
 
@@ -249,8 +250,16 @@ class ZCol extends BorderPanel {
 					wnds.filter(_.rawPath.matches(re)).foreach(_.command(c))
 				case ZCol.reFilteredExec(p, re, c)  if(p.equals("Y")) =>
 					wnds.filterNot(_.rawPath.matches(re)).foreach(_.command(c))
-				case ZCol.reTagFont(font, pt) =>
+				case ZUtilities.reTagFont(font, pt) =>
 					tag.font = new Font(font, Font.PLAIN, pt.toInt)
+					wnds.foreach(_.command(cmd))
+				case ZUtilities.reDirQuoted(d) =>
+					val ed = ZUtilities.expandPath(d, currentDir)
+					if(new File(ed).isDirectory) currentDir = new File(ed).getCanonicalPath
+					wnds.foreach(_.command(cmd))
+				case ZUtilities.reDir(d) =>
+					val ed = ZUtilities.expandPath(d, currentDir)
+					if(new File(ed).isDirectory) currentDir = new File(ed).getCanonicalPath
 					wnds.foreach(_.command(cmd))
 				case c =>
 					if(!look(c, false)) wnds.foreach((w) => if(!w.look(c)) w.command(c))
@@ -263,7 +272,7 @@ class ZCol extends BorderPanel {
 	def look(txt : String, traverse : Boolean = true) : Boolean = {
 		if(txt == null || txt.trim.isEmpty)  return true
 
-		val contextRoot = wnds.headOption.map(_.root).getOrElse(".")
+		val contextRoot = wnds.headOption.map(_.root).getOrElse(currentDir)
 
 		txt match {
 			case ZCol.reFileLoc(f, loc) => fileLook(f, loc)
@@ -328,7 +337,7 @@ class ZCol extends BorderPanel {
 	}
 
 	def fileLook(f : String, loc : String) = {
-		val contextRoot = wnds.headOption.map(_.root).getOrElse(".")
+		val contextRoot = wnds.headOption.map(_.root).getOrElse(currentDir)
 		val ef = ZUtilities.expandPath(f, contextRoot)
 		val w  = rawPathWindow(ef).orElse(pathWindow(ef)).getOrElse {
 			val n = wnd(ef)
@@ -395,7 +404,6 @@ object ZCol {
 	val reExternalCmd = """(?s)\s*([>!])\s*(.+)\s*$""".r
 	val reFileLoc = """(.+)(:[0-9]+|:/.+)""".r
 	val reFilteredExec = """(?s)\s*(X|Y)\s+'([^']+)'\s+(.+)\s*$""".r
-	val reTagFont = """TagFont\s+'(.+)'\s+([0-9]+)""".r
 }
 
 class ZCmdCloseColEvent(val source : ZCol) extends Event

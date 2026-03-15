@@ -34,6 +34,12 @@ object ZUtilities {
 	def separator = File.separator
 	def isFullPath(s: String) = (new File(s)).isAbsolute
 
+	val reDirQuoted = """Dir\s+'(.+)'""".r
+	val reDir       = """Dir\s+(\S+)""".r
+	val reFont      = """Font\s+'(.+)'\s+([0-9]+)""".r
+	val reFONT      = """FONT\s+'(.+)'\s+([0-9]+)""".r
+	val reTagFont   = """TagFont\s+'(.+)'\s+([0-9]+)""".r
+
 	def expandPath(s: String, root: String): String = {
 		if(s == null || s.isBlank) return s
 		val home = System.getProperty("user.home")

@@ -149,15 +149,15 @@ class ZPanel(initTagText: String) extends BorderPanel {
 				case ZPanel.reLoad(p) => load(p)
 				case "Dump" => dump()
 				case ZPanel.reDump(p) => dump(p)
-				case ZPanel.reDirQuoted(d) => dispatchDir(d, s"Dir '$d'")
-				case ZPanel.reDir(d)       => dispatchDir(d, s"Dir $d")
-				case ZPanel.reFont(font, pt) =>
+				case ZUtilities.reDirQuoted(d) => dispatchDir(d, s"Dir '$d'")
+				case ZUtilities.reDir(d)       => dispatchDir(d, s"Dir $d")
+				case ZUtilities.reFont(font, pt) =>
 					ZFonts.defaultVar = new Font(font, Font.PLAIN, pt.toInt)
 					cols.foreach(_.command(cmd))
-				case ZPanel.reFONT(font, pt) =>
+				case ZUtilities.reFONT(font, pt) =>
 					ZFonts.defaultFixed = new Font(font, Font.PLAIN, pt.toInt)
 					cols.foreach(_.command(cmd))
-				case ZPanel.reTagFont(font, pt) =>
+				case ZUtilities.reTagFont(font, pt) =>
 					ZFonts.defaultTag = new Font(font, Font.PLAIN, pt.toInt)
 					tag.font = ZFonts.defaultTag
 					cols.foreach(_.command(cmd))
@@ -376,13 +376,8 @@ class ZPanel(initTagText: String) extends BorderPanel {
 }
 
 object ZPanel {
-	val reLoad      = """Load\s+(.+)""".r
-	val reDump      = """Dump\s+(.+)""".r
-	val reDirQuoted = """Dir\s+'(.+)'""".r
-	val reDir       = """Dir\s+(\S+)""".r
-	val reFont      = """Font\s+'(.+)'\s+([0-9]+)""".r
-	val reFONT      = """FONT\s+'(.+)'\s+([0-9]+)""".r
-	val reTagFont   = """TagFont\s+'(.+)'\s+([0-9]+)""".r
+	val reLoad = """Load\s+(.+)""".r
+	val reDump = """Dump\s+(.+)""".r
 }
 
 class ZPanelStatusEvent(val source : ZPanel, val properties : Map[String, String]) extends Event

@@ -302,18 +302,18 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 				case "Indent"                    => indIndent = !indIndent
 				case "Clear"                     => body.text = ""
 				case "Bind"                      => indBind = !indBind
-				case ZWnd.reDirQuoted(d)         => applyDir(d)
-				case ZWnd.reDir(d)               => applyDir(d)
+				case ZUtilities.reDirQuoted(d)         => applyDir(d)
+				case ZUtilities.reDir(d)               => applyDir(d)
 				case ZWnd.reTab(t)               => if(t != null && !t.isEmpty) body.tabSize = t.toInt
-				case ZWnd.reFont(font, pt)       =>
+				case ZUtilities.reFont(font, pt)       =>
 					fontVar = new Font(font, Font.PLAIN, pt.toInt)
 					body.font = fontVar
 					styleGutter()
-				case ZWnd.reFONT(font, pt)       =>
+				case ZUtilities.reFONT(font, pt)       =>
 					fontFixed = new Font(font, Font.PLAIN, pt.toInt)
 					body.font = fontFixed
 					styleGutter()
-				case ZWnd.reTagFont(font, pt)    => tag.font = new Font(font, Font.PLAIN, pt.toInt)
+				case ZUtilities.reTagFont(font, pt)    => tag.font = new Font(font, Font.PLAIN, pt.toInt)
 				case "Font"                      => body.font = fontVar; styleGutter()
 				case "FONT"                      => body.font = fontFixed; styleGutter()
 				case "Input"                     => indInteractive = !indInteractive
@@ -487,21 +487,20 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 
 		val localFp = path
 		val f = new File(localFp)
-		val workDir = if(f.isFile()) f.getParentFile.getCanonicalPath else localFp
 		val env = new HashMap[String, String] + ("Z_LOCAL_FP" -> localFp) + ("Z_FP" -> f.getCanonicalPath)
 
 		tag.text = tag.text + ZWnd.CmdExecIndicator
 		try {
 			op match {
-				case "<" => ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(workDir), env = Some(env))
-				case ">" => ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, input = in, workdir = Some(workDir), env = Some(env))
+				case "<" => ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(root), env = Some(env))
+				case ">" => ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, input = in, workdir = Some(root), env = Some(env))
 				case "|" =>
 					val sel = Option(body.selected).getOrElse("")
 					body.selected = ""
-					ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, input = Some(sel), workdir = Some(workDir), env = Some(env))
+					ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, input = Some(sel), workdir = Some(root), env = Some(env))
 				case "!" =>
 					body.text = ""
-					ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(workDir), env = Some(env))
+					ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(root), env = Some(env))
 			}
 		} catch {
 			case e : Throwable =>
@@ -674,6 +673,10 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 			else body.text = Source.fromFile(f).mkString
 			body.caret.position = 0
 			valid = true
+			val absPath = ZUtilities.expandPath(f, root)
+			val absFile = new File(absPath)
+			root = if(absFile.isDirectory) absFile.getCanonicalPath
+			       else Option(absFile.getParentFile).map(_.getCanonicalPath).getOrElse(root)
 			if(indHilite) body.hilite(ZLangRegistry.forPath(f))
 		} catch {
 			case e : Throwable => JOptionPane.showMessageDialog(null, f + " " + e.getMessage, "Get Error", JOptionPane.ERROR_MESSAGE)
@@ -817,9 +820,6 @@ object ZWnd {
 	val reQuotedScratch = """^(?s)\s*(\*?)\s*'([^'+]*)[+].*'.*$""".r
 	val reRawTagLine = """(?s)\s*(\*?)\s*(.*)""".r
 
-	val reFont = """Font\s+'(.+)'\s+([0-9]+)""".r
-	val reFONT = """FONT\s+'(.+)'\s+([0-9]+)""".r
-	val reTagFont = """TagFont\s+'(.+)'\s+([0-9]+)""".r
 	val reTab = """Tab\s+([0-9]+)""".r
 	val reQuotedGet = """Get\s+'(.+)'""".r
 	val reGet = """Get\s+(\S+)""".r
@@ -834,9 +834,7 @@ object ZWnd {
 
 	val reExplicitCmd = """%\s*(.+)$""".r
 
-	val reDirQuoted = """Dir\s+'(.+)'""".r
-	val reDir       = """Dir\s+(\S+)""".r
-	val reHilite    = """Hilite\s+(\S+)""".r
+	val reHilite = """Hilite\s+(\S+)""".r
 	val reLsp    = """Lsp\s+(.+)""".r
 	val reTheme  = """Theme\s+(\S+)""".r
 	val reColors = """Color(TBack|TFore|TCaret|TSelFore|TSelBack|Back|Fore|Caret|SelFore|SelBack)\s+(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})""".r
