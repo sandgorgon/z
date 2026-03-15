@@ -250,14 +250,14 @@ class ZCol extends BorderPanel {
 					wnds.filter(_.rawPath.matches(re)).foreach(_.command(c))
 				case ZCol.reFilteredExec(p, re, c)  if(p.equals("Y")) =>
 					wnds.filterNot(_.rawPath.matches(re)).foreach(_.command(c))
-				case ZCol.reTagFont(font, pt) =>
+				case ZUtilities.reTagFont(font, pt) =>
 					tag.font = new Font(font, Font.PLAIN, pt.toInt)
 					wnds.foreach(_.command(cmd))
-				case ZCol.reDirQuoted(d) =>
+				case ZUtilities.reDirQuoted(d) =>
 					val ed = ZUtilities.expandPath(d, currentDir)
 					if(new File(ed).isDirectory) currentDir = new File(ed).getCanonicalPath
 					wnds.foreach(_.command(cmd))
-				case ZCol.reDir(d) =>
+				case ZUtilities.reDir(d) =>
 					val ed = ZUtilities.expandPath(d, currentDir)
 					if(new File(ed).isDirectory) currentDir = new File(ed).getCanonicalPath
 					wnds.foreach(_.command(cmd))
@@ -401,12 +401,9 @@ object ZCol {
 	val wndTagLine = "Get Put Zerox Close | Undo Redo Wrap Ln Indent Mark Bind "
 	val cmdTagLine = "Close | Undo Redo Wrap Kill Clear Font Scroll Input "
 
-	val reDirQuoted = """Dir\s+'(.+)'""".r
-	val reDir       = """Dir\s+(\S+)""".r
 	val reExternalCmd = """(?s)\s*([>!])\s*(.+)\s*$""".r
 	val reFileLoc = """(.+)(:[0-9]+|:/.+)""".r
 	val reFilteredExec = """(?s)\s*(X|Y)\s+'([^']+)'\s+(.+)\s*$""".r
-	val reTagFont = """TagFont\s+'(.+)'\s+([0-9]+)""".r
 }
 
 class ZCmdCloseColEvent(val source : ZCol) extends Event
