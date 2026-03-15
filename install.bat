@@ -15,7 +15,9 @@ if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 
 copy /Y "%SCRIPT_DIR%z.jar" "%INSTALL_DIR%\z.jar" >nul
 copy /Y "%SCRIPT_DIR%z.bat" "%INSTALL_DIR%\z.bat" >nul
-copy /Y "%SCRIPT_DIR%src\main\resources\images\z.ico" "%ICON_FILE%" >nul
+powershell -NoProfile -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('%INSTALL_DIR%\z.jar', '%TEMP%\z_ico_tmp')" >nul
+copy /Y "%TEMP%\z_ico_tmp\images\z.ico" "%ICON_FILE%" >nul
+rd /s /q "%TEMP%\z_ico_tmp" >nul
 
 echo Creating Start Menu shortcut...
 powershell -NoProfile -Command ^
