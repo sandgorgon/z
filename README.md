@@ -4,7 +4,7 @@ A [Plan 9 Acme](https://9p.io/plan9/)-inspired text editor written in Scala. It 
 
 ![z editor showing multiple columns and windows with syntax highlighting](/img/screenshot.jpg)
 
-Built with Scala 3.8.2, sbt 1.10.7, and Java 11+.
+Built with Scala 3.8.2, sbt 1.10.7, and Java 17+.
 
 ## Installation
 
@@ -17,7 +17,7 @@ Pre-built packages for Linux, macOS, and Windows are available on the [Releases]
 | Windows | `z-X.X.X.msi` or ZIP | Unsigned — choose "More info → Run anyway" in SmartScreen |
 
 All native packages (`.deb`, `.dmg`, `.msi`) bundle a JRE — no separate Java installation required.
-The ZIP packages require Java 11+ and include an install script.
+The ZIP packages require Java 17+ and include an install script.
 
 ## Build from Source
 
