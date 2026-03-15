@@ -26,7 +26,7 @@ LAUNCHER
 
 chmod +x "${BIN_DIR}/z"
 
-cp "${SCRIPT_DIR}/src/main/resources/images/z.png" "${ICON_DIR}/z.png"
+unzip -p "${INSTALL_DIR}/z.jar" images/z.png > "${ICON_DIR}/z.png"
 
 cat > "${DESKTOP_DIR}/z.desktop" << DESKTOP
 [Desktop Entry]
