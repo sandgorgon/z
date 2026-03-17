@@ -33,7 +33,8 @@ import javax.swing.text.{Utilities, DefaultCaret}
 import javax.swing.{JOptionPane, ScrollPaneConstants, SwingUtilities}
 import java.util.regex.Pattern
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
-import org.eclipse.lsp4j.{Diagnostic, DiagnosticSeverity, CompletionItem}
+import org.fife.ui.autocomplete.{AutoCompletion, BasicCompletion, DefaultCompletionProvider}
+import org.eclipse.lsp4j.{Diagnostic, DiagnosticSeverity}
 
 class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = ".") extends SplitPane(Orientation.Horizontal) {
 	var rootPath = new File(currDir).getAbsolutePath
@@ -46,7 +47,10 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	var indLineNums = false
 
 	var lspClient: Option[ZLspClient] = None
-	val lspParser = new ZLspDiagnosticParser
+	var lspRoot = ""
+	val lspParser      = new ZLspDiagnosticParser
+	val lspProvider    = new DefaultCompletionProvider()
+	val autoCompletion = new AutoCompletion(lspProvider)
 	val hoverTimer     = new javax.swing.Timer(500, null)
 	val didChangeTimer = new javax.swing.Timer(400, null)
 	var cmdProcess : Option[Process] = None
@@ -148,6 +152,16 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	bottomComponent = swing.Component.wrap(bodyScroll)
 	styleGutter()
 
+	autoCompletion.setAutoActivationEnabled(false)
+	autoCompletion.setAutoCompleteSingleChoices(false)
+	autoCompletion.setTriggerKey(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_PERIOD, java.awt.event.InputEvent.CTRL_DOWN_MASK))
+	autoCompletion.install(body.peer)
+	// Replace RSTA's default trigger action with our async LSP fetch.
+	body.peer.getInputMap.put(autoCompletion.getTriggerKey, "z.complete")
+	body.peer.getActionMap.put("z.complete", new javax.swing.AbstractAction() {
+		def actionPerformed(e: java.awt.event.ActionEvent): Unit = command("Complete")
+	})
+
 	listenTo(tag.mouse.moves, body.mouse.moves)
 	reactions += {
 		case e : MouseEntered => publish(new ZStatusEvent(this, properties))
@@ -183,8 +197,6 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 
 	listenTo(tag.keys, body.keys)
 	reactions += {
-		case e : KeyPressed if e.key == Key.Space && e.peer.isControlDown() =>
-			command("Complete")
 		case e : KeyPressed if((e.key == Key.F) && e.peer.isControlDown()) =>
 			val ta = if(e.source.hashCode == tag.hashCode) tag else body
 			var p = path
@@ -354,6 +366,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 						ZLspManager.unregister(c)
 					}
 					lspClient = None
+					lspRoot   = ""
 					indLsp = false
 					lspParser.clearDiagnostics()
 					body.peer.forceReparsing(0)
@@ -369,6 +382,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 								command("Check")
 							}))
 							lspClient = Some(client)
+							lspRoot   = new File(projRoot).getCanonicalPath
 							ZLspManager.register(client)
 							indLsp = true
 						}
@@ -381,7 +395,15 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 						val line = body.lineNo(dot)
 						val col  = dot - body.lineStart(line)
 						c.completion(line, col, items =>
-							javax.swing.SwingUtilities.invokeLater(() => showCompletionPopup(items, dot))
+							javax.swing.SwingUtilities.invokeLater(() => {
+								lspProvider.clear()
+								items.foreach { item =>
+									val repl = Option(item.getInsertText).filter(_.nonEmpty).getOrElse(item.getLabel)
+									val desc = Option(item.getDetail).filter(_.nonEmpty).orNull
+									lspProvider.addCompletion(new BasicCompletion(lspProvider, repl, desc))
+								}
+								autoCompletion.doCompletion()
+							})
 						)
 					}
 				case _                           => publish(new ZCmdEvent(this, cmd))
@@ -548,51 +570,6 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		})
 	}
 
-	private def showCompletionPopup(items: List[CompletionItem], caretOffset: Int): Unit = {
-		try {
-			if (items.isEmpty) return
-			val popup = new javax.swing.JPopupMenu()
-			items.take(50).foreach { item =>
-				val detail = Option(item.getDetail).filter(_.nonEmpty).map(" — " + _).getOrElse("")
-				val mi = new javax.swing.JMenuItem(item.getLabel + detail)
-				mi.addActionListener(_ => applyCompletion(item, caretOffset))
-				popup.add(mi)
-			}
-			val dot  = body.caret.dot
-			val rect = body.peer.modelToView2D(dot)
-			popup.show(body.peer, rect.getX.toInt, (rect.getY + rect.getHeight).toInt)
-		} catch {
-			case e: Throwable =>
-				javax.swing.JOptionPane.showMessageDialog(null, e.getMessage, "Complete Error", javax.swing.JOptionPane.ERROR_MESSAGE)
-		}
-	}
-
-	private def applyCompletion(item: CompletionItem, caretOffset: Int): Unit = {
-		try {
-			val doc = body.peer.getDocument
-			Option(item.getTextEdit) match {
-				case Some(e) if e.isLeft =>
-					val edit = e.getLeft
-					val r    = edit.getRange
-					val s    = body.lineStart(r.getStart.getLine) + r.getStart.getCharacter
-					val end  = body.lineStart(r.getEnd.getLine)   + r.getEnd.getCharacter
-					doc.remove(s, end - s)
-					doc.insertString(s, edit.getNewText, null)
-				case Some(e) if e.isRight =>
-					val edit = e.getRight
-					val r    = edit.getInsert
-					val s    = body.lineStart(r.getStart.getLine) + r.getStart.getCharacter
-					val end  = body.lineStart(r.getEnd.getLine)   + r.getEnd.getCharacter
-					doc.remove(s, end - s)
-					doc.insertString(s, edit.getNewText, null)
-				case _ =>
-					val text = Option(item.getInsertText).filter(_.nonEmpty).getOrElse(item.getLabel)
-					doc.insertString(caretOffset, text, null)
-			}
-		} catch { case e: Throwable => javax.swing.JOptionPane.showMessageDialog(null, e.getMessage, "Complete Error", javax.swing.JOptionPane.ERROR_MESSAGE) }
-		body.requestFocus()
-	}
-
 	// Called by ZCol.closeWnd to clean up LSP before removing the window.
 	def close(): Unit = {
 		hoverTimer.stop()
@@ -726,6 +703,8 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		p += "interactive" -> (if(indInteractive) "true" else "false")
 		p += "bind"         -> (if(indBind)     "true" else "false")
 		p += "lsp"          -> (if(indLsp)      "true" else "false")
+		p += "lsp.root"     -> lspRoot
+		p += "lsp.indexing" -> lspClient.map(c => if (c.indexing) "true" else "false").getOrElse("false")
 		p += "hilite"       -> (if(indHilite)   "true" else "false")
 		p += "line.numbers" -> (if(indLineNums) "true" else "false")
 		p += "lines" -> String.valueOf(body.lineCount)
