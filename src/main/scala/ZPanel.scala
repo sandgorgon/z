@@ -144,7 +144,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 	def command(cmds : String) = if(cmds != null && !cmds.trim.isEmpty) {
 		for(cmd <- cmds.linesIterator.map(_.trim)) {
 			cmd.trim match {
-				case "NewCol" => this += new ZCol
+				case "NewCol" => this += new ZCol(currentDir)
 				case "Load" => load()
 				case ZPanel.reLoad(p) => load(p)
 				case "Dump" => dump()
@@ -165,7 +165,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 				case "Help" => help
 				case "Props" => props
 				case ZCol.reExternalCmd(op, cmd) =>
-					if(cols.length < 1)  this += new ZCol
+					if(cols.length < 1)  this += new ZCol(currentDir)
 					cols.last.command("! " + cmd)
 				case c => cols.foreach(_.command(c))
 			}
@@ -181,11 +181,11 @@ class ZPanel(initTagText: String) extends BorderPanel {
 
 		txt match {
 			case ZCol.reFileLoc(f, loc) =>
-				if(cols.length < 1) this += new ZCol
+				if(cols.length < 1) this += new ZCol(currentDir)
 				cols.last.fileLook(f, loc)				
 			case s => 
 				if(new File(s).exists) {
-					if(cols.length < 1)  this += new ZCol
+					if(cols.length < 1)  this += new ZCol(currentDir)
 					cols.last.look(s)
 				} else {
 					cols.foreach((c) => retval = c.look(s))
@@ -235,7 +235,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 		cols.takeWhile(_ != col).lastOption
 
 	def fonts = {
-		val col = if(cols.isEmpty) this += new ZCol  else cols.last
+		val col = if(cols.isEmpty) this += new ZCol(currentDir)  else cols.last
 		val w = col.wnd("+Fonts Close")
 		w.body.text = ZFonts.familyNames mkString(util.Properties.lineSeparator)
 		w.dirty = false
@@ -243,7 +243,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 	}
 
 	def help = {
-		val col  = if(cols.isEmpty) this += new ZCol else cols.last
+		val col  = if(cols.isEmpty) this += new ZCol(currentDir) else cols.last
 		val w = col.wnd("+Help")
 		w.command("Scroll")
 		w.body.text = Source.fromURL(this.getClass.getResource("help/main.txt")).mkString
@@ -252,7 +252,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 	}
 
 	def props = {
-		val col = if(cols.isEmpty) this += new ZCol else cols.last
+		val col = if(cols.isEmpty) this += new ZCol(currentDir) else cols.last
 		val w = col.wnd("+Props Close")
 		w.body.text = properties.toSeq.sortBy(_._1)
 			.map { case (k, v) => s"$k = $v" }
@@ -282,7 +282,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 					System.out.println(Source.fromURL(this.getClass.getResource("help/main.txt")).mkString)
 					System.exit(1)
 				case "-c" => 
-					col = this += new ZCol
+					col = this += new ZCol(currentDir)
 					action = ""
 				case "-l" => action = "look"
 				case "-cl" => action = "colLook"
@@ -312,7 +312,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 							tag.text = tag.text + " " + txt
 							command(txt) 
 						case _ => 
-							if(col == null) col = this += new ZCol
+							if(col == null) col = this += new ZCol(currentDir)
 							w = col.wnd(a)
 							col += w
 							w.command("Get")
@@ -343,7 +343,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 				p.getOrElse("app.font.tag.size", ZFonts.defaultTag.getSize.toString).toInt)
 			tag.font = ZFonts.defaultTag
 			for(i <- 1 to cnt) {
-				val c = this += new ZCol
+				val c = this += new ZCol(currentDir)
 				c.load(p, "column." + i.toString + "." )
 			}
 		}

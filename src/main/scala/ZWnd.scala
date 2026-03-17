@@ -33,10 +33,11 @@ import javax.swing.text.{Utilities, DefaultCaret}
 import javax.swing.{JOptionPane, ScrollPaneConstants, SwingUtilities}
 import java.util.regex.Pattern
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
-import org.eclipse.lsp4j.{Diagnostic, DiagnosticSeverity, CompletionItem}
+import org.fife.ui.autocomplete.{AutoCompletion, BasicCompletion, DefaultCompletionProvider}
+import org.eclipse.lsp4j.{Diagnostic, DiagnosticSeverity}
 
-class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(Orientation.Horizontal) {
-	var rootPath = new File(".").getAbsolutePath
+class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = ".") extends SplitPane(Orientation.Horizontal) {
+	var rootPath = new File(currDir).getAbsolutePath
 	var indIndent = false
 	var indScroll = true
 	var indInteractive = false
@@ -46,7 +47,10 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	var indLineNums = false
 
 	var lspClient: Option[ZLspClient] = None
-	val lspParser = new ZLspDiagnosticParser
+	var lspRoot = ""
+	val lspParser      = new ZLspDiagnosticParser
+	val lspProvider    = new DefaultCompletionProvider()
+	val autoCompletion = new AutoCompletion(lspProvider)
 	val hoverTimer     = new javax.swing.Timer(500, null)
 	val didChangeTimer = new javax.swing.Timer(400, null)
 	var cmdProcess : Option[Process] = None
@@ -148,6 +152,16 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	bottomComponent = swing.Component.wrap(bodyScroll)
 	styleGutter()
 
+	autoCompletion.setAutoActivationEnabled(false)
+	autoCompletion.setAutoCompleteSingleChoices(false)
+	autoCompletion.setTriggerKey(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_PERIOD, java.awt.event.InputEvent.CTRL_DOWN_MASK))
+	autoCompletion.install(body.peer)
+	// Replace RSTA's default trigger action with our async LSP fetch.
+	body.peer.getInputMap.put(autoCompletion.getTriggerKey, "z.complete")
+	body.peer.getActionMap.put("z.complete", new javax.swing.AbstractAction() {
+		def actionPerformed(e: java.awt.event.ActionEvent): Unit = command("Complete")
+	})
+
 	listenTo(tag.mouse.moves, body.mouse.moves)
 	reactions += {
 		case e : MouseEntered => publish(new ZStatusEvent(this, properties))
@@ -183,8 +197,6 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 
 	listenTo(tag.keys, body.keys)
 	reactions += {
-		case e : KeyPressed if e.key == Key.Space && e.peer.isControlDown() =>
-			command("Complete")
 		case e : KeyPressed if((e.key == Key.F) && e.peer.isControlDown()) =>
 			val ta = if(e.source.hashCode == tag.hashCode) tag else body
 			var p = path
@@ -344,19 +356,9 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 					if(t.startsWith("T")) tag.colors(colorTBack, colorTFore, colorTCaret, colorTSelBack, colorTSelFore)
 					else { body.colors(colorBack, colorFore, colorCaret, colorSelBack, colorSelFore); styleGutter() }
 				case "Lsp"                       =>
-					if (!indLsp) {
-						val langId = ZLangRegistry.langIdFor(path)
-						ZLspManager.serverCmd(langId).foreach { cmd =>
-							val client = new ZLspClient(langId, cmd, path, rootUri(), onDiagnostics)
-							client.start(() => javax.swing.SwingUtilities.invokeLater(() => {
-								client.didOpen(body.text)
-								command("Check")
-							}))
-							lspClient = Some(client)
-							ZLspManager.register(client)
-							indLsp = true
-						}
-					}
+					JOptionPane.showMessageDialog(null,
+						"Lsp requires a project root path, e.g:  Lsp ~/myapp",
+						"LSP Error", JOptionPane.ERROR_MESSAGE)
 				case ZWnd.reLsp("off")           =>
 					lspClient.foreach { c =>
 						c.didClose()
@@ -364,9 +366,27 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 						ZLspManager.unregister(c)
 					}
 					lspClient = None
+					lspRoot   = ""
 					indLsp = false
 					lspParser.clearDiagnostics()
 					body.peer.forceReparsing(0)
+				case ZWnd.reLsp(p)               =>
+					if (!indLsp) {
+						val projRoot = ZUtilities.expandPath(p.trim, root)
+						val langId   = ZLangRegistry.langIdFor(path)
+						ZLspManager.serverCmd(langId).foreach { cmd =>
+							val uri    = s"file://${new File(projRoot).getCanonicalPath}/"
+							val client = new ZLspClient(langId, cmd, path, uri, onDiagnostics)
+							client.start(() => javax.swing.SwingUtilities.invokeLater(() => {
+								client.didOpen(body.text)
+								command("Check")
+							}))
+							lspClient = Some(client)
+							lspRoot   = new File(projRoot).getCanonicalPath
+							ZLspManager.register(client)
+							indLsp = true
+						}
+					}
 				case "Check"                     =>
 					lspClient.foreach(_.didChange(body.text))
 				case "Complete"                  =>
@@ -375,7 +395,15 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 						val line = body.lineNo(dot)
 						val col  = dot - body.lineStart(line)
 						c.completion(line, col, items =>
-							javax.swing.SwingUtilities.invokeLater(() => showCompletionPopup(items, dot))
+							javax.swing.SwingUtilities.invokeLater(() => {
+								lspProvider.clear()
+								items.foreach { item =>
+									val repl = Option(item.getInsertText).filter(_.nonEmpty).getOrElse(item.getLabel)
+									val desc = Option(item.getDetail).filter(_.nonEmpty).orNull
+									lspProvider.addCompletion(new BasicCompletion(lspProvider, repl, desc))
+								}
+								autoCompletion.doCompletion()
+							})
 						)
 					}
 				case _                           => publish(new ZCmdEvent(this, cmd))
@@ -388,7 +416,6 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 
 		var stxt = ""
 		var loc = ""
-		var matchre = false
 
 		txt match {
 			case ZWnd.reLineNo(no) =>
@@ -403,63 +430,59 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 				return false
 			case ZWnd.reRegExp(re) => 
 				stxt = re
-				matchre = true
+
+				var pos = body.caret.position
+				var t = body.text.substring(pos)
+				var p = Pattern.compile(stxt, Pattern.MULTILINE)
+				var m = p.matcher(t)
+
+				if(m.find())  {
+					body.caret.dot = pos + m.start()
+					body.caret.moveDot(pos + m.end())
+					body.requestFocus()
+					return true
+				}
+
+				return false
 			case ZWnd.reFilePath(f, l) => 
 				stxt = f
 				loc = l
 			case ZWnd.reFilePath2(f, l) =>
 				stxt = f
 				loc = l
-			case ZWnd.reExternalCmd(op, cmd) =>
-				return false
+			case ZWnd.reQuotedFilePath(f, l) => 
+				stxt = f
+				loc = l
+			case ZWnd.reQuotedFilePath2(f, l) =>
+				stxt = f
+				loc = l
 			case _ =>
 				stxt = txt
 		}
 
-		if(!matchre) {
-			var np = ZUtilities.expandPath(stxt, root)
-			if(!ZUtilities.isFullPath(np)) {
-				var rp  = rawPath
+		val sp = ZUtilities.expandPath(stxt, root)
+		val ep = (if(ZUtilities.isFullPath(sp)) "" else (rawPath + ZUtilities.separator)) + sp 
 
-				rp match {
-					case ZWnd.reScratch(d, p) => rp = p
-					case ZWnd.reQuotedScratch(d, p) => rp = p
-					case _ =>
-				}
-
-				if(!rp.startsWith(np))
-				{									
-					if(new File(rp).isFile())
-					{
-						if(rp.indexOf(ZUtilities.separator) != -1)   np = rp.substring(0, rp.lastIndexOf(ZUtilities.separator))  + ZUtilities.separator + np
-					} else
-					{
-						np = rp + (if(rp.endsWith(ZUtilities.separator)) "" else ZUtilities.separator) + np
-					}
-				} 
+		if(new File(ep).exists)
+		{
+			if(indBind) 
+			{
+				path = ep
+				command("Get")
+				if(loc != null && !loc.isEmpty) look(loc)
 			} 
-
-			if(new File(np).exists) {
-				if(new File(np).getCanonicalPath == new File(root).getCanonicalPath && loc.isEmpty)
-					return true
-				if(indBind)
-				{
-					path = np
-					command("Get")
-					look(loc)
-				}
-				else
-					publish(new ZLookEvent(this, np + loc))
-
-				return true
+			else 
+			{
+				publish(new ZLookEvent(this, ep + loc))
 			}
+
+			return true
 		}
 
 		var pos = body.caret.position
 		var t = body.text.substring(pos)
 		var p = Pattern.compile(stxt, Pattern.MULTILINE)
 		var m = p.matcher(t)
-		var found = false
 
 		if(m.find())  {
 			body.caret.dot = pos + m.start()
@@ -467,9 +490,9 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 			body.requestFocus()
 			return true
 		}
- 
 
-		return false
+		command(stxt)
+		return true
 	}
 
 	def externalCmd(op : String, cmd : String, in : Option[String] = None) : Option[Process] = {
@@ -529,11 +552,6 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		else JOptionPane.showMessageDialog(null, s"Dir: not a directory: $d", "Dir Error", JOptionPane.ERROR_MESSAGE)
 	}
 
-	private def rootUri(): String = {
-		val path = new java.io.File(root).getCanonicalPath
-		s"file://$path/"   // path starts with / giving file:///...
-	}
-
 	private def onDiagnostics(diags: List[Diagnostic]): Unit = {
 		lspParser.setDiagnostics(diags)
 		val content = diags.map { d =>
@@ -550,51 +568,6 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 			body.peer.forceReparsing(0)
 			publish(new ZDiagnosticsReadyEvent(this, content))
 		})
-	}
-
-	private def showCompletionPopup(items: List[CompletionItem], caretOffset: Int): Unit = {
-		try {
-			if (items.isEmpty) return
-			val popup = new javax.swing.JPopupMenu()
-			items.take(50).foreach { item =>
-				val detail = Option(item.getDetail).filter(_.nonEmpty).map(" — " + _).getOrElse("")
-				val mi = new javax.swing.JMenuItem(item.getLabel + detail)
-				mi.addActionListener(_ => applyCompletion(item, caretOffset))
-				popup.add(mi)
-			}
-			val dot  = body.caret.dot
-			val rect = body.peer.modelToView2D(dot)
-			popup.show(body.peer, rect.getX.toInt, (rect.getY + rect.getHeight).toInt)
-		} catch {
-			case e: Throwable =>
-				javax.swing.JOptionPane.showMessageDialog(null, e.getMessage, "Complete Error", javax.swing.JOptionPane.ERROR_MESSAGE)
-		}
-	}
-
-	private def applyCompletion(item: CompletionItem, caretOffset: Int): Unit = {
-		try {
-			val doc = body.peer.getDocument
-			Option(item.getTextEdit) match {
-				case Some(e) if e.isLeft =>
-					val edit = e.getLeft
-					val r    = edit.getRange
-					val s    = body.lineStart(r.getStart.getLine) + r.getStart.getCharacter
-					val end  = body.lineStart(r.getEnd.getLine)   + r.getEnd.getCharacter
-					doc.remove(s, end - s)
-					doc.insertString(s, edit.getNewText, null)
-				case Some(e) if e.isRight =>
-					val edit = e.getRight
-					val r    = edit.getInsert
-					val s    = body.lineStart(r.getStart.getLine) + r.getStart.getCharacter
-					val end  = body.lineStart(r.getEnd.getLine)   + r.getEnd.getCharacter
-					doc.remove(s, end - s)
-					doc.insertString(s, edit.getNewText, null)
-				case _ =>
-					val text = Option(item.getInsertText).filter(_.nonEmpty).getOrElse(item.getLabel)
-					doc.insertString(caretOffset, text, null)
-			}
-		} catch { case e: Throwable => javax.swing.JOptionPane.showMessageDialog(null, e.getMessage, "Complete Error", javax.swing.JOptionPane.ERROR_MESSAGE) }
-		body.requestFocus()
 	}
 
 	// Called by ZCol.closeWnd to clean up LSP before removing the window.
@@ -625,7 +598,7 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		case ZWnd.rePath(dirty, p) =>
 			val ep = ZUtilities.expandPath(p, root)
 			if(ZUtilities.isFullPath(ep)) ep else new File(root + ZUtilities.separator + ep).getCanonicalPath
-		case _ => root
+		case _ => new File(root).getCanonicalPath
 	}
 
 	def path_=(p : String) = tag.text = tag.text.replace(rawPath, p)
@@ -665,18 +638,18 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 	def get(f : String = path) = if(f != null && !f.trim.isEmpty){
 		var valid = false
 		try {
-			val o = new File(f)
+			val ef = ZUtilities.expandPath(f, root)
+			val o = new File(if(ef.startsWith(ZUtilities.separator)) ef else (root + File.separator + ef)) 
+
 			if(o.isDirectory) 
 				body.text = o.list.toList.sortWith((a,b) => a < b ).
 						map((e) => if(new File(f + File.separator + e).isDirectory) { e + File.separator }  else e).
 							mkString(Properties.lineSeparator)
-			else body.text = Source.fromFile(f).mkString
+			else
+				body.text = Source.fromFile(f).mkString
+
 			body.caret.position = 0
 			valid = true
-			val absPath = ZUtilities.expandPath(f, root)
-			val absFile = new File(absPath)
-			root = if(absFile.isDirectory) absFile.getCanonicalPath
-			       else Option(absFile.getParentFile).map(_.getCanonicalPath).getOrElse(root)
 			if(indHilite) body.hilite(ZLangRegistry.forPath(f))
 		} catch {
 			case e : Throwable => JOptionPane.showMessageDialog(null, f + " " + e.getMessage, "Get Error", JOptionPane.ERROR_MESSAGE)
@@ -729,6 +702,9 @@ class ZWnd(initTagText : String, initBodyText : String = "") extends SplitPane(O
 		p += "indent.auto" -> (if(indIndent) "true" else "false")
 		p += "interactive" -> (if(indInteractive) "true" else "false")
 		p += "bind"         -> (if(indBind)     "true" else "false")
+		p += "lsp"          -> (if(indLsp)      "true" else "false")
+		p += "lsp.root"     -> lspRoot
+		p += "lsp.indexing" -> lspClient.map(c => if (c.indexing) "true" else "false").getOrElse("false")
 		p += "hilite"       -> (if(indHilite)   "true" else "false")
 		p += "line.numbers" -> (if(indLineNums) "true" else "false")
 		p += "lines" -> String.valueOf(body.lineCount)
@@ -829,6 +805,8 @@ object ZWnd {
 	val reRegExp = """^:/(.+)$""".r
 	val reFilePath = """(.+)(:[0-9]+)$""".r
 	val reFilePath2 = """(.+)(:/.+)$""".r
+	val reQuotedFilePath = """'(.+)'(:[0-9]+)$""".r
+	val reQuotedFilePath2 = """'(.+)'(:/.+)$""".r
 	val reExternalCmd = """(?s)([\|<!])\s*(.+)\s*$""".r
 	val reWhiteSpace = """(?s)^(\s+).*$""".r
 

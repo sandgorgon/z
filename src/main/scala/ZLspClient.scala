@@ -51,6 +51,8 @@ class ZLspClient(
 	private var process: Process       = scala.compiletime.uninitialized
 	@volatile private var version      = 0
 	@volatile private var ready        = false
+	private val progressTokens = java.util.concurrent.ConcurrentHashMap.newKeySet[String]()
+	def indexing: Boolean = !progressTokens.isEmpty
 
 	// Launch the server process and negotiate the LSP session.
 	// onReady is invoked (on a background thread) once initialize/initialized completes.
@@ -114,12 +116,15 @@ class ZLspClient(
 			new Position(line, col)
 		)
 		server.getTextDocumentService.completion(params).thenAccept { result =>
-			if (result != null) {
-				val items =
-					if (result.isLeft) result.getLeft.asScala.toList
-					else result.getRight.getItems.asScala.toList
-				callback(items)
-			}
+			val items =
+				if (result == null) List.empty
+				else if (result.isLeft) result.getLeft.asScala.toList
+				else result.getRight.getItems.asScala.toList
+			callback(items)
+		}.exceptionally { ex =>
+			System.err.println(s"[z] LSP completion failed: ${ex.getMessage}")
+			callback(List.empty)
+			null
 		}
 	}
 
@@ -150,6 +155,16 @@ class ZLspClient(
 	@JsonNotification("textDocument/publishDiagnostics")
 	def publishDiagnostics(params: PublishDiagnosticsParams): Unit = {
 		onDiagnostics(params.getDiagnostics.asScala.toList)
+	}
+
+	@JsonNotification("$/progress")
+	def notifyProgress(params: ProgressParams): Unit = {
+		val token = if (params.getToken.isLeft) params.getToken.getLeft else params.getToken.getRight.toString
+		Option(params.getValue).filter(_.isLeft).map(_.getLeft).foreach {
+			case _: WorkDoneProgressBegin => progressTokens.add(token)
+			case _: WorkDoneProgressEnd   => progressTokens.remove(token)
+			case _ =>
+		}
 	}
 
 	@JsonNotification("window/showMessage")
