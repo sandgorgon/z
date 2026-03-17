@@ -30,7 +30,7 @@ import java.io.File
 import java.awt.{Color, Font}
 import javax.swing.{JOptionPane, SwingUtilities, BorderFactory}
 
-class ZCol extends BorderPanel {
+class ZCol(currDir : String) extends BorderPanel {
 	val wnd = genWnd(_ : String)
 	val cmdWnd = genWnd(_ : String, ZCol.cmdTagLine)
 
@@ -42,7 +42,7 @@ class ZCol extends BorderPanel {
 	var colorTSelBack =new Color(0x96, 0x96, 0x96)
 	var colorTSelFore = new Color(0xFF, 0xFF, 0xFF)
 	var prevCmd = ""
-	var currentDir = new File(".").getCanonicalPath
+	var currentDir = new File(currDir).getCanonicalPath
 	var dragSel = false
 	var dragSelMark = -1
 
@@ -255,11 +255,13 @@ class ZCol extends BorderPanel {
 					wnds.foreach(_.command(cmd))
 				case ZUtilities.reDirQuoted(d) =>
 					val ed = ZUtilities.expandPath(d, currentDir)
-					if(new File(ed).isDirectory) currentDir = new File(ed).getCanonicalPath
+					val f = if(ZUtilities.isFullPath(ed)) ed else (currentDir + ZUtilities.separator + ed)
+					if(new File(f).isDirectory) currentDir = new File(f).getCanonicalPath
 					wnds.foreach(_.command(cmd))
 				case ZUtilities.reDir(d) =>
 					val ed = ZUtilities.expandPath(d, currentDir)
-					if(new File(ed).isDirectory) currentDir = new File(ed).getCanonicalPath
+					val f = if(ZUtilities.isFullPath(ed)) ed else (currentDir + ZUtilities.separator + ed)
+					if(new File(f).isDirectory) currentDir = new File(f).getCanonicalPath
 					wnds.foreach(_.command(cmd))
 				case c =>
 					if(!look(c, false)) wnds.foreach((w) => if(!w.look(c)) w.command(c))
@@ -272,13 +274,13 @@ class ZCol extends BorderPanel {
 	def look(txt : String, traverse : Boolean = true) : Boolean = {
 		if(txt == null || txt.trim.isEmpty)  return true
 
-		val contextRoot = wnds.headOption.map(_.root).getOrElse(currentDir)
-
 		txt match {
 			case ZCol.reFileLoc(f, loc) => fileLook(f, loc)
 			case s =>
-				val expanded = ZUtilities.expandPath(s, contextRoot)
-				if(new File(expanded).exists) {
+				val expanded = ZUtilities.expandPath(s, currentDir)
+				val f = if(ZUtilities.isFullPath(expanded)) expanded else (currDir + ZUtilities.separator + expanded)
+
+				if(new File(f).exists) {
 					val o  = pathWindow(expanded)
 					if(o == None)  {
 						val w = wnd(expanded)
@@ -323,7 +325,7 @@ class ZCol extends BorderPanel {
 		}
 	}
 
-	def genWnd(p : String = "+", tag : String = ZCol.wndTagLine) = new ZWnd((if(p.contains(" ")) s"'$p'" else p) + " " + tag, "")
+	def genWnd(p : String = "+", tag : String = ZCol.wndTagLine) = new ZWnd((if(p.contains(" ")) s"'$p'" else p) + " " + tag, "", currentDir)
 
 	def closeWnd(w : ZWnd) : Boolean  = {
 		if(w.dirty && !ZWnd.isScratchBuffer(w.rawPath) && (new File(w.path)).isFile) {
@@ -337,8 +339,7 @@ class ZCol extends BorderPanel {
 	}
 
 	def fileLook(f : String, loc : String) = {
-		val contextRoot = wnds.headOption.map(_.root).getOrElse(currentDir)
-		val ef = ZUtilities.expandPath(f, contextRoot)
+		val ef = ZUtilities.expandPath(f, currentDir)
 		val w  = rawPathWindow(ef).orElse(pathWindow(ef)).getOrElse {
 			val n = wnd(ef)
 			this += n
@@ -352,7 +353,7 @@ class ZCol extends BorderPanel {
 
 	def pathWindow(p : String) = {
 		val cp = new File(p).getCanonicalPath
-		wnds.find((w) => if(ZWnd.isScratchBuffer(w.rawPath)) false else new File(w.path).getCanonicalPath.equals(cp) )
+		wnds.find((w) => if(ZWnd.isScratchBuffer(w.rawPath)) false else w.path.equals(cp) )
 	}
 
 	def rawPathWindow(p : String) = wnds.find( (w) => w.rawPath.equals(p) )

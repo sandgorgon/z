@@ -42,7 +42,9 @@ object ZUtilities {
 
 	def expandPath(s: String, root: String): String = {
 		if(s == null || s.isBlank) return s
+
 		val home = System.getProperty("user.home")
+
 		if(s == "~")
 			new File(home).getCanonicalPath
 		else if(s.startsWith("~/"))
