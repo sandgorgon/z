@@ -511,19 +511,20 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		val localFp = path
 		val f = new File(localFp)
 		val env = new HashMap[String, String] + ("Z_LOCAL_FP" -> localFp) + ("Z_FP" -> f.getCanonicalPath)
+		val wd = if(f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath
 
 		tag.text = tag.text + ZWnd.CmdExecIndicator
 		try {
 			op match {
-				case "<" => ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(root), env = Some(env))
-				case ">" => ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, input = in, workdir = Some(root), env = Some(env))
+				case "<" => ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
+				case ">" => ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, input = in, workdir = Some(wd), env = Some(env))
 				case "|" =>
 					val sel = Option(body.selected).getOrElse("")
 					body.selected = ""
-					ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, input = Some(sel), workdir = Some(root), env = Some(env))
+					ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, input = Some(sel), workdir = Some(wd), env = Some(env))
 				case "!" =>
 					body.text = ""
-					ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(root), env = Some(env))
+					ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
 			}
 		} catch {
 			case e : Throwable =>
