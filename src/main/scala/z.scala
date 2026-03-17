@@ -53,7 +53,9 @@ object z extends SwingApplication {
 						" | " + (if(e.properties.get("indent.auto").get == "true") "Indent" else "NoIndent") + 
 						" | " + (if(e.properties.get("scroll").get == "true") "Scroll" else "NoScroll") +
 						" | " + e.properties.get("body.font.current").get + " " + e.properties.get("body.font.current.size").get +
-						(if(e.properties.get("bind").get == "true") " | Bind" else "") + 
+						(if(e.properties.get("bind").get == "true") " | Bind" else "") +
+						(if(e.properties.get("lsp").get == "true") " | LSP" else "") +
+						(if(e.properties.get("hilite").get == "true") " | Hilite" else "") +
 						(if(e.properties.get("interactive").get == "true") " | Input: " + ZWnd.rePrompt else "")
 
 		case e : ZColStatusEvent => status.text = e.properties.get("command.prev").get

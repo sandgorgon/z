@@ -725,6 +725,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		p += "indent.auto" -> (if(indIndent) "true" else "false")
 		p += "interactive" -> (if(indInteractive) "true" else "false")
 		p += "bind"         -> (if(indBind)     "true" else "false")
+		p += "lsp"          -> (if(indLsp)      "true" else "false")
 		p += "hilite"       -> (if(indHilite)   "true" else "false")
 		p += "line.numbers" -> (if(indLineNums) "true" else "false")
 		p += "lines" -> String.valueOf(body.lineCount)
