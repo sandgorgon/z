@@ -282,7 +282,7 @@ class ZCol(currDir : String) extends BorderPanel {
 
 				if(new File(f).exists) {
 					val o  = pathWindow(expanded)
-					if(o == None)  {
+					if(o.isEmpty)  {
 						val w = wnd(expanded)
 						this += w
 						w.command("Get")
