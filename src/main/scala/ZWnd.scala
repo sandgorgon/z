@@ -33,7 +33,7 @@ import javax.swing.text.{Utilities, DefaultCaret}
 import javax.swing.{JOptionPane, ScrollPaneConstants, SwingUtilities}
 import java.util.regex.Pattern
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
-import org.fife.ui.autocomplete.{AutoCompletion, BasicCompletion, DefaultCompletionProvider}
+import org.fife.ui.autocomplete.{AutoCompletion, AutoCompletionEvent, AutoCompletionListener, Completion, CompletionCellRenderer, DefaultCompletionProvider}
 import org.eclipse.lsp4j.{Diagnostic, DiagnosticSeverity}
 
 class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = ".") extends SplitPane(Orientation.Horizontal) {
@@ -47,9 +47,12 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	var indLineNums = false
 
 	var lspClient: Option[ZLspClient] = None
-	var lspRoot = ""
+	var lspRoot   = ""
+	var lspStatus = ""   // last metals/status text; empty = idle
 	val lspParser      = new ZLspDiagnosticParser
-	val lspProvider    = new DefaultCompletionProvider()
+	val lspProvider    = new DefaultCompletionProvider() {
+		override def getListCellRenderer() = new CompletionCellRenderer()
+	}
 	val autoCompletion = new AutoCompletion(lspProvider)
 	val hoverTimer     = new javax.swing.Timer(500, null)
 	val didChangeTimer = new javax.swing.Timer(400, null)
@@ -57,6 +60,8 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	var cmdProcessWriter : Option[BufferedWriter] = None
 	var dragSel = false
 	var dragSelMark = -1
+	var completionListenerAdded = false
+	@volatile var resolveVersion  = 0
 
 	var colorBack =new Color(0xFF, 0xFF, 0xE0)
 	var colorFore = new Color(0x00, 0x00, 0x00)
@@ -154,12 +159,22 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 
 	autoCompletion.setAutoActivationEnabled(false)
 	autoCompletion.setAutoCompleteSingleChoices(false)
+	autoCompletion.setShowDescWindow(true)
+	autoCompletion.setChoicesWindowSize(350, 200)
+	autoCompletion.setDescriptionWindowSize(400, 200)
 	autoCompletion.setTriggerKey(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_PERIOD, java.awt.event.InputEvent.CTRL_DOWN_MASK))
 	autoCompletion.install(body.peer)
 	// Replace RSTA's default trigger action with our async LSP fetch.
 	body.peer.getInputMap.put(autoCompletion.getTriggerKey, "z.complete")
 	body.peer.getActionMap.put("z.complete", new javax.swing.AbstractAction() {
 		def actionPerformed(e: java.awt.event.ActionEvent): Unit = command("Complete")
+	})
+	// On first popup show, inject a ListSelectionListener via reflection so we can
+	// fire completionItem/resolve for the selected item and refresh the desc window.
+	autoCompletion.addAutoCompletionListener(new AutoCompletionListener() {
+		def autoCompleteUpdate(e: AutoCompletionEvent): Unit =
+			if (e.getEventType == AutoCompletionEvent.Type.POPUP_SHOWN && !completionListenerAdded)
+				setupResolveListener()
 	})
 
 	listenTo(tag.mouse.moves, body.mouse.moves)
@@ -376,7 +391,12 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 						val langId   = ZLangRegistry.langIdFor(path)
 						ZLspManager.serverCmd(langId).foreach { cmd =>
 							val uri    = s"file://${new File(projRoot).getCanonicalPath}/"
-							val client = new ZLspClient(langId, cmd, path, uri, onDiagnostics)
+							val client = new ZLspClient(langId, cmd, path, uri, onDiagnostics,
+							() => javax.swing.SwingUtilities.invokeLater(() => publish(new ZStatusEvent(this, properties))),
+							p  => javax.swing.SwingUtilities.invokeLater(() => {
+								lspStatus = if (p.hide) "" else p.text.trim
+								publish(new ZStatusEvent(this, properties))
+							}))
 							client.start(() => javax.swing.SwingUtilities.invokeLater(() => {
 								client.didOpen(body.text)
 								command("Check")
@@ -398,9 +418,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 							javax.swing.SwingUtilities.invokeLater(() => {
 								lspProvider.clear()
 								items.foreach { item =>
-									val repl = Option(item.getInsertText).filter(_.nonEmpty).getOrElse(item.getLabel)
-									val desc = Option(item.getDetail).filter(_.nonEmpty).orNull
-									lspProvider.addCompletion(new BasicCompletion(lspProvider, repl, desc))
+									lspProvider.addCompletion(new ZLspCompletion(lspProvider, item))
 								}
 								autoCompletion.doCompletion()
 							})
@@ -408,6 +426,69 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 					}
 				case _                           => publish(new ZCmdEvent(this, cmd))
 			}
+		}
+	}
+
+	// Inject a ListSelectionListener into AutoCompletePopupWindow's private JList via
+	// reflection. Called once on the first POPUP_SHOWN event. On each selection change
+	// we fire completionItem/resolve against the LSP server and push the returned
+	// documentation into the description window via showSummaryFor().
+	private def setupResolveListener(): Unit = {
+		completionListenerAdded = true
+		try {
+			val popupField = classOf[AutoCompletion].getDeclaredField("popupWindow")
+			popupField.setAccessible(true)
+			val popup = popupField.get(autoCompletion)
+			if (popup == null) { System.err.println("[z] resolve: popupWindow is null"); return }
+
+			val listField = popup.getClass.getDeclaredField("list")
+			listField.setAccessible(true)
+			val jlist = listField.get(popup).asInstanceOf[javax.swing.JList[?]]
+
+			val descField = popup.getClass.getDeclaredField("descWindow")
+			descField.setAccessible(true)
+
+			// Resolve and cache the showSummaryFor method once so we pay the lookup cost
+			// only once, and call setAccessible(true) to bypass the package-private class barrier.
+			var showSummaryFor: java.lang.reflect.Method = null
+
+			def getShowSummaryFor(descW: AnyRef): java.lang.reflect.Method = {
+				if (showSummaryFor == null) {
+					showSummaryFor = descW.getClass.getMethod("showSummaryFor", classOf[Completion], classOf[String])
+					showSummaryFor.setAccessible(true)
+				}
+				showSummaryFor
+			}
+
+			jlist.addListSelectionListener { e =>
+				if (!e.getValueIsAdjusting) {
+					jlist.getSelectedValue match {
+						case zlsp: ZLspCompletion =>
+							resolveVersion += 1
+							val myVersion = resolveVersion
+							lspClient.foreach { c =>
+								c.resolveCompletion(zlsp.lspItem, resolved => {
+									// Ignore stale responses if selection moved on.
+									if (resolveVersion == myVersion) {
+										val html = ZLspCompletion.buildSummary(resolved)
+										if (html != null) {
+											zlsp.resolvedSummary = Some(html)
+											javax.swing.SwingUtilities.invokeLater(() => {
+												val descW = descField.get(popup)
+												if (descW != null)
+													getShowSummaryFor(descW).invoke(descW, zlsp, html)
+											})
+										}
+									}
+								})
+							}
+						case _ =>
+					}
+				}
+			}
+		} catch {
+			case ex: Exception =>
+				System.err.println(s"[z] resolve listener setup failed: ${ex.getMessage}")
 		}
 	}
 
@@ -640,14 +721,26 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		var valid = false
 		try {
 			val ef = ZUtilities.expandPath(f, root)
-			val o = new File(if(ef.startsWith(ZUtilities.separator)) ef else (root + File.separator + ef)) 
+			val o = new File(if(ef.startsWith(ZUtilities.separator)) ef else (root + File.separator + ef))
 
-			if(o.isDirectory) 
+			if(o.isDirectory)
 				body.text = o.list.toList.sortWith((a,b) => a < b ).
 						map((e) => if(new File(f + File.separator + e).isDirectory) { e + File.separator }  else e).
 							mkString(Properties.lineSeparator)
-			else
+			else {
+				// Notify LSP of the file switch before loading new content.
+				val newPath = o.getCanonicalPath
+				if (indLsp && newPath != path) {
+					lspClient.foreach { c =>
+						c.didClose()
+						c.updatePath(newPath)
+					}
+				}
 				body.text = Source.fromFile(f).mkString
+				if (indLsp && newPath != path) {
+					lspClient.foreach(_.didOpen(body.text))
+				}
+			}
 
 			body.caret.position = 0
 			valid = true
@@ -706,6 +799,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		p += "lsp"          -> (if(indLsp)      "true" else "false")
 		p += "lsp.root"     -> lspRoot
 		p += "lsp.indexing" -> lspClient.map(c => if (c.indexing) "true" else "false").getOrElse("false")
+		p += "lsp.status"   -> lspStatus
 		p += "hilite"       -> (if(indHilite)   "true" else "false")
 		p += "line.numbers" -> (if(indLineNums) "true" else "false")
 		p += "lines" -> String.valueOf(body.lineCount)

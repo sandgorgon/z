@@ -39,12 +39,22 @@ import scala.jdk.CollectionConverters._
 // Threading: all public methods are safe to call from the EDT.
 // Callbacks (onDiagnostics) are invoked on LSP4J background threads —
 // callers must dispatch to the EDT themselves (see ZWnd.onDiagnostics).
+// Params for Metals' proprietary metals/status notification.
+class MetalsStatusParams {
+	var text:    String  = ""
+	var show:    Boolean = false
+	var hide:    Boolean = false
+	var tooltip: String  = ""
+}
+
 class ZLspClient(
 	langId: String,
 	serverCmd: String,
 	private var filePath: String,
 	rootUri: String,
 	onDiagnostics: List[Diagnostic] => Unit,
+	onIndexingChange: () => Unit = () => (),
+	onMetalsStatus: MetalsStatusParams => Unit = _ => (),
 ) {
 
 	private var server: LanguageServer = scala.compiletime.uninitialized
@@ -72,6 +82,7 @@ class ZLspClient(
 
 		val params = new InitializeParams
 		params.setCapabilities(clientCapabilities())
+		params.setRootUri(rootUri)
 		params.setWorkspaceFolders(java.util.List.of(new WorkspaceFolder(rootUri, "workspace")))
 		params.setProcessId(ProcessHandle.current().pid().toInt)
 
@@ -128,6 +139,18 @@ class ZLspClient(
 		}
 	}
 
+	// Async completionItem/resolve — fetches full documentation for a single item.
+	// Most LSP servers (including Metals) defer documentation to this call.
+	// callback is invoked on a background thread; caller must dispatch to EDT for UI.
+	def resolveCompletion(item: org.eclipse.lsp4j.CompletionItem, callback: org.eclipse.lsp4j.CompletionItem => Unit): Unit = if (ready) {
+		server.getTextDocumentService.resolveCompletionItem(item).thenAccept { resolved =>
+			callback(if (resolved != null) resolved else item)
+		}.exceptionally { _ =>
+			callback(item)
+			null
+		}
+	}
+
 	// Async hover request. callback is invoked on a background thread with the
 	// extracted markdown/plain text. Caller must dispatch to EDT if updating UI.
 	def hover(line: Int, col: Int, callback: String => Unit): Unit = if (ready) {
@@ -159,20 +182,29 @@ class ZLspClient(
 
 	@JsonNotification("$/progress")
 	def notifyProgress(params: ProgressParams): Unit = {
-		val token = if (params.getToken.isLeft) params.getToken.getLeft else params.getToken.getRight.toString
+		val token  = if (params.getToken.isLeft) params.getToken.getLeft else params.getToken.getRight.toString
+		val before = indexing
 		Option(params.getValue).filter(_.isLeft).map(_.getLeft).foreach {
 			case _: WorkDoneProgressBegin => progressTokens.add(token)
 			case _: WorkDoneProgressEnd   => progressTokens.remove(token)
 			case _ =>
 		}
+		if (indexing != before) onIndexingChange()
 	}
+
+	@JsonNotification("metals/status")
+	def metalsStatus(params: MetalsStatusParams): Unit = onMetalsStatus(params)
 
 	@JsonNotification("window/showMessage")
 	def showMessage(params: MessageParams): Unit = {}
 
+	// Auto-accept the first action (e.g. Metals' "Import build" prompt).
+	// Returning null silently dismisses the dialog and suppresses build import.
 	@JsonRequest("window/showMessageRequest")
 	def showMessageRequest(params: ShowMessageRequestParams): CompletableFuture[MessageActionItem] =
-		CompletableFuture.completedFuture(null)
+		CompletableFuture.completedFuture(
+			Option(params.getActions).flatMap(a => Option(a.get(0))).orNull
+		)
 
 	@JsonNotification("window/logMessage")
 	def logMessage(params: MessageParams): Unit = {}
@@ -200,8 +232,11 @@ class ZLspClient(
 		val hoverCap = new HoverCapabilities
 		hoverCap.setContentFormat(java.util.List.of("plaintext", "markdown"))
 
+		val resolveSupport = new org.eclipse.lsp4j.CompletionItemResolveSupportCapabilities
+		resolveSupport.setProperties(java.util.List.of("documentation", "detail"))
 		val completionItemCap = new CompletionItemCapabilities
 		completionItemCap.setSnippetSupport(false)
+		completionItemCap.setResolveSupport(resolveSupport)
 		val completionCap = new CompletionCapabilities
 		completionCap.setCompletionItem(completionItemCap)
 
