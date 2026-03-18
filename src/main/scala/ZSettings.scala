@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.{Map, HashMap}
+import scala.util.Using
 
 import java.util.Properties
 import java.io.{File, FileReader, FileWriter}
@@ -28,15 +29,13 @@ import java.io.{File, FileReader, FileWriter}
 object ZSettings {
 	def load(f : File) : Map[String, String] = {
 		val properties = new Properties
-		properties.load(new FileReader(f))
-
+		Using(new FileReader(f))(properties.load).get
 		properties.asScala.toMap
 	}
 
 	def dump(m : Map[String, String], f : File, comments : String) = {
 		val p = new Properties
 		m.foreach((e) => p.put(e._1, e._2))
-
-		p.store(new FileWriter(f), comments)
+		Using(new FileWriter(f))(p.store(_, comments)).get
 	}
 }

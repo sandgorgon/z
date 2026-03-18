@@ -667,20 +667,17 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	def root = rootPath
 	def root_=(s : String) = { rootPath = new File(s).getCanonicalPath }
 
+	private def resolvePath(p: String): String = {
+		val ep = ZUtilities.expandPath(p, root)
+		if (ZUtilities.isFullPath(ep)) ep else new File(root + ZUtilities.separator + ep).getCanonicalPath
+	}
+
 	def path = tag.text match {
-		case ZWnd.reQuotedScratch(dirty, p) =>
-			val ep = ZUtilities.expandPath(p, root)
-			if(ZUtilities.isFullPath(ep)) ep else new File(root + ZUtilities.separator + ep).getCanonicalPath
-		case ZWnd.reScratch(dirty, p) =>
-			val ep = ZUtilities.expandPath(p, root)
-			if(ZUtilities.isFullPath(ep)) ep else new File(root + ZUtilities.separator + ep).getCanonicalPath
-		case ZWnd.reQuotedPath(dirty, p) =>
-			val ep = ZUtilities.expandPath(p, root)
-			if(ZUtilities.isFullPath(ep)) ep else new File(root + ZUtilities.separator + ep).getCanonicalPath
-		case ZWnd.rePath(dirty, p) =>
-			val ep = ZUtilities.expandPath(p, root)
-			if(ZUtilities.isFullPath(ep)) ep else new File(root + ZUtilities.separator + ep).getCanonicalPath
-		case _ => new File(root).getCanonicalPath
+		case ZWnd.reQuotedScratch(_, p) => resolvePath(p)
+		case ZWnd.reScratch(_, p)       => resolvePath(p)
+		case ZWnd.reQuotedPath(_, p)    => resolvePath(p)
+		case ZWnd.rePath(_, p)          => resolvePath(p)
+		case _                          => new File(root).getCanonicalPath
 	}
 
 	def path_=(p : String) = tag.text = tag.text.replace(rawPath, p)
@@ -706,9 +703,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	def put(f : String) = if(f != null && !f.trim().isEmpty && !new File(f).isDirectory && !ZWnd.isScratchBuffer(f)) {
 		var valid = false
 		try {
-			val fw = new FileWriter(f)
-			fw.write(body.text)
-			fw.close
+			scala.util.Using(new FileWriter(f))(_.write(body.text)).get
 			valid = true
 		} catch {
 			case e : Throwable => JOptionPane.showMessageDialog(null, e.getMessage, "Put Error", JOptionPane.ERROR_MESSAGE)
@@ -736,7 +731,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 						c.updatePath(newPath)
 					}
 				}
-				body.text = Source.fromFile(f).mkString
+				body.text = scala.util.Using(Source.fromFile(f))(_.mkString).get
 				if (indLsp && newPath != path) {
 					lspClient.foreach(_.didOpen(body.text))
 				}
@@ -840,7 +835,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		path = p.getOrElse(prefix + "path", "+")
 		root = p.getOrElse(prefix + "path.root", ".")
 		body.tabSize = p.getOrElse(prefix + "tab.size", "4").toInt
-		body.lineWrap = if(p.getOrElse(prefix + "line.wrap", "false").equals("true")) true else false
+		body.lineWrap = p.getOrElse(prefix + "line.wrap", "false") == "true"
 
 		fontFixed = new Font(p.getOrElse(prefix + "body.font.fixed", fontFixed.getFontName), Font.PLAIN, p.getOrElse(prefix + "body.font.fixed.size", fontFixed.getSize.toString).toInt)
 		fontVar = new Font(p.getOrElse(prefix + "body.font.variable", fontVar.getFontName), Font.PLAIN, p.getOrElse(prefix + "body.font.variable.size", fontVar.getSize.toString).toInt)
@@ -861,14 +856,14 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		tag.colors(colorTBack, colorTFore, colorTCaret, colorTSelBack, colorTSelFore)
 		tag.text = p.getOrElse(prefix + "tag.text", "+ Get Put Zerox Close | Undo Redo Wrap Indent Mark")
 
-		indIndent = if(p.getOrElse(prefix + "indent.auto", "false").equals("true")) true  else false
-		indInteractive = if(p.getOrElse(prefix + "interactive", "false").equals("true")) true  else false
-		indBind = if(p.getOrElse(prefix + "bind", "false").equals("true")) true else false
-		dirty = if(p.getOrElse(prefix + "dirty", "false").equals("true"))  true  else  false
-		scroll = if(p.getOrElse(prefix + "scroll", "false").equals("true"))  true  else false 
+		indIndent      = p.getOrElse(prefix + "indent.auto",  "false") == "true"
+		indInteractive = p.getOrElse(prefix + "interactive",  "false") == "true"
+		indBind        = p.getOrElse(prefix + "bind",         "false") == "true"
+		dirty          = p.getOrElse(prefix + "dirty",        "false") == "true"
+		scroll         = p.getOrElse(prefix + "scroll",       "false") == "true"
 
-		indHilite   = if(p.getOrElse(prefix + "hilite",       "false").equals("true")) true else false
-		indLineNums = if(p.getOrElse(prefix + "line.numbers", "false").equals("true")) true else false
+		indHilite   = p.getOrElse(prefix + "hilite",        "false") == "true"
+		indLineNums = p.getOrElse(prefix + "line.numbers",  "false") == "true"
 		if(indLineNums) bodyScroll.setLineNumbersEnabled(true)
 		styleGutter()
 		if(!dirty)  command("Get") else  body.text = p.getOrElse(prefix + "body.text", "")

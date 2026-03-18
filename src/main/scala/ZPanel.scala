@@ -188,7 +188,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 					if(cols.length < 1)  this += new ZCol(currentDir)
 					cols.last.look(s)
 				} else {
-					cols.foreach((c) => retval = c.look(s))
+					retval = cols.exists(_.look(s))
 				}
 		}
 

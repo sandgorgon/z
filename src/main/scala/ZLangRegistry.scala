@@ -63,39 +63,25 @@ object ZLangRegistry {
 		"less"       -> SyntaxConstants.SYNTAX_STYLE_LESS,
 	)
 
-	// Human-readable language name → RSTA syntax style (used by Hilite <lang>)
+	// Human-readable language name aliases not already covered by byExt (used by Hilite <lang>)
 	private val byName: Map[String, String] = byExt ++ Map(
-		"java"       -> SyntaxConstants.SYNTAX_STYLE_JAVA,
-		"scala"      -> SyntaxConstants.SYNTAX_STYLE_SCALA,
 		"python"     -> SyntaxConstants.SYNTAX_STYLE_PYTHON,
-		"go"         -> SyntaxConstants.SYNTAX_STYLE_GO,
-		"sql"        -> SyntaxConstants.SYNTAX_STYLE_SQL,
 		"postgres"   -> SyntaxConstants.SYNTAX_STYLE_SQL,
 		"postgresql" -> SyntaxConstants.SYNTAX_STYLE_SQL,
-		"bash"       -> SyntaxConstants.SYNTAX_STYLE_UNIX_SHELL,
 		"shell"      -> SyntaxConstants.SYNTAX_STYLE_UNIX_SHELL,
 		"javascript" -> SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT,
 		"typescript" -> SyntaxConstants.SYNTAX_STYLE_TYPESCRIPT,
 		"kotlin"     -> SyntaxConstants.SYNTAX_STYLE_KOTLIN,
 		"ruby"       -> SyntaxConstants.SYNTAX_STYLE_RUBY,
 		"rust"       -> SyntaxConstants.SYNTAX_STYLE_RUST,
-		"c"          -> SyntaxConstants.SYNTAX_STYLE_C,
-		"cpp"        -> SyntaxConstants.SYNTAX_STYLE_CPLUSPLUS,
-		"xml"        -> SyntaxConstants.SYNTAX_STYLE_XML,
-		"html"       -> SyntaxConstants.SYNTAX_STYLE_HTML,
-		"json"       -> SyntaxConstants.SYNTAX_STYLE_JSON,
-		"yaml"       -> SyntaxConstants.SYNTAX_STYLE_YAML,
 		"markdown"   -> SyntaxConstants.SYNTAX_STYLE_MARKDOWN,
-		"groovy"     -> SyntaxConstants.SYNTAX_STYLE_GROOVY,
-		"lua"        -> SyntaxConstants.SYNTAX_STYLE_LUA,
-		"php"        -> SyntaxConstants.SYNTAX_STYLE_PHP,
-		"css"        -> SyntaxConstants.SYNTAX_STYLE_CSS,
 	)
 
-	def forPath(path: String): String = {
-		val ext = path.split('.').lastOption.map(_.toLowerCase).getOrElse("")
-		byExt.getOrElse(ext, SyntaxConstants.SYNTAX_STYLE_NONE)
-	}
+	private def extOf(path: String): String =
+		path.split('.').lastOption.map(_.toLowerCase).getOrElse("")
+
+	def forPath(path: String): String =
+		byExt.getOrElse(extOf(path), SyntaxConstants.SYNTAX_STYLE_NONE)
 
 	def forLang(lang: String): String =
 		byName.getOrElse(lang.toLowerCase, SyntaxConstants.SYNTAX_STYLE_NONE)
@@ -135,8 +121,6 @@ object ZLangRegistry {
 		"php"        -> "php",
 	)
 
-	def langIdFor(path: String): String = {
-		val ext = path.split('.').lastOption.map(_.toLowerCase).getOrElse("")
-		langIdByExt.getOrElse(ext, "plaintext")
-	}
+	def langIdFor(path: String): String =
+		langIdByExt.getOrElse(extOf(path), "plaintext")
 }
