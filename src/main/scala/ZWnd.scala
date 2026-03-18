@@ -3,20 +3,20 @@ Copyright (c) 2011-2026. Ramon de Vera Jr.
 All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in 
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to use
-, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of 
+, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
 subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER 
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
@@ -33,8 +33,6 @@ import javax.swing.text.{Utilities, DefaultCaret}
 import javax.swing.{JOptionPane, ScrollPaneConstants, SwingUtilities}
 import java.util.regex.Pattern
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
-import org.fife.ui.autocomplete.{AutoCompletion, AutoCompletionEvent, AutoCompletionListener, Completion, CompletionCellRenderer, DefaultCompletionProvider}
-import org.eclipse.lsp4j.{Diagnostic, DiagnosticSeverity}
 
 class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = ".") extends SplitPane(Orientation.Horizontal) {
 	var rootPath = new File(currDir).getAbsolutePath
@@ -43,100 +41,46 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	var indInteractive = false
 	var indBind = false
 	var indHilite   = false
-	var indLsp      = false
 	var indLineNums = false
 
-	var lspClient: Option[ZLspClient] = None
-	var lspRoot   = ""
-	var lspStatus = ""   // last metals/status text; empty = idle
-	val lspParser      = new ZLspDiagnosticParser
-	val lspProvider    = new DefaultCompletionProvider() {
-		override def getListCellRenderer() = new CompletionCellRenderer()
-	}
-	val autoCompletion = new AutoCompletion(lspProvider)
-	val hoverTimer     = new javax.swing.Timer(500, null)
-	val didChangeTimer = new javax.swing.Timer(400, null)
+	var bodyScheme = ZColorScheme(
+		new Color(0xFF, 0xFF, 0xE0),
+		new Color(0x00, 0x00, 0x00),
+		new Color(0x00, 0x00, 0x00),
+		new Color(0xC8, 0x75, 0x9F),
+		new Color(0xFF, 0xFF, 0xFF))
+
+	var tagScheme = ZColorScheme(
+		new Color(0x4A, 0x61, 0x95),
+		new Color(0xFF, 0xFF, 0xFF),
+		new Color(0xC7, 0xC7, 0xC7),
+		new Color(0xFF, 0xFF, 0xFF),   // white — inverted from tag blue
+		new Color(0x4A, 0x61, 0x95))   // tag blue — inverted from tag white
+
 	var cmdProcess : Option[Process] = None
 	var cmdProcessWriter : Option[BufferedWriter] = None
 	var dragSel = false
 	var dragSelMark = -1
-	var completionListenerAdded = false
-	@volatile var resolveVersion  = 0
-
-	var colorBack =new Color(0xFF, 0xFF, 0xE0)
-	var colorFore = new Color(0x00, 0x00, 0x00)
-	var colorCaret = new Color(0x00, 0x00, 0x00)
-	var colorSelBack = new Color(0xC8, 0x75, 0x9F)
-	var colorSelFore = new Color(0xFF, 0xFF, 0xFF)
-
-	var colorTBack = new Color(0x4A, 0x61, 0x95)
-	var colorTFore = new Color(0xFF, 0xFF, 0xFF)
-	var colorTCaret = new Color(0xC7, 0xC7, 0xC7)
-	var colorTSelBack = new Color(0xFF, 0xFF, 0xFF)   // white — inverted from tag blue
-	var colorTSelFore = new Color(0x4A, 0x61, 0x95)   // tag blue — inverted from tag white
 
 	val tag = new ZTextArea(initTagText, true)
 	tag.font = ZFonts.defaultTag
-	tag.colors(colorTBack, colorTFore,  colorTCaret, colorTSelBack, colorTSelFore )
+	tagScheme.applyTo(tag)
 	tag.rows = 1
 
 	val body = new ZTextArea(initBodyText)
-	body.colors(colorBack, colorFore, colorCaret, colorSelBack, colorSelFore)
+	bodyScheme.applyTo(body)
 
-	// LSP parser (squiggly underlines) — registered even before Lsp is enabled
-	body.peer.addParser(lspParser)
-
-	var hoverPoint: java.awt.Point = new java.awt.Point(0, 0)
-
-	hoverTimer.addActionListener(_ => {
-		lspClient.foreach { c =>
-			try {
-				val dot  = body.peer.viewToModel2D(hoverPoint).toInt
-				val line = body.lineNo(dot)
-				val col  = dot - body.lineStart(line)
-				c.hover(line, col, text =>
-					javax.swing.SwingUtilities.invokeLater(() => {
-						body.lspTooltip = if (text.isEmpty) null else
-						"<html><pre>" +
-						text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") +
-						"</pre></html>"
-						if (text.nonEmpty) {
-							val pt = hoverPoint
-							javax.swing.ToolTipManager.sharedInstance().mouseMoved(
-								new java.awt.event.MouseEvent(body.peer,
-									java.awt.event.MouseEvent.MOUSE_MOVED,
-									System.currentTimeMillis(), 0, pt.x, pt.y, 0, false)
-							)
-						}
-					})
-				)
-			} catch { case _: Throwable => }
-		}
-	})
-	hoverTimer.setRepeats(false)
-
-	didChangeTimer.addActionListener(_ => lspClient.foreach(_.didChange(body.text)))
-	didChangeTimer.setRepeats(false)
-
-	body.peer.addMouseMotionListener(new java.awt.event.MouseMotionAdapter {
-		override def mouseMoved(e: java.awt.event.MouseEvent): Unit = {
-			if (indLsp) { hoverPoint = e.getPoint; hoverTimer.restart() }
-		}
-	})
-
-	body.peer.getDocument.addDocumentListener(new javax.swing.event.DocumentListener {
-		def insertUpdate(e: javax.swing.event.DocumentEvent): Unit  = if (indLsp) didChangeTimer.restart()
-		def removeUpdate(e: javax.swing.event.DocumentEvent): Unit  = if (indLsp) didChangeTimer.restart()
-		def changedUpdate(e: javax.swing.event.DocumentEvent): Unit = {}
-	})
+	val lsp = new ZLspSupport(body, () => path,
+		() => publish(new ZStatusEvent(this, properties)),
+		content => publish(new ZDiagnosticsReadyEvent(this, content)))
 
 	var fontVar   = ZFonts.defaultVar
 	var fontFixed = ZFonts.defaultFixed
 	body.font = fontFixed
-	
+
 	dividerSize = 2
-	topComponent =new ScrollPane(tag) {
-			peer.setComponentOrientation(RIGHT_TO_LEFT)
+	topComponent = new ScrollPane(tag) {
+		peer.setComponentOrientation(RIGHT_TO_LEFT)
 	}
 
 	val bodyScroll = new org.fife.ui.rtextarea.RTextScrollPane(body.peer, false) {
@@ -156,26 +100,6 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	bodyScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS)
 	bottomComponent = swing.Component.wrap(bodyScroll)
 	styleGutter()
-
-	autoCompletion.setAutoActivationEnabled(false)
-	autoCompletion.setAutoCompleteSingleChoices(false)
-	autoCompletion.setShowDescWindow(true)
-	autoCompletion.setChoicesWindowSize(350, 200)
-	autoCompletion.setDescriptionWindowSize(400, 200)
-	autoCompletion.setTriggerKey(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_PERIOD, java.awt.event.InputEvent.CTRL_DOWN_MASK))
-	autoCompletion.install(body.peer)
-	// Replace RSTA's default trigger action with our async LSP fetch.
-	body.peer.getInputMap.put(autoCompletion.getTriggerKey, "z.complete")
-	body.peer.getActionMap.put("z.complete", new javax.swing.AbstractAction() {
-		def actionPerformed(e: java.awt.event.ActionEvent): Unit = command("Complete")
-	})
-	// On first popup show, inject a ListSelectionListener via reflection so we can
-	// fire completionItem/resolve for the selected item and refresh the desc window.
-	autoCompletion.addAutoCompletionListener(new AutoCompletionListener() {
-		def autoCompleteUpdate(e: AutoCompletionEvent): Unit =
-			if (e.getEventType == AutoCompletionEvent.Type.POPUP_SHOWN && !completionListenerAdded)
-				setupResolveListener()
-	})
 
 	listenTo(tag.mouse.moves, body.mouse.moves)
 	reactions += {
@@ -240,7 +164,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 				ta.selected = fcp
 			}
 
-		case e : KeyReleased =>			
+		case e : KeyReleased =>
 			if(e.key == Key.Enter && indInteractive && cmdProcess.isDefined) {
 				body.line(body.currLineNo - 1) match {
 					case ZWnd.rePrompt(cmd) =>
@@ -253,7 +177,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 					case ZWnd.reWhiteSpace(spc) => body.selected = spc
 					case _ => /* Do Nothing  */
 				}
-					
+
 				if(p.trim().isEmpty)  body.lineSet(body.currLineNo -1, "")
 			}
 
@@ -358,137 +282,28 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 					cmdProcess = externalCmd(op, c)
 					cmdProcessWriter = cmdProcess.map(p => new BufferedWriter(new OutputStreamWriter(p.getOutputStream)))
 				case ZWnd.reColors(t, r, g, b)   =>
-					if(t.equals("TBack"))    colorTBack    = applyColor(colorTBack,    (r.toInt, g.toInt, b.toInt))
-					if(t.equals("TFore"))    colorTFore    = applyColor(colorTFore,    (r.toInt, g.toInt, b.toInt))
-					if(t.equals("TCaret"))   colorTCaret   = applyColor(colorTCaret,   (r.toInt, g.toInt, b.toInt))
-					if(t.equals("TSelBack")) colorTSelBack = applyColor(colorTSelBack, (r.toInt, g.toInt, b.toInt))
-					if(t.equals("TSelFore")) colorTSelFore = applyColor(colorTSelFore, (r.toInt, g.toInt, b.toInt))
-					if(t.equals("Back"))     colorBack     = applyColor(colorBack,     (r.toInt, g.toInt, b.toInt))
-					if(t.equals("Fore"))     colorFore     = applyColor(colorFore,     (r.toInt, g.toInt, b.toInt))
-					if(t.equals("Caret"))    colorCaret    = applyColor(colorCaret,    (r.toInt, g.toInt, b.toInt))
-					if(t.equals("SelBack"))  colorSelBack  = applyColor(colorSelBack,  (r.toInt, g.toInt, b.toInt))
-					if(t.equals("SelFore"))  colorSelFore  = applyColor(colorSelFore,  (r.toInt, g.toInt, b.toInt))
-					if(t.startsWith("T")) tag.colors(colorTBack, colorTFore, colorTCaret, colorTSelBack, colorTSelFore)
-					else { body.colors(colorBack, colorFore, colorCaret, colorSelBack, colorSelFore); styleGutter() }
+					if (t.startsWith("T")) {
+						tagScheme = tagScheme.withComponent(t.drop(1), r.toInt, g.toInt, b.toInt)
+						tagScheme.applyTo(tag)
+					} else {
+						bodyScheme = bodyScheme.withComponent(t, r.toInt, g.toInt, b.toInt)
+						bodyScheme.applyTo(body)
+						styleGutter()
+					}
 				case "Lsp"                       =>
 					JOptionPane.showMessageDialog(null,
 						"Lsp requires a project root path, e.g:  Lsp ~/myapp",
 						"LSP Error", JOptionPane.ERROR_MESSAGE)
 				case ZWnd.reLsp("off")           =>
-					lspClient.foreach { c =>
-						c.didClose()
-						c.shutdown()
-						ZLspManager.unregister(c)
-					}
-					lspClient = None
-					lspRoot   = ""
-					indLsp = false
-					lspParser.clearDiagnostics()
-					body.peer.forceReparsing(0)
+					lsp.stop()
 				case ZWnd.reLsp(p)               =>
-					if (!indLsp) {
-						val projRoot = ZUtilities.expandPath(p.trim, root)
-						val langId   = ZLangRegistry.langIdFor(path)
-						ZLspManager.serverCmd(langId).foreach { cmd =>
-							val uri    = s"file://${new File(projRoot).getCanonicalPath}/"
-							val client = new ZLspClient(langId, cmd, path, uri, onDiagnostics,
-							() => javax.swing.SwingUtilities.invokeLater(() => publish(new ZStatusEvent(this, properties))),
-							p  => javax.swing.SwingUtilities.invokeLater(() => {
-								lspStatus = if (p.hide) "" else p.text.trim
-								publish(new ZStatusEvent(this, properties))
-							}))
-							client.start(() => javax.swing.SwingUtilities.invokeLater(() => {
-								client.didOpen(body.text)
-								command("Check")
-							}))
-							lspClient = Some(client)
-							lspRoot   = new File(projRoot).getCanonicalPath
-							ZLspManager.register(client)
-							indLsp = true
-						}
-					}
-				case "Check"                     =>
-					lspClient.foreach(_.didChange(body.text))
-				case "Complete"                  =>
-					lspClient.foreach { c =>
-						val dot  = body.caret.dot
-						val line = body.lineNo(dot)
-						val col  = dot - body.lineStart(line)
-						c.completion(line, col, items =>
-							javax.swing.SwingUtilities.invokeLater(() => {
-								lspProvider.clear()
-								items.foreach { item =>
-									lspProvider.addCompletion(new ZLspCompletion(lspProvider, item))
-								}
-								autoCompletion.doCompletion()
-							})
-						)
-					}
+					val projRoot = ZUtilities.expandPath(p.trim, root)
+					val langId   = ZLangRegistry.langIdFor(path)
+					lsp.start(projRoot, langId)
+				case "Check"                     => lsp.check()
+				case "Complete"                  => lsp.complete()
 				case _                           => publish(new ZCmdEvent(this, cmd))
 			}
-		}
-	}
-
-	// Inject a ListSelectionListener into AutoCompletePopupWindow's private JList via
-	// reflection. Called once on the first POPUP_SHOWN event. On each selection change
-	// we fire completionItem/resolve against the LSP server and push the returned
-	// documentation into the description window via showSummaryFor().
-	private def setupResolveListener(): Unit = {
-		completionListenerAdded = true
-		try {
-			val popupField = classOf[AutoCompletion].getDeclaredField("popupWindow")
-			popupField.setAccessible(true)
-			val popup = popupField.get(autoCompletion)
-			if (popup == null) { System.err.println("[z] resolve: popupWindow is null"); return }
-
-			val listField = popup.getClass.getDeclaredField("list")
-			listField.setAccessible(true)
-			val jlist = listField.get(popup).asInstanceOf[javax.swing.JList[?]]
-
-			val descField = popup.getClass.getDeclaredField("descWindow")
-			descField.setAccessible(true)
-
-			// Resolve and cache the showSummaryFor method once so we pay the lookup cost
-			// only once, and call setAccessible(true) to bypass the package-private class barrier.
-			var showSummaryFor: java.lang.reflect.Method = null
-
-			def getShowSummaryFor(descW: AnyRef): java.lang.reflect.Method = {
-				if (showSummaryFor == null) {
-					showSummaryFor = descW.getClass.getMethod("showSummaryFor", classOf[Completion], classOf[String])
-					showSummaryFor.setAccessible(true)
-				}
-				showSummaryFor
-			}
-
-			jlist.addListSelectionListener { e =>
-				if (!e.getValueIsAdjusting) {
-					jlist.getSelectedValue match {
-						case zlsp: ZLspCompletion =>
-							resolveVersion += 1
-							val myVersion = resolveVersion
-							lspClient.foreach { c =>
-								c.resolveCompletion(zlsp.lspItem, resolved => {
-									// Ignore stale responses if selection moved on.
-									if (resolveVersion == myVersion) {
-										val html = ZLspCompletion.buildSummary(resolved)
-										if (html != null) {
-											zlsp.resolvedSummary = Some(html)
-											javax.swing.SwingUtilities.invokeLater(() => {
-												val descW = descField.get(popup)
-												if (descW != null)
-													getShowSummaryFor(descW).invoke(descW, zlsp, html)
-											})
-										}
-									}
-								})
-							}
-						case _ =>
-					}
-				}
-			}
-		} catch {
-			case ex: Exception =>
-				System.err.println(s"[z] resolve listener setup failed: ${ex.getMessage}")
 		}
 	}
 
@@ -509,7 +324,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 					return true
 				}
 				return false
-			case ZWnd.reRegExp(re) => 
+			case ZWnd.reRegExp(re) =>
 				stxt = re
 
 				var pos = body.caret.position
@@ -525,13 +340,13 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 				}
 
 				return false
-			case ZWnd.reFilePath(f, l) => 
+			case ZWnd.reFilePath(f, l) =>
 				stxt = f
 				loc = l
 			case ZWnd.reFilePath2(f, l) =>
 				stxt = f
 				loc = l
-			case ZWnd.reQuotedFilePath(f, l) => 
+			case ZWnd.reQuotedFilePath(f, l) =>
 				stxt = f
 				loc = l
 			case ZWnd.reQuotedFilePath2(f, l) =>
@@ -542,17 +357,17 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		}
 
 		val sp = ZUtilities.expandPath(stxt, root)
-		val ep = (if(ZUtilities.isFullPath(sp)) "" else (rawPath + ZUtilities.separator)) + sp 
+		val ep = (if(ZUtilities.isFullPath(sp)) "" else (rawPath + ZUtilities.separator)) + sp
 
 		if(new File(ep).exists)
 		{
-			if(indBind) 
+			if(indBind)
 			{
 				path = ep
 				command("Get")
 				if(loc != null && !loc.isEmpty) look(loc)
-			} 
-			else 
+			}
+			else
 			{
 				publish(new ZLookEvent(this, ep + loc))
 			}
@@ -634,35 +449,8 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		else JOptionPane.showMessageDialog(null, s"Dir: not a directory: $d", "Dir Error", JOptionPane.ERROR_MESSAGE)
 	}
 
-	private def onDiagnostics(diags: List[Diagnostic]): Unit = {
-		lspParser.setDiagnostics(diags)
-		val content = diags.map { d =>
-			val sev = Option(d.getSeverity) match {
-				case Some(DiagnosticSeverity.Error)       => "error"
-				case Some(DiagnosticSeverity.Warning)     => "warning"
-				case Some(DiagnosticSeverity.Information) => "info"
-				case _                                    => "hint"
-			}
-			val ln = d.getRange.getStart.getLine + 1
-			s"${path}:${ln}: ${sev}: ${d.getMessage}"
-		}.mkString("\n")
-		javax.swing.SwingUtilities.invokeLater(() => {
-			body.peer.forceReparsing(0)
-			publish(new ZDiagnosticsReadyEvent(this, content))
-		})
-	}
-
 	// Called by ZCol.closeWnd to clean up LSP before removing the window.
-	def close(): Unit = {
-		hoverTimer.stop()
-		didChangeTimer.stop()
-		lspClient.foreach { c =>
-			try { c.didClose() }  catch { case _: Throwable => }
-			try { c.shutdown() }  catch { case _: Throwable => }
-			ZLspManager.unregister(c)
-		}
-		lspClient = None
-	}
+	def close(): Unit = lsp.close()
 
 	def root = rootPath
 	def root_=(s : String) = { rootPath = new File(s).getCanonicalPath }
@@ -693,7 +481,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	}
 
 	def dirty_=(b : Boolean) = tag.text match {
-		case ZWnd.reRawTagLine(dirty, line) => if(dirty.equals("*") && !b)  tag.text = line 
+		case ZWnd.reRawTagLine(dirty, line) => if(dirty.equals("*") && !b)  tag.text = line
 			else if(!dirty.equals("*") && b) tag.text = "* " + tag.text
 		case _ => tag.text = "* " + tag.text
 	}
@@ -725,16 +513,9 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 			else {
 				// Notify LSP of the file switch before loading new content.
 				val newPath = o.getCanonicalPath
-				if (indLsp && newPath != path) {
-					lspClient.foreach { c =>
-						c.didClose()
-						c.updatePath(newPath)
-					}
-				}
+				if (lsp.enabled && newPath != path) lsp.updatePath(newPath)
 				body.text = scala.util.Using(Source.fromFile(f))(_.mkString).get
-				if (indLsp && newPath != path) {
-					lspClient.foreach(_.didOpen(body.text))
-				}
+				if (lsp.enabled && newPath != path) lsp.didOpen(body.text)
 			}
 
 			body.caret.position = 0
@@ -760,23 +541,17 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	private def styleGutter(): Unit = {
 		val g = bodyScroll.getGutter
 		g.setBackground(new Color(
-			math.max(0, colorBack.getRed   - 15),
-			math.max(0, colorBack.getGreen - 15),
-			math.max(0, colorBack.getBlue  - 15)
+			math.max(0, bodyScheme.back.getRed   - 15),
+			math.max(0, bodyScheme.back.getGreen - 15),
+			math.max(0, bodyScheme.back.getBlue  - 15)
 		))
 		g.setLineNumberColor(new Color(
-			colorFore.getRed / 2 + colorBack.getRed / 2,
-			colorFore.getGreen / 2 + colorBack.getGreen / 2,
-			colorFore.getBlue / 2 + colorBack.getBlue / 2
+			bodyScheme.fore.getRed   / 2 + bodyScheme.back.getRed   / 2,
+			bodyScheme.fore.getGreen / 2 + bodyScheme.back.getGreen / 2,
+			bodyScheme.fore.getBlue  / 2 + bodyScheme.back.getBlue  / 2
 		))
 		g.setLineNumberFont(body.peer.getFont)
-		g.setBorderColor(colorBack)
-	}
-
-	def applyColor(c : Color, colors : Tuple3[Int, Int, Int]) : Color = {
-		def valid(i : Int) = (i >= 0) && (i  <= 255)
-		if(valid(colors._1) && valid(colors._2) && valid(colors._3))  new Color(colors._1, colors._2, colors._3)
-		else c
+		g.setBorderColor(bodyScheme.back)
 	}
 
 	def properties : Map[String, String] = {
@@ -790,35 +565,35 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		p += "tab.size" -> String.valueOf(body.tabSize)
 		p += "indent.auto" -> (if(indIndent) "true" else "false")
 		p += "interactive" -> (if(indInteractive) "true" else "false")
-		p += "bind"         -> (if(indBind)     "true" else "false")
-		p += "lsp"          -> (if(indLsp)      "true" else "false")
-		p += "lsp.root"     -> lspRoot
-		p += "lsp.indexing" -> lspClient.map(c => if (c.indexing) "true" else "false").getOrElse("false")
-		p += "lsp.status"   -> lspStatus
-		p += "hilite"       -> (if(indHilite)   "true" else "false")
-		p += "line.numbers" -> (if(indLineNums) "true" else "false")
+		p += "bind"         -> (if(indBind)        "true" else "false")
+		p += "lsp"          -> (if(lsp.enabled)    "true" else "false")
+		p += "lsp.root"     -> lsp.root
+		p += "lsp.indexing" -> (if(lsp.indexing)   "true" else "false")
+		p += "lsp.status"   -> lsp.status
+		p += "hilite"       -> (if(indHilite)      "true" else "false")
+		p += "line.numbers" -> (if(indLineNums)    "true" else "false")
 		p += "lines" -> String.valueOf(body.lineCount)
 		p += "line.current" -> String.valueOf(body.currLineNo + 1)
 		p += "line.wrap" -> (if(body.lineWrap) "true" else "false")
 		p += "column.current" -> String.valueOf(body.currColumn)
 		p += "selection.start" -> String.valueOf(body.selectionStart)
 		p += "selection.end" -> String.valueOf(body.selectionEnd)
-		p += "body.color.back" -> String.valueOf(colorBack.getRGB())	
-		p += "body.color.fore" -> String.valueOf(colorFore.getRGB())	
-		p += "body.color.caret" -> String.valueOf(colorCaret.getRGB())
-		p += "body.color.selback" -> String.valueOf(colorSelBack.getRGB())
-		p += "body.color.selfore" -> String.valueOf(colorSelFore.getRGB())
+		p += "body.color.back"    -> bodyScheme.back.getRGB.toString
+		p += "body.color.fore"    -> bodyScheme.fore.getRGB.toString
+		p += "body.color.caret"   -> bodyScheme.caret.getRGB.toString
+		p += "body.color.selback" -> bodyScheme.selBack.getRGB.toString
+		p += "body.color.selfore" -> bodyScheme.selFore.getRGB.toString
 		p += "body.font.fixed" -> fontFixed.getFontName
 		p += "body.font.fixed.size" -> fontFixed.getSize.toString
 		p += "body.font.variable" -> fontVar.getFontName
 		p += "body.font.variable.size" -> fontVar.getSize.toString
-		p += "body.font.current" ->body.font.getFontName
+		p += "body.font.current" -> body.font.getFontName
 		p += "body.font.current.size" -> String.valueOf(body.font.getSize)
-		p += "tag.color.back" -> String.valueOf(colorTBack.getRGB())	
-		p += "tag.color.fore" -> String.valueOf(colorTFore.getRGB())	
-		p += "tag.color.caret" -> String.valueOf(colorTCaret.getRGB())
-		p += "tag.color.selback" -> String.valueOf(colorTSelBack.getRGB())
-		p += "tag.color.selfore" -> String.valueOf(colorTSelFore.getRGB())
+		p += "tag.color.back"    -> tagScheme.back.getRGB.toString
+		p += "tag.color.fore"    -> tagScheme.fore.getRGB.toString
+		p += "tag.color.caret"   -> tagScheme.caret.getRGB.toString
+		p += "tag.color.selback" -> tagScheme.selBack.getRGB.toString
+		p += "tag.color.selfore" -> tagScheme.selFore.getRGB.toString
 		p += "tag.font" -> tag.font.getFontName
 		p += "tag.size" -> String.valueOf(tag.font.getSize)
 		p
@@ -840,20 +615,23 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		fontFixed = new Font(p.getOrElse(prefix + "body.font.fixed", fontFixed.getFontName), Font.PLAIN, p.getOrElse(prefix + "body.font.fixed.size", fontFixed.getSize.toString).toInt)
 		fontVar = new Font(p.getOrElse(prefix + "body.font.variable", fontVar.getFontName), Font.PLAIN, p.getOrElse(prefix + "body.font.variable.size", fontVar.getSize.toString).toInt)
 		body.font = new Font(p.getOrElse(prefix + "body.font.current", body.font.getFontName), Font.PLAIN, p.getOrElse(prefix + "body.font.current.size", body.font.getSize.toString).toInt)
-		colorBack = new Color(p.getOrElse(prefix + "body.color.back", String.valueOf(colorBack.getRGB())).toInt)
-		colorFore  = new Color(p.getOrElse(prefix + "body.color.fore", String.valueOf(colorFore.getRGB())).toInt)
-		colorCaret  = new Color(p.getOrElse(prefix + "body.color.caret", String.valueOf(colorCaret.getRGB())).toInt)
-		colorSelBack = new Color(p.getOrElse(prefix + "body.color.selback", String.valueOf(colorSelBack.getRGB())).toInt)
-		colorSelFore = new Color(p.getOrElse(prefix + "body.color.selfore", String.valueOf(colorSelFore.getRGB())).toInt)
-		body.colors(colorBack, colorFore, colorCaret, colorSelBack, colorSelFore)
+
+		bodyScheme = ZColorScheme(
+			new Color(p.getOrElse(prefix + "body.color.back",    bodyScheme.back.getRGB.toString).toInt),
+			new Color(p.getOrElse(prefix + "body.color.fore",    bodyScheme.fore.getRGB.toString).toInt),
+			new Color(p.getOrElse(prefix + "body.color.caret",   bodyScheme.caret.getRGB.toString).toInt),
+			new Color(p.getOrElse(prefix + "body.color.selback", bodyScheme.selBack.getRGB.toString).toInt),
+			new Color(p.getOrElse(prefix + "body.color.selfore", bodyScheme.selFore.getRGB.toString).toInt))
+		bodyScheme.applyTo(body)
 
 		tag.font = new Font(p.getOrElse(prefix + "tag.font", body.font.getFontName), Font.PLAIN, p.getOrElse(prefix + "tag.size", body.font.getSize.toString).toInt)
-		colorTBack = new Color(p.getOrElse(prefix + "tag.color.back", String.valueOf(colorTBack.getRGB())).toInt)
-		colorTFore  = new Color(p.getOrElse(prefix + "tag.color.fore", String.valueOf(colorTFore.getRGB())).toInt)
-		colorTCaret  = new Color(p.getOrElse(prefix + "tag.color.caret", String.valueOf(colorTCaret.getRGB())).toInt)
-		colorTSelBack = new Color(p.getOrElse(prefix + "tag.color.selback", String.valueOf(colorTSelBack.getRGB())).toInt)
-		colorTSelFore = new Color(p.getOrElse(prefix + "tag.color.selfore", String.valueOf(colorTSelFore.getRGB())).toInt)	
-		tag.colors(colorTBack, colorTFore, colorTCaret, colorTSelBack, colorTSelFore)
+		tagScheme = ZColorScheme(
+			new Color(p.getOrElse(prefix + "tag.color.back",    tagScheme.back.getRGB.toString).toInt),
+			new Color(p.getOrElse(prefix + "tag.color.fore",    tagScheme.fore.getRGB.toString).toInt),
+			new Color(p.getOrElse(prefix + "tag.color.caret",   tagScheme.caret.getRGB.toString).toInt),
+			new Color(p.getOrElse(prefix + "tag.color.selback", tagScheme.selBack.getRGB.toString).toInt),
+			new Color(p.getOrElse(prefix + "tag.color.selfore", tagScheme.selFore.getRGB.toString).toInt))
+		tagScheme.applyTo(tag)
 		tag.text = p.getOrElse(prefix + "tag.text", "+ Get Put Zerox Close | Undo Redo Wrap Indent Mark")
 
 		indIndent      = p.getOrElse(prefix + "indent.auto",  "false") == "true"
@@ -862,8 +640,8 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		dirty          = p.getOrElse(prefix + "dirty",        "false") == "true"
 		scroll         = p.getOrElse(prefix + "scroll",       "false") == "true"
 
-		indHilite   = p.getOrElse(prefix + "hilite",        "false") == "true"
-		indLineNums = p.getOrElse(prefix + "line.numbers",  "false") == "true"
+		indHilite   = p.getOrElse(prefix + "hilite",       "false") == "true"
+		indLineNums = p.getOrElse(prefix + "line.numbers", "false") == "true"
 		if(indLineNums) bodyScroll.setLineNumbersEnabled(true)
 		styleGutter()
 		if(!dirty)  command("Get") else  body.text = p.getOrElse(prefix + "body.text", "")
@@ -920,4 +698,3 @@ class ZCmdEvent(val source : ZWnd, val command : String) extends Event
 class ZDiagnosticsReadyEvent(val source: ZWnd, val content: String) extends Event
 class ZLookEvent(val source : ZWnd, val path : String) extends Event
 class ZStatusEvent(val source : ZWnd, val properties : Map[String, String]) extends Event
-
