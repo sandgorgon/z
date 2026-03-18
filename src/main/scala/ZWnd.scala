@@ -607,30 +607,33 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	}
 
 	def load(p: Map[String, String], prefix : String = "") = {
+		def int(key: String, default: Int): Int =
+			p.get(prefix + key).flatMap(_.toIntOption).getOrElse(default)
+
 		path = p.getOrElse(prefix + "path", "+")
 		root = p.getOrElse(prefix + "path.root", ".")
-		body.tabSize = p.getOrElse(prefix + "tab.size", "4").toInt
+		body.tabSize = int("tab.size", 4)
 		body.lineWrap = p.getOrElse(prefix + "line.wrap", "false") == "true"
 
-		fontFixed = new Font(p.getOrElse(prefix + "body.font.fixed", fontFixed.getFontName), Font.PLAIN, p.getOrElse(prefix + "body.font.fixed.size", fontFixed.getSize.toString).toInt)
-		fontVar = new Font(p.getOrElse(prefix + "body.font.variable", fontVar.getFontName), Font.PLAIN, p.getOrElse(prefix + "body.font.variable.size", fontVar.getSize.toString).toInt)
-		body.font = new Font(p.getOrElse(prefix + "body.font.current", body.font.getFontName), Font.PLAIN, p.getOrElse(prefix + "body.font.current.size", body.font.getSize.toString).toInt)
+		fontFixed = new Font(p.getOrElse(prefix + "body.font.fixed", fontFixed.getFontName), Font.PLAIN, int("body.font.fixed.size", fontFixed.getSize))
+		fontVar = new Font(p.getOrElse(prefix + "body.font.variable", fontVar.getFontName), Font.PLAIN, int("body.font.variable.size", fontVar.getSize))
+		body.font = new Font(p.getOrElse(prefix + "body.font.current", body.font.getFontName), Font.PLAIN, int("body.font.current.size", body.font.getSize))
 
 		bodyScheme = ZColorScheme(
-			new Color(p.getOrElse(prefix + "body.color.back",    bodyScheme.back.getRGB.toString).toInt),
-			new Color(p.getOrElse(prefix + "body.color.fore",    bodyScheme.fore.getRGB.toString).toInt),
-			new Color(p.getOrElse(prefix + "body.color.caret",   bodyScheme.caret.getRGB.toString).toInt),
-			new Color(p.getOrElse(prefix + "body.color.selback", bodyScheme.selBack.getRGB.toString).toInt),
-			new Color(p.getOrElse(prefix + "body.color.selfore", bodyScheme.selFore.getRGB.toString).toInt))
+			new Color(int("body.color.back",    bodyScheme.back.getRGB)),
+			new Color(int("body.color.fore",    bodyScheme.fore.getRGB)),
+			new Color(int("body.color.caret",   bodyScheme.caret.getRGB)),
+			new Color(int("body.color.selback", bodyScheme.selBack.getRGB)),
+			new Color(int("body.color.selfore", bodyScheme.selFore.getRGB)))
 		bodyScheme.applyTo(body)
 
-		tag.font = new Font(p.getOrElse(prefix + "tag.font", body.font.getFontName), Font.PLAIN, p.getOrElse(prefix + "tag.size", body.font.getSize.toString).toInt)
+		tag.font = new Font(p.getOrElse(prefix + "tag.font", body.font.getFontName), Font.PLAIN, int("tag.size", body.font.getSize))
 		tagScheme = ZColorScheme(
-			new Color(p.getOrElse(prefix + "tag.color.back",    tagScheme.back.getRGB.toString).toInt),
-			new Color(p.getOrElse(prefix + "tag.color.fore",    tagScheme.fore.getRGB.toString).toInt),
-			new Color(p.getOrElse(prefix + "tag.color.caret",   tagScheme.caret.getRGB.toString).toInt),
-			new Color(p.getOrElse(prefix + "tag.color.selback", tagScheme.selBack.getRGB.toString).toInt),
-			new Color(p.getOrElse(prefix + "tag.color.selfore", tagScheme.selFore.getRGB.toString).toInt))
+			new Color(int("tag.color.back",    tagScheme.back.getRGB)),
+			new Color(int("tag.color.fore",    tagScheme.fore.getRGB)),
+			new Color(int("tag.color.caret",   tagScheme.caret.getRGB)),
+			new Color(int("tag.color.selback", tagScheme.selBack.getRGB)),
+			new Color(int("tag.color.selfore", tagScheme.selFore.getRGB)))
 		tagScheme.applyTo(tag)
 		tag.text = p.getOrElse(prefix + "tag.text", "+ Get Put Zerox Close | Undo Redo Wrap Indent Mark")
 
@@ -647,8 +650,8 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		if(!dirty)  command("Get") else  body.text = p.getOrElse(prefix + "body.text", "")
 
 		if(body.lineCount > 0) {
-			body.selectionStart = p.getOrElse(prefix + "selection.start", "0").toInt
-			body.selectionEnd = p.getOrElse(prefix + "selection.end", "0").toInt
+			body.selectionStart = int("selection.start", 0)
+			body.selectionEnd   = int("selection.end",   0)
 		}
 	}
 }
