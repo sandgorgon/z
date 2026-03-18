@@ -33,7 +33,7 @@ import javax.swing.text.{Utilities, DefaultCaret}
 import javax.swing.{JOptionPane, ScrollPaneConstants, SwingUtilities}
 import java.util.regex.Pattern
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
-import org.fife.ui.autocomplete.{AutoCompletion, AutoCompletionEvent, AutoCompletionListener, Completion, DefaultCompletionProvider}
+import org.fife.ui.autocomplete.{AutoCompletion, AutoCompletionEvent, AutoCompletionListener, Completion, CompletionCellRenderer, DefaultCompletionProvider}
 import org.eclipse.lsp4j.{Diagnostic, DiagnosticSeverity}
 
 class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = ".") extends SplitPane(Orientation.Horizontal) {
@@ -50,7 +50,9 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	var lspRoot   = ""
 	var lspStatus = ""   // last metals/status text; empty = idle
 	val lspParser      = new ZLspDiagnosticParser
-	val lspProvider    = new DefaultCompletionProvider()
+	val lspProvider    = new DefaultCompletionProvider() {
+		override def getListCellRenderer() = new CompletionCellRenderer()
+	}
 	val autoCompletion = new AutoCompletion(lspProvider)
 	val hoverTimer     = new javax.swing.Timer(500, null)
 	val didChangeTimer = new javax.swing.Timer(400, null)
