@@ -55,7 +55,7 @@ object z extends SwingApplication {
 						" | " + e.properties.get("body.font.current").get + " " + e.properties.get("body.font.current.size").get +
 						(if(e.properties.get("bind").get == "true") " | Bind" else "") +
 						(if(e.properties.get("lsp").get == "true") " | LSP: " + e.properties.getOrElse("lsp.root", "") +
-						(if(e.properties.getOrElse("lsp.indexing", "false") == "true") " (loading...)" else "") else "") +
+						{ val st = e.properties.getOrElse("lsp.status", ""); if (st.nonEmpty) s" ($st)" else "" } else "") +
 						(if(e.properties.get("hilite").get == "true") " | Hilite" else "") +
 						(if(e.properties.get("interactive").get == "true") " | Input: " + ZWnd.rePrompt else "")
 
