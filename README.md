@@ -59,7 +59,7 @@ sbt test
   - Hover tooltips with type information and documentation
   - Code completion popup via `Complete` or **Ctrl+Space**
   - Diagnostics listed in a `+Diagnostics` scratch window
-  - Configure servers in `~/.zlsp` (one `langId = command` per line):
+  - Configure servers in `~/.z/lsp.conf` (one `langId = command` per line):
     ```
     go     = gopls
     python = pylsp
@@ -77,4 +77,7 @@ sbt test
 - **Font control** — `Font`/`FONT` set the variable/fixed-width body font; `TagFont` sets the tag line font. All three cascade from the app tag line (sets editor-wide default), column tag line (that column), or window tag line (that window only)
 - **Keyboard shortcuts** for navigation, selection, editing, and tools — see the help screen for the full list
 
-Full command reference: [Z Help Screen](https://github.com/sandgorgon/z/blob/master/src/main/resources/help/main.txt)
+## Documentation
+
+- [Tutorial](TUTORIAL.md) — start here if you are new to z
+- [Command Reference](https://github.com/sandgorgon/z/blob/master/src/main/resources/help/main.txt) — full command listing
