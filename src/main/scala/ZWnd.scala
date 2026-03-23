@@ -380,7 +380,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		var p = Pattern.compile(stxt, Pattern.MULTILINE)
 		var m = p.matcher(t)
 
-		if(m.find())  {
+		if(m.find() && m.end() > m.start())  {
 			body.caret.dot = pos + m.start()
 			body.caret.moveDot(pos + m.end())
 			body.requestFocus()
