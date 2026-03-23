@@ -74,6 +74,7 @@ sbt test
 - **Line numbers** — toggle with `Ln`
 - **Path expansion** — tag lines and commands support `~`, `./`, and `../` prefixes
 - **Root directory control** — `Dir <path>` changes where relative paths resolve, where external commands run, and the LSP workspace root; works from window, column, or app tag line
+- **User scripts** — place executable scripts in `.z/scripts/` (project-local) or `~/.z/scripts/` (global) and invoke them from any tag line with a comma prefix: `,Build`, `,Format`, `,Deploy`. Use `,,cmd` to run on every open window. Additional directories can be configured in `~/.z/scripts.conf`
 - **Font control** — `Font`/`FONT` set the variable/fixed-width body font; `TagFont` sets the tag line font. All three cascade from the app tag line (sets editor-wide default), column tag line (that column), or window tag line (that window only)
 - **Keyboard shortcuts** for navigation, selection, editing, and tools — see the help screen for the full list
 

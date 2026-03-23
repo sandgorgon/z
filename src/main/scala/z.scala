@@ -112,6 +112,9 @@ object z extends SwingApplication {
 		}
 
 		ZLspManager.loadConf()
+		ZScripts.load()
+		val scriptsDir = new File(zDir, "scripts")
+		if (!scriptsDir.exists()) scriptsDir.mkdirs()
 		frame = top
 		frame.preferredSize = new Dimension(p.get("app.width").get.toInt, p.get("app.height").get.toInt)
 		frame.pack()

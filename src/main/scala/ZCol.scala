@@ -178,6 +178,12 @@ class ZCol(currDir : String) extends BorderPanel {
 					w.root = src.root
 					w.command("< " + cmd)
 			}
+		case e : ZScriptEvent =>
+			val w = resultsWindowFor(e.source)
+			w.runScript(e.scriptPath, e.args, Map(
+				"Z_FILE"      -> e.source.path,
+				"Z_DIR"       -> e.source.rootPath,
+				"Z_SELECTION" -> Option(e.source.body.selected).getOrElse("")))
 		case e : ZDiagnosticsReadyEvent =>
 			val src = e.source
 			val n   = src.rawPath + "+Diagnostics"
@@ -263,6 +269,20 @@ class ZCol(currDir : String) extends BorderPanel {
 					val f = if(ZUtilities.isFullPath(ed)) ed else (currentDir + ZUtilities.separator + ed)
 					if(new File(f).isDirectory) currentDir = new File(f).getCanonicalPath
 					wnds.foreach(_.command(cmd))
+				case ZScripts.reScriptAll(name, args) =>
+					ZScripts.resolve(name, currentDir) match {
+						case Right(f) => runScriptOnWindows(f.getPath, args)
+						case Left(searched) => ZScripts.showError(name, searched)
+					}
+				case ZScripts.reScript(name, args) =>
+					ZScripts.resolve(name, currentDir) match {
+						case Right(f) =>
+							val w = cmdWnd("+Cmd")
+							w.command("Scroll")
+							this += w
+							w.runScript(f.getPath, args, Map("Z_DIR" -> currentDir))
+						case Left(searched) => ZScripts.showError(name, searched)
+					}
 				case c =>
 					if(!look(c, false)) wnds.foreach((w) => if(!w.look(c)) w.command(c))
 			}
@@ -301,6 +321,26 @@ class ZCol(currDir : String) extends BorderPanel {
 		wnds = wnds :+ w
 		listenTo(w)
 		refresh
+	}
+
+	def runScriptOnWindows(scriptPath: String, args: String): Unit =
+		wnds.foreach { src =>
+			resultsWindowFor(src).runScript(scriptPath, args, Map(
+				"Z_FILE"      -> src.path,
+				"Z_DIR"       -> src.rootPath,
+				"Z_SELECTION" -> Option(src.body.selected).getOrElse("")))
+		}
+
+	private def resultsWindowFor(src: ZWnd): ZWnd = {
+		val n = src.rawPath + "+Results"
+		val w = rawPathWindow(n).getOrElse {
+			val nw = cmdWnd(n)
+			nw.command("Scroll")
+			this += nw
+			nw
+		}
+		w.root = src.root
+		w
 	}
 
 	def refresh = {

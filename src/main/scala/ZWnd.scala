@@ -302,6 +302,11 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 					lsp.start(projRoot, langId)
 				case "Check"                     => lsp.check()
 				case "Complete"                  => lsp.complete()
+				case ZScripts.reAnyScript(name, args) =>
+					ZScripts.resolve(name, rootPath) match {
+						case Right(f) => publish(new ZScriptEvent(this, f.getPath, args.trim))
+						case Left(searched) => ZScripts.showError(name, searched)
+					}
 				case _                           => publish(new ZCmdEvent(this, cmd))
 			}
 		}
@@ -392,6 +397,17 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	}
 
 	def externalCmd(op : String, cmd : String, in : Option[String] = None) : Option[Process] = {
+		val resolved = cmd.trim match {
+			case ZScripts.reScript(name, args) =>
+				ZScripts.resolve(name, rootPath) match {
+					case Right(f) => f.getPath + (if (args.trim.isEmpty) "" else " " + args.trim)
+					case Left(searched) =>
+						tag.text = tag.text.replaceAll(ZWnd.CmdExecIndicator, "")
+						ZScripts.showError(name, searched)
+						return None
+				}
+			case _ => cmd
+		}
 		val onOutput: String => Unit = s => SwingUtilities.invokeLater(() => {
 			if(!scroll) body.append(s)
 			else {
@@ -406,25 +422,57 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 
 		val localFp = path
 		val f = new File(localFp)
-		val env = new HashMap[String, String] + ("Z_LOCAL_FP" -> localFp) + ("Z_FP" -> f.getCanonicalPath)
-		val wd = if(f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath
+		val wd  = if(f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath
+		val sel = Option(body.selected).getOrElse("")
+		val env = new HashMap[String, String] +
+			("Z_FILE"      -> localFp) +
+			("Z_FP"        -> f.getCanonicalPath) +
+			("Z_DIR"       -> wd) +
+			("Z_SELECTION" -> sel)
 
 		tag.text = tag.text + ZWnd.CmdExecIndicator
 		try {
 			op match {
-				case "<" => ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
-				case ">" => ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, input = in, workdir = Some(wd), env = Some(env))
+				case "<" => ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
+				case ">" => ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, input = in, workdir = Some(wd), env = Some(env))
 				case "|" =>
 					val sel = Option(body.selected).getOrElse("")
 					body.selected = ""
-					ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, input = Some(sel), workdir = Some(wd), env = Some(env))
+					ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, input = Some(sel), workdir = Some(wd), env = Some(env))
 				case "!" =>
 					body.text = ""
-					ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
+					ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
 			}
 		} catch {
 			case e : Throwable =>
 				JOptionPane.showMessageDialog(null, e.getMessage, "External Command Error", JOptionPane.ERROR_MESSAGE)
+				tag.text = tag.text.replaceAll(ZWnd.CmdExecIndicator, "")
+				None
+		}
+	}
+
+	def runScript(scriptPath: String, args: String, extraEnv: Map[String, String] = Map.empty): Option[Process] = {
+		val cmd = if (args.isEmpty) scriptPath else s"$scriptPath $args"
+		val sel = Option(body.selected).getOrElse("")
+		val env = (new HashMap[String, String] +
+			("Z_FILE"      -> path) +
+			("Z_FP"        -> new File(path).getCanonicalPath) +
+			("Z_DIR"       -> rootPath) +
+			("Z_SELECTION" -> sel)) ++ extraEnv
+		val onOutput: String => Unit = s => SwingUtilities.invokeLater(() => {
+			val current = body.caret.dot
+			body.selected = s
+			body.caret.dot = current + s.length
+		})
+		val onDone: () => Unit = () => SwingUtilities.invokeLater(() =>
+			tag.text = tag.text.replaceAll(ZWnd.CmdExecIndicator, "")
+		)
+		tag.text = tag.text + ZWnd.CmdExecIndicator
+		try {
+			ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(rootPath), env = Some(env))
+		} catch {
+			case e: Throwable =>
+				JOptionPane.showMessageDialog(null, e.getMessage, "Script Error", JOptionPane.ERROR_MESSAGE)
 				tag.text = tag.text.replaceAll(ZWnd.CmdExecIndicator, "")
 				None
 		}
@@ -697,6 +745,7 @@ object ZWnd {
 	}
 }
 
+class ZScriptEvent(val source: ZWnd, val scriptPath: String, val args: String) extends Event
 class ZCmdEvent(val source : ZWnd, val command : String) extends Event
 class ZDiagnosticsReadyEvent(val source: ZWnd, val content: String) extends Event
 class ZLookEvent(val source : ZWnd, val path : String) extends Event
