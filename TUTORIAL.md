@@ -22,7 +22,8 @@ This tutorial will take you from zero to genuinely productive. By the end you wi
 10. [Language Server Protocol (LSP)](#10-language-server-protocol-lsp)
 11. [Session Management](#11-session-management)
 12. [Command-Line Flags (Advanced)](#12-command-line-flags-advanced)
-13. [Putting It All Together](#13-putting-it-all-together)
+13. [User Scripts](#13-user-scripts)
+14. [Putting It All Together](#14-putting-it-all-together)
 - [Quick Reference](#quick-reference)
 
 ---
@@ -423,10 +424,12 @@ Every external command launched by z has access to two environment variables des
 
 | Variable | Value |
 |---------|-------|
+| `Z_FILE` | File path as written in the tag line (`~` and `./` expanded, symlinks not resolved) |
 | `Z_FP` | Canonical absolute path (symlinks fully resolved) |
-| `Z_LOCAL_FP` | Absolute path after `~` and `./` expansion (symlinks not resolved) |
+| `Z_DIR` | Working directory where the command runs |
+| `Z_SELECTION` | Currently selected text (empty string if nothing selected) |
 
-These are useful in scripts that need to know which file they were invoked from.
+All four variables are available to every external command — `< > | !` operators and user scripts alike.
 
 ---
 
@@ -734,7 +737,87 @@ This opens `main.go` in one column with Go highlighting, then `test.go` in a sec
 
 ---
 
-## 13. Putting It All Together
+## 13. User Scripts
+
+z lets you place executable scripts in a well-known directory and invoke them from any tag line using a comma prefix — no full path required. They look and feel like built-in commands.
+
+### Script Directories
+
+z searches for scripts in this order:
+
+1. `.z/scripts/` in the current working directory (project-local — different per project)
+2. `~/.z/scripts/` (global — available in every project)
+3. Any additional directories listed in `~/.z/scripts.conf`
+
+The global directory is created automatically on first launch. The project-local directory is just a convention — create `.z/scripts/` in your project root and z picks it up automatically.
+
+### Invoking Scripts
+
+Use a leading comma to invoke a script:
+
+```
+,Build
+,Test --watch
+,Deploy staging
+,Format
+```
+
+z resolves the script name against the search directories and runs it. If not found, an error dialog shows which directories were searched.
+
+**`,cmd`** runs the script once, in the context of where you invoke it:
+- From a **window tag line** → output goes to a `path+Results` window
+- From a **column tag line** → output goes to a `+Cmd` window in that column
+- From the **app tag line** → output goes to `+Cmd` in the rightmost column
+
+**`,,cmd`** runs the script once *per window* in scope:
+- From a **window tag line** → same as `,cmd` (the window is the leaf)
+- From a **column tag line** → runs on every window in that column
+- From the **app tag line** → runs on every window in every column
+
+`,,Format` from the app tag line, for example, runs your formatter on every open file simultaneously.
+
+### Environment Variables
+
+Scripts receive these environment variables from z:
+
+| Variable | Value |
+|---------|-------|
+| `Z_FILE` | File path as written in the tag line (`~` and `./` expanded, symlinks not resolved) |
+| `Z_FP` | Canonical absolute path (symlinks fully resolved) |
+| `Z_DIR` | Working directory where the script runs |
+| `Z_SELECTION` | Currently selected text (empty string if nothing selected) |
+
+A script can ignore these entirely, or use them to operate on the current file:
+
+```sh
+#!/bin/sh
+# .z/scripts/Format — format the current file in place
+scalafmt "$Z_FILE"
+```
+
+```sh
+#!/bin/sh
+# .z/scripts/Test — run tests for the current project
+cd "$Z_DIR" && sbt test
+```
+
+### Configuration
+
+To add extra script directories beyond the two defaults, create `~/.z/scripts.conf`:
+
+```
+scripts.path = /work/team-scripts:/home/user/bin/z-scripts
+```
+
+Colon-separated, appended after the auto-discovered directories.
+
+### Scripts Are Editor-Agnostic
+
+Scripts are plain executables — shell scripts, Python scripts, anything. They have no knowledge of z. The same script can be run directly from a terminal. The comma prefix is purely z's way of finding and invoking them; the script itself is just a file.
+
+---
+
+## 14. Putting It All Together
 
 Let us walk through a realistic workflow from scratch — opening a Scala project, using LSP, running tests, navigating errors, and saving the session.
 
@@ -903,6 +986,15 @@ Everything is back: every window, every scratch buffer, every colour setting. Re
 | `Kill` | — | Terminate running command |
 | `Input` | — | Toggle interactive mode |
 
+### User Scripts
+
+| Invocation | Scope | Action |
+|-----------|-------|--------|
+| `,scriptname [args]` | Win/Col/App | Run script once at invoked level |
+| `,,scriptname [args]` | Col/App | Run script on every window in scope |
+
+Scripts live in `.z/scripts/` (project) or `~/.z/scripts/` (global). See [Section 13](#13-user-scripts).
+
 ### Editing
 
 | Command | Action |
@@ -965,6 +1057,8 @@ Any path containing `+` is a scratch buffer. Never written to disk. Examples: `+
 | `~/.z/settings` | Window geometry (auto-saved) |
 | `~/.z/lsp.conf` | LSP server configuration |
 | `z.dump` (default) | Saved session (Dump/Load) |
+| `~/.z/scripts.conf` | User script directory configuration |
+| `~/.z/scripts/` | Global user scripts directory |
 
 ---
 

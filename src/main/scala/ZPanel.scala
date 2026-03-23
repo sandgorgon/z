@@ -167,6 +167,19 @@ class ZPanel(initTagText: String) extends BorderPanel {
 				case ZCol.reExternalCmd(op, cmd) =>
 					if(cols.length < 1)  this += new ZCol(currentDir)
 					cols.last.command("! " + cmd)
+				case ZScripts.reScriptAll(name, args) =>
+					ZScripts.resolve(name, currentDir) match {
+						case Right(f) => cols.foreach(_.runScriptOnWindows(f.getPath, args))
+						case Left(searched) => ZScripts.showError(name, searched)
+					}
+				case ZScripts.reScript(name, args) =>
+					ZScripts.resolve(name, currentDir) match {
+						case Right(f) =>
+							if(cols.isEmpty) this += new ZCol(currentDir)
+							val fullCmd = f.getPath + (if(args.isEmpty) "" else " " + args)
+							cols.last.command("! " + fullCmd)
+						case Left(searched) => ZScripts.showError(name, searched)
+					}
 				case c => cols.foreach(_.command(c))
 			}
 

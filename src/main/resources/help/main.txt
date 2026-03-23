@@ -151,6 +151,42 @@ INTERACTIVE PROCESS INPUT
                     tag line path are unaffected.
 
 
+USER SCRIPTS
+
+    User-defined scripts can be placed in a scripts directory and invoked
+    from any tag line using a comma prefix — without typing a full path.
+    They look and feel like native editor commands.
+
+    Invocation
+    ----------
+    ,scriptname [args]     Run the named script once, in the context of the
+                           invoked tag level:
+                             Window tag → output to path+Results window
+                             Column tag → output to +Cmd window in that column
+                             App tag    → output to +Cmd in the rightmost column
+
+    ,,scriptname [args]    Run the script once per window in scope:
+                             Window tag → same as ,scriptname (window is the leaf)
+                             Column tag → runs on every window in the column
+                             App tag    → runs on every window in every column
+
+    Script Search Order
+    -------------------
+    1. .z/scripts/ in the column/window's current directory (project-local)
+    2. ~/.z/scripts/ (global user scripts)
+    3. Additional directories listed in ~/.z/scripts.conf
+
+    Scripts must be executable files. If a script is not found in any
+    directory, an error dialog shows the list of directories searched.
+
+    Configuration
+    -------------
+    ~/.z/scripts.conf    Optional. Lists additional search directories:
+                           scripts.path = /my/scripts:/team/shared/scripts
+                         Colon-separated. Appended after the auto-discovered dirs.
+                         Created automatically at ~/.z/scripts/ on first launch.
+
+
 PATH SYNTAX
 
     Paths in tag lines, B3 navigation, Get/Put commands, and Dir support the
@@ -260,10 +296,14 @@ COMMAND SCOPE
 
 ENVIRONMENT VARIABLES
 
-    These are available to any external command launched by z:
+    These are available to every external command launched by z (< > | ! and
+    user scripts ,cmd / ,,cmd):
 
+      Z_FILE      The file path as written in the tag line (~ and ./ expanded,
+                  symlinks not resolved)
       Z_FP        The canonical absolute path (symlinks fully resolved)
-      Z_LOCAL_FP  The absolute path after ~ and ./ expansion (symlinks not resolved)
+      Z_DIR       Working directory where the command runs
+      Z_SELECTION Currently selected text (empty string if nothing selected)
 
 
 SCRATCH BUFFERS
