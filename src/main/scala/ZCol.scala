@@ -157,7 +157,7 @@ class ZCol(currDir : String) extends BorderPanel {
 				case "Props" =>
 					val n = src.rawPath + "+Props"
 					val w = rawPathWindow(n).getOrElse {
-						val nw = wnd(n + " Close")
+						val nw = wnd(n)
 						this += nw
 						nw
 					}
@@ -232,7 +232,7 @@ class ZCol(currDir : String) extends BorderPanel {
 					refresh
 				case "Props" =>
 					val w = rawPathWindow("+Props").getOrElse {
-						val nw = wnd("+Props Close")
+						val nw = wnd("+Props")
 						this += nw
 						nw
 					}
