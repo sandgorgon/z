@@ -362,7 +362,8 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		}
 
 		val sp = ZUtilities.expandPath(stxt, root)
-		val ep = (if(ZUtilities.isFullPath(sp)) "" else (rawPath + ZUtilities.separator)) + sp
+		val baseDir = if (ZWnd.isScratchBuffer(tag.text)) root else rawPath
+		val ep = (if(ZUtilities.isFullPath(sp)) "" else (baseDir + ZUtilities.separator)) + sp
 
 		if(new File(ep).exists)
 		{
