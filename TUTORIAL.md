@@ -668,6 +668,27 @@ Load ~/mysession
 
 Both commands run from the app tag line only. The window geometry (size and position of the main window) is saved automatically to `~/.z/settings` on exit.
 
+### Customising Default Tag Lines
+
+The commands pre-loaded into each tag line are just defaults — they can be customised globally via `~/.z/settings`. z reads this file at startup and writes window geometry back to it on exit, so any keys you add are preserved across launches.
+
+| Key | What it controls | Built-in default |
+|-----|-----------------|-----------------|
+| `tag.app` | App tag line content | `Help NewCol Put Dump Load Dir ` |
+| `tag.col` | Column tag line default | `CloseCol Close New Sort ` |
+| `tag.wnd` | Window tag line default | `Get Put Zerox Close \| Undo Redo Wrap Ln Indent Mark Bind ` |
+| `tag.cmd` | Command/results window tag line default | `Close \| Undo Redo Wrap Kill Clear Font Scroll Input ` |
+
+For example, to slim down your tag lines:
+
+```
+tag.app = Help NewCol Dump Load Fonts
+tag.wnd = Get Put Close | Undo Redo Wrap Ln
+tag.cmd = Close | Kill Clear Scroll
+```
+
+Tag lines remain fully editable at runtime — these settings only control what text they start with when z launches or opens a new window.
+
 ### Inspecting State with `Props`
 
 `Props` opens a `+Props` scratch window with a complete property listing for the app, column, or window — depending on where you run it from. It includes paths, dirty state, scroll settings, font and colour values, LSP status, line count, cursor position, and more. Useful for debugging your setup or copying colour values to tweak elsewhere.
@@ -1054,7 +1075,7 @@ Any path containing `+` is a scratch buffer. Never written to disk. Examples: `+
 
 | File | Purpose |
 |------|---------|
-| `~/.z/settings` | Window geometry (auto-saved) |
+| `~/.z/settings` | Window geometry (auto-saved) and tag line defaults (`tag.app`, `tag.col`, `tag.wnd`, `tag.cmd`) |
 | `~/.z/lsp.conf` | LSP server configuration |
 | `z.dump` (default) | Saved session (Dump/Load) |
 | `~/.z/scripts.conf` | User script directory configuration |
