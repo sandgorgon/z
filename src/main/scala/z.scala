@@ -72,14 +72,13 @@ object z extends SwingApplication {
 		contents = MainWindow
 
 		override def closeOperation() = {
-			var d = size
-			var p = new HashMap[String, String]
-			p += "app.width" -> d.getWidth.toInt.toString
-			p += "app.height" ->d.getHeight.toInt.toString
-
-			val zDir = new File(util.Properties.userHome + ZUtilities.separator + ".z")
+			val zDir     = new File(util.Properties.userHome + ZUtilities.separator + ".z")
+			val settings = new File(zDir, "settings")
 			if(!zDir.exists) zDir.mkdirs()
-			ZSettings.dump(p, new File(zDir, "settings"), "Z Global Settings")
+			var p = if(settings.exists) ZSettings.load(settings) else new HashMap[String, String]
+			p += "app.width"  -> size.getWidth.toInt.toString
+			p += "app.height" -> size.getHeight.toInt.toString
+			ZSettings.dump(p, settings, "Z Global Settings")
 			ZLspManager.shutdown()
 			System.exit(0)
 		}
@@ -110,6 +109,11 @@ object z extends SwingApplication {
 			p += "app.width" -> "600"
 			p += "app.height" -> "400"
 		}
+
+		ZCol.colTagLine      = p.getOrElse("tag.col", ZCol.colTagLine)
+		ZCol.wndTagLine      = p.getOrElse("tag.wnd", ZCol.wndTagLine)
+		ZCol.cmdTagLine      = p.getOrElse("tag.cmd", ZCol.cmdTagLine)
+		mainPanel.tag.text   = p.getOrElse("tag.app", mainPanel.tag.text)
 
 		ZLspManager.loadConf()
 		ZScripts.load()
