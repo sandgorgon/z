@@ -362,7 +362,8 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		}
 
 		val sp = ZUtilities.expandPath(stxt, root)
-		val ep = (if(ZUtilities.isFullPath(sp)) "" else (rawPath + ZUtilities.separator)) + sp
+		val baseDir = if (ZWnd.isScratchBuffer(tag.text)) path else rawPath
+		val ep = (if(ZUtilities.isFullPath(sp)) "" else (baseDir + ZUtilities.separator)) + sp
 
 		if(new File(ep).exists)
 		{
@@ -683,7 +684,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 			new Color(int("tag.color.selback", tagScheme.selBack.getRGB)),
 			new Color(int("tag.color.selfore", tagScheme.selFore.getRGB)))
 		tagScheme.applyTo(tag)
-		tag.text = p.getOrElse(prefix + "tag.text", "+ Get Put Zerox Close | Undo Redo Wrap Indent Mark")
+		tag.text = p.getOrElse(prefix + "tag.text", "+ " + ZCol.wndTagLine.trim)
 
 		indIndent      = p.getOrElse(prefix + "indent.auto",  "false") == "true"
 		indInteractive = p.getOrElse(prefix + "interactive",  "false") == "true"
