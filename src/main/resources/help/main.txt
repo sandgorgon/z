@@ -314,6 +314,32 @@ SCRATCH BUFFERS
     Scratch buffers are included in Dump state so they survive across sessions.
 
 
+GLOBAL SETTINGS  (~/.z/settings)
+
+    z reads ~/.z/settings at startup and writes back to it on exit, preserving
+    any keys you have set.  All keys are optional.
+
+    app.width             Main window width in pixels (auto-saved on exit)
+    app.height            Main window height in pixels (auto-saved on exit)
+
+    tag.app               Content of the app tag line at startup.
+                          Default: "Help NewCol Put Dump Load Dir "
+    tag.col               Default content for new column tag lines.
+                          Default: "CloseCol Close New Sort "
+    tag.wnd               Default content for new window tag lines.
+                          Default: "Get Put Zerox Close | Undo Redo Wrap Ln Indent Mark Bind "
+    tag.cmd               Default content for command/results window tag lines.
+                          Default: "Close | Undo Redo Wrap Kill Clear Font Scroll Input "
+
+    Tag lines are plain editable text — you can trim commands you never use,
+    add your own, or reorder them.  Changes take effect on the next launch.
+
+    Example ~/.z/settings:
+        tag.app = Help NewCol Dump Load Fonts
+        tag.wnd = Get Put Close | Undo Redo Wrap Ln
+        tag.cmd = Close | Kill Clear Scroll
+
+
 SYSTEM DEFAULTS
 
     Wrap      off
