@@ -219,6 +219,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 
 	def +=(col : ZCol):ZCol = {
 		cols = cols :+ col
+		col.windowLocator = p => cols.flatMap(_.wnds).find(_.rawPath == p)
 		refresh
 		listenTo(col)
 		col

@@ -36,6 +36,7 @@ class ZCol(currDir : String) extends BorderPanel {
 
 	var wnds : List[ZWnd] = Nil
 	var rotated = false
+	var windowLocator: String => Option[ZWnd] = _ => None
 
 	var colorTBack = new Color(0xFF, 0xFF, 0xFF)
 	var colorTFore = new Color(0x00, 0x00, 0x00)
@@ -399,7 +400,7 @@ class ZCol(currDir : String) extends BorderPanel {
 		wnds.find((w) => if(ZWnd.isScratchBuffer(w.rawPath)) false else w.path.equals(cp) )
 	}
 
-	def rawPathWindow(p : String) = wnds.find( (w) => w.rawPath.equals(p) )
+	def rawPathWindow(p : String) = windowLocator(p).orElse(wnds.find(_.rawPath == p))
 
 	def properties : Map[String, String] = {
 		var p = new HashMap[String, String]
