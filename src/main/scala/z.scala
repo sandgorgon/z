@@ -76,8 +76,9 @@ object z extends SwingApplication {
 			val settings = new File(zDir, "settings")
 			if(!zDir.exists) zDir.mkdirs()
 			var p = if(settings.exists) ZSettings.load(settings) else new HashMap[String, String]
-			p += "app.width"  -> size.getWidth.toInt.toString
-			p += "app.height" -> size.getHeight.toInt.toString
+			p += "app.width"   -> size.getWidth.toInt.toString
+			p += "app.height"  -> size.getHeight.toInt.toString
+			p += "view.rotated" -> mainPanel.rotated.toString
 			ZSettings.dump(p, settings, "Z Global Settings")
 			ZLspManager.shutdown()
 			System.exit(0)
@@ -114,6 +115,7 @@ object z extends SwingApplication {
 		ZCol.wndTagLine      = p.getOrElse("tag.wnd", ZCol.wndTagLine)
 		ZCol.cmdTagLine      = p.getOrElse("tag.cmd", ZCol.cmdTagLine)
 		mainPanel.tag.text   = p.getOrElse("tag.app", mainPanel.tag.text)
+		mainPanel.rotated    = p.getOrElse("view.rotated", "false").toBoolean
 
 		ZLspManager.loadConf()
 		ZScripts.load()

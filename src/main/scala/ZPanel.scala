@@ -32,6 +32,7 @@ import java.io.File
 
 class ZPanel(initTagText: String) extends BorderPanel {
 	var cols : List[ZCol] = Nil
+	var rotated = false
 
 	var colorTBack = new Color(0xFF, 0xFF, 0xFF)
 	var colorTFore = new Color(0x00, 0x00, 0x00)
@@ -144,7 +145,13 @@ class ZPanel(initTagText: String) extends BorderPanel {
 	def command(cmds : String) = if(cmds != null && !cmds.trim.isEmpty) {
 		for(cmd <- cmds.linesIterator.map(_.trim)) {
 			cmd.trim match {
-				case "NewCol" => this += new ZCol(currentDir)
+				case "NewCol" =>
+				val col = this += new ZCol(currentDir)
+				col.rotated = rotated
+			case "RotateView" =>
+				rotated = !rotated
+				refresh
+				cols.foreach(_.command("RotateView"))
 				case "Load" => load()
 				case ZPanel.reLoad(p) => load(p)
 				case "Dump" => dump()
@@ -234,7 +241,8 @@ class ZPanel(initTagText: String) extends BorderPanel {
 		if(l == Nil) return new BorderPanel
 		if(l.size == 1) return l.head
 
-		new SplitPane(Orientation.Vertical, l.head, render(l.tail)) {
+		val orient = if(rotated) Orientation.Horizontal else Orientation.Vertical
+		new SplitPane(orient, l.head, render(l.tail)) {
 			oneTouchExpandable = true
 			resizeWeight = 0.5
 			continuousLayout = true
@@ -342,6 +350,8 @@ class ZPanel(initTagText: String) extends BorderPanel {
 			val cnt = p.getOrElse("column.count", "0").toInt
 			prevCmd = "Cmd: " + p.getOrElse("command.prev", "")
 			currentDir = p.getOrElse("app.dir", currentDir)
+			rotated = p.getOrElse("app.rotated", "false").toBoolean
+			if(rotated) refresh
 			ZFonts.defaultFixed = new Font(
 				p.getOrElse("app.font.fixed",      ZFonts.defaultFixed.getFontName),
 				Font.PLAIN,
@@ -373,6 +383,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 		p += "app.font.variable.size"-> ZFonts.defaultVar.getSize.toString
 		p += "app.font.tag"          -> ZFonts.defaultTag.getFontName
 		p += "app.font.tag.size"     -> ZFonts.defaultTag.getSize.toString
+		p += "app.rotated"           -> rotated.toString
 		p
 	}
 
