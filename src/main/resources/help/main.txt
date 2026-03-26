@@ -88,6 +88,16 @@ WINDOW MANAGEMENT
     Up / Dn     Move the window up/down within its column
     Sort        Sort windows in a column alphabetically (from app tag line: sorts each column separately)
 
+    RotateView  Toggle the layout orientation.
+                From a column tag line: flips that column's windows between top-to-bottom and
+                side-by-side stacking.
+                From the app tag line: also flips the column layout (columns stack top-to-bottom
+                instead of left-to-right), and each existing column independently toggles its
+                own window orientation.
+                New columns created after a rotation inherit the app's current orientation.
+                Rotation state is persisted: column state via Dump/Load; app state via
+                ~/.z/settings (view.rotated).
+
 
 EDITING COMMANDS
 
@@ -321,6 +331,7 @@ GLOBAL SETTINGS  (~/.z/settings)
 
     app.width             Main window width in pixels (auto-saved on exit)
     app.height            Main window height in pixels (auto-saved on exit)
+    view.rotated          true/false — app-level layout rotation (auto-saved on exit)
 
     tag.app               Content of the app tag line at startup.
                           Default: "Help NewCol Put Dump Load Dir "

@@ -15,7 +15,7 @@ This tutorial will take you from zero to genuinely productive. By the end you wi
 3. [Opening, Navigating & Closing Files](#3-opening-navigating--closing-files)
 4. [Editing Essentials](#4-editing-essentials)
 5. [Running External Commands](#5-running-external-commands)
-6. [Working with Multiple Windows & Columns](#6-working-with-multiple-windows--columns)
+6. [Working with Multiple Windows & Columns](#6-working-with-multiple-windows--columns) — including `RotateView`
 7. [Scratch Buffers](#7-scratch-buffers)
 8. [Appearance & Fonts](#8-appearance--fonts)
 9. [Syntax Highlighting & Themes](#9-syntax-highlighting--themes)
@@ -453,6 +453,17 @@ Windows can be moved freely within and between columns.
 | `Rt` | Move window to the column on the right (or move a column right) |
 
 Run these from the window's tag line to move that window. Run `Lt` or `Rt` from a *column* tag line to move the entire column.
+
+### Rotating the Layout
+
+`RotateView` toggles the layout orientation.
+
+- From a **column tag line**: flips that column's windows between top-to-bottom stacking (the default) and side-by-side stacking.
+- From the **app tag line**: also flips the column layout (columns go from left-to-right to top-to-bottom), and each existing column independently toggles its window orientation.
+
+New columns created after a rotation inherit the current app orientation.
+
+Rotation state is persisted automatically: per-column state survives `Dump`/`Load`, and the app-level orientation is saved to `~/.z/settings` on exit so it is restored on next launch.
 
 ### Sorting
 
@@ -993,6 +1004,7 @@ Everything is back: every window, every scratch buffer, every colour setting. Re
 | `Lt` / `Rt` | Move window/column left/right |
 | `Up` / `Dn` | Move window up/down |
 | `Sort` | Sort windows alphabetically |
+| `RotateView` | Toggle window/column layout orientation |
 
 ### External Commands
 
