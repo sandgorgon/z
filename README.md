@@ -69,6 +69,7 @@ sbt test
 - **Configurable tag line defaults** — set `tag.app`, `tag.col`, `tag.wnd`, and `tag.cmd` in `~/.z/settings` to customise the commands pre-loaded into each tag line at startup
 - **Property inspection** — `Props` opens a `+Props` scratch window listing the current properties of the app, column, or window (depending on where it is run from)
 - **Scratch buffers** — filenames containing `+` are never written to disk (e.g. `+scratch`, `+Results`)
+- **Rotatable layout** — `RotateView` toggles window stacking within a column between top-to-bottom and side-by-side; from the app tag line it also rotates the column layout itself. Rotation state is persisted across sessions
 - **Batch commands** — `X 'regexp' cmd` / `Y 'regexp' cmd` run a command across matching/non-matching windows
 - **Interactive processes** — `Input` mode lets you send text line-by-line to a running process
 - **Brace matching** — Ctrl+B1 selects the region between matching `{}` `[]` `()` `<>` or any delimiter pair

@@ -35,6 +35,7 @@ class ZCol(currDir : String) extends BorderPanel {
 	val cmdWnd = genWnd(_ : String, ZCol.cmdTagLine)
 
 	var wnds : List[ZWnd] = Nil
+	var rotated = false
 
 	var colorTBack = new Color(0xFF, 0xFF, 0xFF)
 	var colorTFore = new Color(0x00, 0x00, 0x00)
@@ -227,6 +228,7 @@ class ZCol(currDir : String) extends BorderPanel {
 				case "Lt" => publish(new ZMoveColEvent("Lt", this))
 				case "Rt" => publish(new ZMoveColEvent("Rt", this))
 				case "New" => this += genWnd()
+			case "RotateView" => rotated = !rotated; refresh
 				case "Sort" => 
 					wnds = wnds.sortWith((a, b) => a.path.compareTo(b.path) < 0)
 					refresh
@@ -358,7 +360,8 @@ class ZCol(currDir : String) extends BorderPanel {
 		if(wl.isEmpty) return new BorderPanel
 		if(wl.size == 1) return wl.head
 
-		new SplitPane(Orientation.Horizontal, wl.head, render(wl.tail)) {
+		val orient = if(rotated) Orientation.Vertical else Orientation.Horizontal
+		new SplitPane(orient, wl.head, render(wl.tail)) {
 			oneTouchExpandable = true
 			resizeWeight = 0.5
 			continuousLayout = true
@@ -416,6 +419,7 @@ class ZCol(currDir : String) extends BorderPanel {
 		})
 
 		p += "tag.text" -> tag.text
+		p += "rotated"  -> rotated.toString
 		p
 	}
 
@@ -423,6 +427,7 @@ class ZCol(currDir : String) extends BorderPanel {
 		val cnt = p.getOrElse(prefix + "window.count", "0").toInt
 		prevCmd = p.getOrElse(prefix + "command.prev", "")
 		tag.text = p.getOrElse(prefix + "tag.text", ZCol.colTagLine)
+		rotated  = p.getOrElse(prefix + "rotated", "false").toBoolean
 		tag.font = new Font(
 			p.getOrElse(prefix + "tag.font", ZFonts.defaultTag.getFontName),
 			Font.PLAIN,
