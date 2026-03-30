@@ -454,11 +454,14 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 
 	def runScript(scriptPath: String, args: String, extraEnv: Map[String, String] = Map.empty): Option[Process] = {
 		val cmd = if (args.isEmpty) scriptPath else s"$scriptPath $args"
+		val localFp = path
+		val f = new File(localFp)
+		val wd = if(f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath
 		val sel = Option(body.selected).getOrElse("")
 		val env = (new HashMap[String, String] +
-			("Z_FILE"      -> path) +
-			("Z_FP"        -> new File(path).getCanonicalPath) +
-			("Z_DIR"       -> rootPath) +
+			("Z_FILE"      -> localFp) +
+			("Z_FP"        -> f.getCanonicalPath) +
+			("Z_DIR"       -> wd) +
 			("Z_SELECTION" -> sel)) ++ extraEnv
 		val onOutput: String => Unit = s => SwingUtilities.invokeLater(() => {
 			val current = body.caret.dot
@@ -470,7 +473,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		)
 		tag.text = tag.text + ZWnd.CmdExecIndicator
 		try {
-			ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(rootPath), env = Some(env))
+			ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
 		} catch {
 			case e: Throwable =>
 				JOptionPane.showMessageDialog(null, e.getMessage, "Script Error", JOptionPane.ERROR_MESSAGE)
