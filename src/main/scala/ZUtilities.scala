@@ -27,10 +27,17 @@ import swing.TextArea
 import swing.event.MouseEvent
 import collection.immutable.HashMap
 import java.io.{File, BufferedReader, BufferedWriter, OutputStreamWriter, InputStreamReader}
-import javax.swing.text.Utilities
+import java.util.concurrent.{Executors, ExecutorService}
+import javax.swing.text.{Utilities, Segment}
 import java.awt.Point
 
 object ZUtilities {
+	private val threadPool: ExecutorService = Executors.newCachedThreadPool { r =>
+		val t = Executors.defaultThreadFactory().newThread(r)
+		t.setDaemon(true)
+		t
+	}
+
 	def separator = File.separator
 	def isFullPath(s: String) = (new File(s)).isAbsolute
 
@@ -85,19 +92,22 @@ object ZUtilities {
 	* @param evt   The mouse event that we will be using
 	*/
 	def symMatch(ta : TextArea, evt : MouseEvent) : Unit = {
+		val doc    = ta.peer.getDocument
+		val docLen = doc.getLength
+		if (docLen < 2) return
+
+		val seg = new Segment()
+		doc.getText(0, docLen, seg)
+
+		val lastndx = docLen - 1
 		val pos = ta.peer.viewToModel2D(evt.point).toInt
-		val buf = ta.text
-
-		if(buf  == "" || buf.length < 2)  return
-
-		val lastndx = buf.length - 1
 		var i = pos
 		var move = 1
 
 		if(i < 0)  return
 		if(i > lastndx)  i = lastndx
 
-		var start = buf.charAt(i)
+		var start = seg.charAt(i)
 		var expected = start
 
 		start match {
@@ -107,7 +117,7 @@ object ZUtilities {
 			case '<' => expected = '>'
 			case _ =>if(i - 1 > 0) {
 				i = i - 1
-				start = buf.charAt(i);
+				start = seg.charAt(i);
 				start match {
 					case ')' =>
 						expected = '('
@@ -123,7 +133,7 @@ object ZUtilities {
 						move = -1
 					case _ =>
 						i = i  + 1
-						start = buf.charAt(i)
+						start = seg.charAt(i)
 						expected = start
 						move = 1
 				}
@@ -136,7 +146,7 @@ object ZUtilities {
 
 		boundary {
 		while(i < lastndx && i > -1) {
-			val c = buf.charAt(i)
+			val c = seg.charAt(i)
 
 			if(c == start) {
 				if(start == expected && cnt == 1) {
@@ -189,7 +199,7 @@ object ZUtilities {
 			bw.close()
 		}
 
-		val thread = new Thread(() => {
+		threadPool.execute(() => {
 			val br = new BufferedReader(new InputStreamReader(proc.getInputStream))
 			val buffer = new Array[Char](4096)
 			var len = 0
@@ -201,8 +211,6 @@ object ZUtilities {
 			proc.destroy()
 			onDone()
 		})
-		thread.setDaemon(true)
-		thread.start()
 		Some(proc)
 	}
 
