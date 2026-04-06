@@ -455,6 +455,13 @@ class ZCol(currDir : String) extends BorderPanel {
 
 		p += "tag.text" -> tag.text
 		p += "rotated"  -> rotated.toString
+
+		val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
+			.getLayoutComponent(java.awt.BorderLayout.CENTER)
+		val divs = if (center != null) collectDividers(center) else Nil
+		p += "wnd.divider.count" -> divs.length.toString
+		divs.zipWithIndex.foreach { case (loc, idx) => p += s"wnd.divider.$idx" -> loc.toString }
+
 		p
 	}
 
@@ -473,6 +480,17 @@ class ZCol(currDir : String) extends BorderPanel {
 			val w = genWnd()
 			this += w
 			w.load(p, prefix + "window." + i.toString + ".")
+		}
+
+		val divCount = p.getOrElse(prefix + "wnd.divider.count", "0").toInt
+		if (divCount > 0) {
+			val divLocs = (0 until divCount).flatMap(i =>
+				p.get(prefix + s"wnd.divider.$i").flatMap(_.toIntOption)).toList
+			SwingUtilities.invokeLater(() => {
+				val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
+					.getLayoutComponent(java.awt.BorderLayout.CENTER)
+				if (center != null) applyDividers(center, divLocs)
+			})
 		}
 	}
 }

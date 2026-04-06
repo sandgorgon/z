@@ -398,6 +398,17 @@ class ZPanel(initTagText: String) extends BorderPanel {
 				val c = this += new ZCol(currentDir)
 				c.load(p, "column." + i.toString + "." )
 			}
+
+			val divCount = p.getOrElse("col.divider.count", "0").toInt
+			if (divCount > 0) {
+				val divLocs = (0 until divCount).flatMap(i =>
+					p.get(s"col.divider.$i").flatMap(_.toIntOption)).toList
+				SwingUtilities.invokeLater(() => {
+					val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
+						.getLayoutComponent(java.awt.BorderLayout.CENTER)
+					if (center != null) applyDividers(center, divLocs)
+				})
+			}
 		}
 	}
 
@@ -424,7 +435,13 @@ class ZPanel(initTagText: String) extends BorderPanel {
 			i = i + 1
 		})
 
-		ZSettings.dump(p, new File(s), "Z Dump") 
+		val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
+			.getLayoutComponent(java.awt.BorderLayout.CENTER)
+		val divs = if (center != null) collectDividers(center) else Nil
+		p += "col.divider.count" -> divs.length.toString
+		divs.zipWithIndex.foreach { case (loc, idx) => p += s"col.divider.$idx" -> loc.toString }
+
+		ZSettings.dump(p, new File(s), "Z Dump")
 	}
 }
 
