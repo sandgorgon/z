@@ -35,8 +35,11 @@ class ZCol(currDir : String) extends BorderPanel {
 	val cmdWnd = genWnd(_ : String, ZCol.cmdTagLine)
 
 	var wnds : List[ZWnd] = Nil
+	private var wndIndex: Map[String, ZWnd] = Map.empty
 	var rotated = false
 	var windowLocator: String => Option[ZWnd] = _ => None
+
+	def lookupByRawPath(p: String): Option[ZWnd] = wndIndex.get(p)
 
 	var colorTBack = new Color(0xFF, 0xFF, 0xFF)
 	var colorTFore = new Color(0x00, 0x00, 0x00)
@@ -196,8 +199,6 @@ class ZCol(currDir : String) extends BorderPanel {
 			}
 			w.root = src.root
 			w.body.text = e.content
-		case e : ZLookEvent =>
-			look(e.path, false)
 		case e : ZStatusEvent => publish(new ZStatusEvent(e.source, e.properties))
 	}
 
@@ -322,6 +323,8 @@ class ZCol(currDir : String) extends BorderPanel {
 
 	def +=(w : ZWnd) = {
 		wnds = wnds :+ w
+		wndIndex = wndIndex + (w.rawPath -> w)
+		w.lookUpward = path => look(path, false)
 		listenTo(w)
 		refresh
 	}
@@ -346,14 +349,44 @@ class ZCol(currDir : String) extends BorderPanel {
 		w
 	}
 
+	private def collectDividers(c: java.awt.Component): List[Int] = c match {
+		case sp: javax.swing.JSplitPane
+			if sp.getClientProperty(ZCol.DividerKey) == java.lang.Boolean.TRUE =>
+			sp.getDividerLocation :: collectDividers(sp.getRightComponent)
+		case _ => Nil
+	}
+
+	private def applyDividers(c: java.awt.Component, locs: List[Int]): Unit = (c, locs) match {
+		case (sp: javax.swing.JSplitPane, loc :: rest) =>
+			sp.setDividerLocation(loc)
+			applyDividers(sp.getRightComponent, rest)
+		case _ =>
+	}
+
 	def refresh = {
-		layout(render(wnds)) = BorderPanel.Position.Center
+		val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
+			.getLayoutComponent(java.awt.BorderLayout.CENTER)
+		val dividers    = if (center != null) collectDividers(center) else Nil
+		val tagDividers = wnds.flatMap { w =>
+			val loc = w.peer.getDividerLocation
+			if (loc > 0) Some(w -> loc) else None
+		}
+		val newCenter = render(wnds)
+		layout(newCenter) = BorderPanel.Position.Center
 		revalidate()
+		SwingUtilities.invokeLater(() => {
+			if (dividers.nonEmpty) {
+				val centerPeer = newCenter.peer
+				applyDividers(centerPeer, dividers)
+			}
+			tagDividers.foreach { case (w, loc) => w.peer.setDividerLocation(loc) }
+		})
 	}
 
 	def -=(w : ZWnd)  = {
 		deafTo(w)
 		wnds = wnds.filterNot(_ == w)
+		wndIndex = wndIndex - w.rawPath
 		refresh
 	}
 
@@ -363,6 +396,7 @@ class ZCol(currDir : String) extends BorderPanel {
 
 		val orient = if(rotated) Orientation.Vertical else Orientation.Horizontal
 		new SplitPane(orient, wl.head, render(wl.tail)) {
+			peer.putClientProperty(ZCol.DividerKey, true)
 			oneTouchExpandable = true
 			resizeWeight = 0.5
 			continuousLayout = true
@@ -400,7 +434,7 @@ class ZCol(currDir : String) extends BorderPanel {
 		wnds.find((w) => if(ZWnd.isScratchBuffer(w.rawPath)) false else w.path.equals(cp) )
 	}
 
-	def rawPathWindow(p : String) = windowLocator(p).orElse(wnds.find(_.rawPath == p))
+	def rawPathWindow(p : String) = windowLocator(p).orElse(lookupByRawPath(p))
 
 	def properties : Map[String, String] = {
 		var p = new HashMap[String, String]
@@ -444,6 +478,8 @@ class ZCol(currDir : String) extends BorderPanel {
 }
 
 object ZCol {
+	val DividerKey = "z.divider"
+
 	var colTagLine = "CloseCol Close New Sort "
 	var wndTagLine = "Get Put Zerox Close | Undo Redo Wrap Ln Indent Mark Bind "
 	var cmdTagLine = "Close | Undo Redo Wrap Kill Clear Font Scroll Input "

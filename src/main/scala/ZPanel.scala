@@ -221,18 +221,40 @@ class ZPanel(initTagText: String) extends BorderPanel {
 		cols = cols :+ col
 		col.windowLocator = p => {
 				val cp = new java.io.File(p).getCanonicalPath
-				cols.flatMap(_.wnds).find(w =>
-					w.rawPath == p ||
-					(!ZWnd.isScratchBuffer(w.rawPath) && w.path == cp))
+				cols.flatMap(_.lookupByRawPath(p)).headOption.orElse(
+					cols.flatMap(_.wnds).find(w =>
+						!ZWnd.isScratchBuffer(w.rawPath) && w.path == cp))
 			}
 		refresh
 		listenTo(col)
 		col
 	}
 
+	private def collectDividers(c: java.awt.Component): List[Int] = c match {
+		case sp: javax.swing.JSplitPane
+			if sp.getClientProperty(ZPanel.DividerKey) == java.lang.Boolean.TRUE =>
+			sp.getDividerLocation :: collectDividers(sp.getRightComponent)
+		case _ => Nil
+	}
+
+	private def applyDividers(c: java.awt.Component, locs: List[Int]): Unit = (c, locs) match {
+		case (sp: javax.swing.JSplitPane, loc :: rest) =>
+			sp.setDividerLocation(loc)
+			applyDividers(sp.getRightComponent, rest)
+		case _ =>
+	}
+
 	def refresh = {
-		layout(render(cols)) = BorderPanel.Position.Center
+		val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
+			.getLayoutComponent(java.awt.BorderLayout.CENTER)
+		val dividers = if (center != null) collectDividers(center) else Nil
+		val newCenter = render(cols)
+		layout(newCenter) = BorderPanel.Position.Center
 		revalidate()
+		if (dividers.nonEmpty) {
+			val centerPeer = newCenter.peer
+			SwingUtilities.invokeLater(() => applyDividers(centerPeer, dividers))
+		}
 	}
 
 	def -=(col : ZCol):ZCol = {
@@ -249,6 +271,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 
 		val orient = if(rotated) Orientation.Horizontal else Orientation.Vertical
 		new SplitPane(orient, l.head, render(l.tail)) {
+			peer.putClientProperty(ZPanel.DividerKey, true)
 			oneTouchExpandable = true
 			resizeWeight = 0.5
 			continuousLayout = true
@@ -406,6 +429,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 }
 
 object ZPanel {
+	val DividerKey = "z.divider"
 	val reLoad = """Load\s+(.+)""".r
 	val reDump = """Dump\s+(.+)""".r
 }

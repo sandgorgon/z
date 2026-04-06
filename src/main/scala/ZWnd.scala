@@ -57,6 +57,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		new Color(0xFF, 0xFF, 0xFF),   // white — inverted from tag blue
 		new Color(0x4A, 0x61, 0x95))   // tag blue — inverted from tag white
 
+	var lookUpward: String => Unit = _ => ()
 	var cmdProcess : Option[Process] = None
 	var cmdProcessWriter : Option[BufferedWriter] = None
 	var dragSel = false
@@ -334,7 +335,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 
 				var pos = body.caret.position
 				var t = body.text.substring(pos)
-				var p = Pattern.compile(stxt, Pattern.MULTILINE)
+				var p = ZWnd.compiledPattern(stxt)
 				var m = p.matcher(t)
 
 				if(m.find())  {
@@ -362,7 +363,8 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		}
 
 		val sp = ZUtilities.expandPath(stxt, root)
-		val baseDir = if (ZWnd.isScratchBuffer(tag.text)) new File(path).getParent else rawPath
+		val absPath = new File(path)
+		val baseDir = if (absPath.isDirectory) path else absPath.getParent
 		val ep = (if(ZUtilities.isFullPath(sp)) "" else (baseDir + ZUtilities.separator)) + sp
 
 		if(new File(ep).exists)
@@ -375,7 +377,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 			}
 			else
 			{
-				publish(new ZLookEvent(this, ep + loc))
+				lookUpward(ep + loc)
 			}
 
 			return true
@@ -653,8 +655,10 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 
 	def dump : Map[String, String] = {
 		var p = properties
-		p += "body.text" -> (if(dirty || ZWnd.isScratchBuffer(tag.text)) body.text else "")
-		p += "tag.text" -> tag.text
+		p += "body.text"   -> (if(dirty || ZWnd.isScratchBuffer(tag.text)) body.text else "")
+		p += "tag.text"    -> tag.text
+		val tagDiv = peer.getDividerLocation
+		if (tagDiv > 0) p += "tag.divider" -> tagDiv.toString
 		p
 	}
 
@@ -705,10 +709,23 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 			body.selectionStart = int("selection.start", 0)
 			body.selectionEnd   = int("selection.end",   0)
 		}
+		val tagDiv = int("tag.divider", 0)
+		if (tagDiv > 0) SwingUtilities.invokeLater(() => peer.setDividerLocation(tagDiv))
 	}
 }
 
 object ZWnd {
+	private val patternCache = collection.mutable.LinkedHashMap.empty[String, Pattern]
+	private val PatternCacheMax = 32
+
+	def compiledPattern(re: String): Pattern =
+		patternCache.getOrElse(re, {
+			val p = Pattern.compile(re, Pattern.MULTILINE)
+			if (patternCache.size >= PatternCacheMax) patternCache.remove(patternCache.keys.head)
+			patternCache(re) = p
+			p
+		})
+
 	var rePrompt = """[^\$%>\?#]*[\$%>\?#]\s*(.+)\s*""".r
 	val reInput = """Input\s+(.+)""".r
 
@@ -752,5 +769,4 @@ object ZWnd {
 class ZScriptEvent(val source: ZWnd, val scriptPath: String, val args: String) extends Event
 class ZCmdEvent(val source : ZWnd, val command : String) extends Event
 class ZDiagnosticsReadyEvent(val source: ZWnd, val content: String) extends Event
-class ZLookEvent(val source : ZWnd, val path : String) extends Event
 class ZStatusEvent(val source : ZWnd, val properties : Map[String, String]) extends Event
