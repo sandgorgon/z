@@ -219,7 +219,12 @@ class ZPanel(initTagText: String) extends BorderPanel {
 
 	def +=(col : ZCol):ZCol = {
 		cols = cols :+ col
-		col.windowLocator = p => cols.flatMap(_.wnds).find(_.rawPath == p)
+		col.windowLocator = p => {
+				val cp = new java.io.File(p).getCanonicalPath
+				cols.flatMap(_.wnds).find(w =>
+					w.rawPath == p ||
+					(!ZWnd.isScratchBuffer(w.rawPath) && w.path == cp))
+			}
 		refresh
 		listenTo(col)
 		col

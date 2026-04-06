@@ -304,7 +304,7 @@ class ZCol(currDir : String) extends BorderPanel {
 				val f = if(ZUtilities.isFullPath(expanded)) expanded else (currDir + ZUtilities.separator + expanded)
 
 				if(new File(f).exists) {
-					val o  = pathWindow(expanded)
+					val o  = rawPathWindow(f).orElse(pathWindow(expanded))
 					if(o.isEmpty)  {
 						val w = wnd(expanded)
 						this += w
