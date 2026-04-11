@@ -39,7 +39,7 @@ Each level has a **tag line** (top, `ZTextArea`) and a **body** (bottom, `ZTextA
 - **`z.scala`** — Entry point (`SwingApplication`). Manages the `MainFrame`, loads/saves `~/.z/settings` (window geometry + tag line defaults), handles OS X fullscreen. Creates the top-level `ZPanel`. On startup, applies `tag.app`/`tag.col`/`tag.wnd`/`tag.cmd` from settings to the live defaults; on exit, reads the existing settings file before writing so user-set keys are not erased.
 - **`ZPanel.scala`** — The application-level panel. Manages a `List[ZCol]` rendered as nested `SplitPane`s. Handles app-level commands (`NewCol`, `Help`, `Dump`, `Load`, `Fonts`, `RotateView`). Dispatches unknown commands down to all columns. `nextCol`/`prevCol` return `Option[ZCol]`. `var rotated` controls whether columns stack left-to-right (`Orientation.Vertical`, default) or top-to-bottom (`Orientation.Horizontal`); `RotateView` toggles it, refreshes, and propagates to all columns. New columns created via `NewCol` inherit the panel's `rotated` state. App-level rotation persisted in `~/.z/settings` as `view.rotated`.
 - **`ZCol.scala`** — A column panel. Manages a `List[ZWnd]` rendered as nested `SplitPane`s. Handles column-level commands (`New`, `Sort`, `CloseCol`, `Lt`/`Rt` for column moves, `RotateView`). Dispatches unknown commands to all its windows. The companion object holds `var colTagLine`, `var wndTagLine`, and `var cmdTagLine` — the mutable defaults that `z.scala` overwrites from `~/.z/settings` at startup. `var rotated` controls whether windows stack top-to-bottom (`Orientation.Horizontal`, default) or side-by-side (`Orientation.Vertical`); persisted via `Dump`/`Load`.
-- **`ZWnd.scala`** — A single editor window (a `SplitPane` with tag on top, body below). Handles file I/O (`Get`/`Put`), external command execution (`< > | !`), interactive process I/O, color/font changes, and all window-level commands. Uses Thread-based callbacks with EDT marshaling (`SwingUtilities.invokeLater`) for async external command output streaming. `cmdProcess` and `cmdProcessWriter` are `Option[...]` types.
+- **`ZWnd.scala`** — A single editor window (a `SplitPane` with tag on top, body below). Handles file I/O (`Get`/`Put`), external command execution (`< > | !`), interactive process I/O, color/font changes, and all window-level commands. Uses Thread-based callbacks with EDT marshaling (`SwingUtilities.invokeLater`) for async external command output streaming. `cmdProcess` and `cmdProcessWriter` are `Option[...]` types. `look(txt, fromTag)` accepts a `fromTag` flag (passed as `true` by tag-line mouse handlers) that tightens the path-prefix guard for tag clicks (see Window Path Segment Navigation).
 - **`ZTextArea.scala`** — Extended `swing.TextArea` with undo/redo (`UndoManager`), brace matching (Ctrl+B1), dirty tracking via `ZDirtyTextEvent`/`ZCleanTextEvent`, and helper methods for line/selection manipulation.
 - **`ZUtilities.scala`** — Static utilities: text selection logic, brace/symbol matching (`symMatch`), external process launching (`extCmd`), and shell command tokenization (handles single-quoted tokens).
 - **`ZFonts.scala`** — Registers bundled fonts (Hack, Bitstream Vera) from classpath resources.
@@ -59,6 +59,15 @@ Components communicate upward via Scala Swing's `publish`/`listenTo` reactor pat
 - Each level's `command()` method handles its own commands and delegates unknown ones to child components
 - The `%` prefix forces text to be treated as a command (bypasses look logic)
 - External commands: `< cmd` (replace/insert stdout), `> cmd` (send selection as stdin), `| cmd` (pipe selection), `! cmd` (replace all content)
+
+### Relative Path Navigation (B3 on tag or body)
+
+When a window has a relative `rawPath`, any B3 navigation that resolves to a path under `root` will open the new window with a relative tag rather than an absolute one. The resolved absolute path (`ep`) is stripped of the `root` prefix before being passed to `lookUpward`. This applies uniformly — directory listings, body text references, and tag path segments all produce relative-tagged windows.
+
+`isWndPathPrefix` is a narrower condition used only for **resolution base** (`resolveBase`): when clicking a segment of the tag line's own path (e.g. `main` in `src/main/Foo.scala`), resolution must use `root` rather than `baseDir` to avoid a double-prefix. Guards:
+- `rawPath` is relative
+- The extracted text is a prefix of `rawPath`
+- **Tag only** (`fromTag=true`): the extracted text starts at position 0 of the tag line, ruling out command arguments that coincidentally share the same path prefix
 
 ### Scratch Buffers
 
