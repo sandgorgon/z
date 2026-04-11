@@ -146,6 +146,21 @@ This cascade is elegant. B3 on `main.go` opens `main.go`. B3 on `:42` jumps to l
 
 Like B2, B3 also works as a drag gesture: hold B3, drag to select, release to act on the selection.
 
+### Relative Path Style Preservation
+
+When a window has a relative path, B3 navigation preserves that style — any path opened from it gets a relative tag rather than an absolute one. This applies uniformly: directory listings, paths in body text, and tag path segments all behave consistently.
+
+For example, a directory window showing `src/main`:
+
+| You B3-click | New window tag |
+|-------------|---------------|
+| `Foo.scala` in the listing | `src/main/Foo.scala` |
+| `util/` in the listing | `src/main/util` |
+| `main` in the tag line | `src/main` |
+| `src` in the tag line | `src` |
+
+In the tag line, this applies only to the path at the very start. Relative paths appearing later in the tag — such as arguments to `Get` or other commands — resolve normally (relative to the file's parent directory).
+
 ### Forcing a Command with `%`
 
 Sometimes z's smart B3 gets in the way. If you have a word like `Put` in a file you're editing and you want to *run* it rather than search for it, prefix it with `%`:

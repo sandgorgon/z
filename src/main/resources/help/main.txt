@@ -46,6 +46,17 @@ MOUSE BUTTONS
                   · Prefix it with %  e.g.  %Put  or  %ls -la
                   · Or place the caret at the end of the file before acting
 
+                Relative path style preservation:
+                  When the current window has a relative path, any B3 navigation that
+                  resolves to a path under the window's root will open the new window
+                  with a relative tag rather than an absolute one.
+                  Example: a directory window showing src/main — B3-clicking Foo.scala
+                  opens src/main/Foo.scala, not /home/user/project/src/main/Foo.scala.
+                  Tag path segment clicks also benefit: clicking "main" in the tag
+                  src/main/Foo.scala opens src/main (resolved against root).
+                  In the tag line, this applies only to the path at the very start;
+                  relative paths in command arguments are unaffected.
+
     B3+drag     Select text, then on release perform the B3 action on the selection
     B2+drag     Select text, then on release execute the selection as a command
 

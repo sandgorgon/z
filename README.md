@@ -75,6 +75,7 @@ sbt test
 - **Brace matching** — Ctrl+B1 selects the region between matching `{}` `[]` `()` `<>` or any delimiter pair
 - **Line numbers** — toggle with `Ln`
 - **Path expansion** — tag lines and commands support `~`, `./`, and `../` prefixes
+- **Relative path style preservation** — when a window has a relative path, B3 navigation (directory listings, body text, tag path segments) opens new windows with relative tags rather than absolute paths, keeping the project-relative style consistent
 - **Root directory control** — `Dir <path>` changes where relative paths resolve, where external commands run, and the LSP workspace root; works from window, column, or app tag line
 - **User scripts** — place executable scripts in `.z/scripts/` (project-local) or `~/.z/scripts/` (global) and invoke them from any tag line with a comma prefix: `,Build`, `,Format`, `,Deploy`. Use `,,cmd` to run on every open window. Additional directories can be configured in `~/.z/scripts.conf`
 - **Font control** — `Font`/`FONT` set the variable/fixed-width body font; `TagFont` sets the tag line font. All three cascade from the app tag line (sets editor-wide default), column tag line (that column), or window tag line (that window only)

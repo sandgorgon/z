@@ -127,7 +127,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 				e.source match {
 					case ta: ZTextArea =>
 						if(SwingUtilities.isMiddleMouseButton(e.peer))  command(ZUtilities.selectedText(ta, e))
-						else if(SwingUtilities.isRightMouseButton(e.peer))  look(ZUtilities.selectedText(ta, e))
+						else if(SwingUtilities.isRightMouseButton(e.peer))  look(ZUtilities.selectedText(ta, e), ta == tag)
 					case _ =>
 				}
 			}
@@ -193,7 +193,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 					e.source match {
 						case ta: ZTextArea =>
 							val txt = ZUtilities.selectedText(ta, e)
-							if(!look(txt)) command(txt)
+							if(!look(txt, ta == tag)) command(txt)
 						case _ =>
 					}
 				} catch {
@@ -313,12 +313,10 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		}
 	}
 
-	def look(txt: String) : Boolean  = {
+	def look(txt: String, fromTag: Boolean = false) : Boolean  = {
 		if(txt == null || txt.trim.isEmpty)  return true
 
-		var stxt = ""
-		var loc = ""
-
+		// Early-return cases: line number and regexp search
 		txt match {
 			case ZWnd.reLineNo(no) =>
 				var i = no.toInt
@@ -331,41 +329,36 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 				}
 				return false
 			case ZWnd.reRegExp(re) =>
-				stxt = re
-
-				var pos = body.caret.position
-				var t = body.text.substring(pos)
-				var p = ZWnd.compiledPattern(stxt)
-				var m = p.matcher(t)
-
+				val pos = body.caret.position
+				val t   = body.text.substring(pos)
+				val m   = ZWnd.compiledPattern(re).matcher(t)
 				if(m.find())  {
 					body.caret.dot = pos + m.start()
 					body.caret.moveDot(pos + m.end())
 					body.requestFocus()
 					return true
 				}
-
 				return false
-			case ZWnd.reFilePath(f, l) =>
-				stxt = f
-				loc = l
-			case ZWnd.reFilePath2(f, l) =>
-				stxt = f
-				loc = l
-			case ZWnd.reQuotedFilePath(f, l) =>
-				stxt = f
-				loc = l
-			case ZWnd.reQuotedFilePath2(f, l) =>
-				stxt = f
-				loc = l
 			case _ =>
-				stxt = txt
 		}
 
-		val sp = ZUtilities.expandPath(stxt, root)
+		// Path cases: extract file and optional location suffix
+		val (stxt, loc) = txt match {
+			case ZWnd.reFilePath(f, l)        => (f, l)
+			case ZWnd.reFilePath2(f, l)       => (f, l)
+			case ZWnd.reQuotedFilePath(f, l)  => (f, l)
+			case ZWnd.reQuotedFilePath2(f, l) => (f, l)
+			case _                            => (txt, "")
+		}
+
+		val sp      = ZUtilities.expandPath(stxt, root)
 		val absPath = new File(path)
 		val baseDir = if (absPath.isDirectory) path else absPath.getParent
-		val ep = (if(ZUtilities.isFullPath(sp)) "" else (baseDir + ZUtilities.separator)) + sp
+		val isWndPathPrefix = !ZUtilities.isFullPath(rawPath) &&
+		                      rawPath.startsWith(stxt) &&
+		                      (!fromTag || tag.text.startsWith(stxt))
+		val resolveBase = if (isWndPathPrefix) root else baseDir
+		val ep = (if(ZUtilities.isFullPath(sp)) "" else (resolveBase + ZUtilities.separator)) + sp
 
 		if(new File(ep).exists)
 		{
@@ -373,20 +366,22 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 			{
 				path = ep
 				command("Get")
-				if(loc != null && !loc.isEmpty) look(loc)
+				if(loc.nonEmpty) look(loc)
 			}
 			else
 			{
-				lookUpward(ep + loc)
+				val lookPath = if (!ZUtilities.isFullPath(rawPath) && ep.startsWith(root + ZUtilities.separator))
+				                   ep.substring(root.length + 1)
+				               else ep
+				lookUpward(lookPath + loc)
 			}
 
 			return true
 		}
 
-		var pos = body.caret.position
-		var t = body.text.substring(pos)
-		var p = Pattern.compile(stxt, Pattern.MULTILINE)
-		var m = p.matcher(t)
+		val pos = body.caret.position
+		val t   = body.text.substring(pos)
+		val m   = Pattern.compile(stxt, Pattern.MULTILINE).matcher(t)
 
 		if(m.find() && m.end() > m.start())  {
 			body.caret.dot = pos + m.start()
