@@ -362,18 +362,18 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 
 		if(new File(ep).exists)
 		{
+			val resolvedPath = if (!ZUtilities.isFullPath(rawPath) && ep.startsWith(root + ZUtilities.separator))
+			                       ep.substring(root.length + 1)
+			                   else ep
 			if(indBind)
 			{
-				path = ep
+				path = resolvedPath
 				command("Get")
 				if(loc.nonEmpty) look(loc)
 			}
 			else
 			{
-				val lookPath = if (!ZUtilities.isFullPath(rawPath) && ep.startsWith(root + ZUtilities.separator))
-				                   ep.substring(root.length + 1)
-				               else ep
-				lookUpward(lookPath + loc)
+				lookUpward(resolvedPath + loc)
 			}
 
 			return true
