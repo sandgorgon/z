@@ -6,7 +6,7 @@ val test         = "org.scalatest"          %% "scalatest" % "3.2.18" % "test"
 
 
 lazy val commonSettings = Seq(
-  version := "1.0.0",
+  version := "1.2.30",
   scalaVersion := "3.8.2",
   scalacOptions += "-no-indent"
 )

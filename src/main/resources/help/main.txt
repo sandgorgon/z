@@ -1,5 +1,6 @@
 Z — Plan 9 Acme-Inspired Editor
 ================================
+Version: 1.2.30
 
 USAGE
 
