@@ -58,7 +58,7 @@ Components communicate upward via Scala Swing's `publish`/`listenTo` reactor pat
 - **B2 drag** on text: calls `command()` directly
 - Each level's `command()` method handles its own commands and delegates unknown ones to child components
 - The `%` prefix forces text to be treated as a command (bypasses look logic)
-- External commands: `< cmd` (replace/insert stdout), `> cmd` (send selection as stdin), `| cmd` (pipe selection), `! cmd` (replace all content)
+- External commands: `< cmd` (replace selection or insert stdout at caret), `> cmd` (send selection as stdin), `| cmd` (pipe selection or full body), `! cmd` (replace all content)
 
 ### Relative Path Navigation (B3 on tag or body)
 
@@ -72,6 +72,19 @@ When a window has a relative `rawPath`, any B3 navigation that resolves to a pat
 ### Scratch Buffers
 
 Files with `+` in the path prefix (e.g., `+scratch`, `+Results`) are never saved to disk. They appear in `Dump` state but `Put` is a no-op on them.
+
+### Keyboard Capture Mode
+
+`ZTextArea` has a **capture mode** API: `startCapture()`, `endCapture(): String`, `abortCapture()`. `ZWnd` manages the state via `captureTA: Option[ZTextArea] = None` (presence means active) and exposes `cancelCapture()`.
+
+- **Ctrl+Enter** — if text is selected: executes it as a command (no deletion). If capture is active: ends capture and executes. Otherwise: starts capture, recording the caret position. Everything typed from that point is highlighted via a Swing `Highlighter` (using `peer.getSelectionColor` so it follows the active theme). The `Highlighter` + `CaretListener` approach is synchronous (no `invokeLater`), no flicker.
+- **Ctrl+F** — if text is selected: performs a look on it (no deletion). If capture is active: ends capture and performs a look. No-op outside capture with no selection.
+- **Escape** — cancels capture (no execution, text stays).
+- Body capture text is deleted after execution (`replaceSelection("")`); tag capture text stays and remains selected.
+- `endCapture()` converts the Highlighter region to a real Swing selection before returning, so `replaceSelection("")` and natural selection persistence both work correctly.
+- **Ctrl+P** opens the file-chooser path picker in `ZWnd`, `ZCol`, and `ZPanel`.
+- **`< cmd` in capture mode**: `externalCmd` accepts `insertPos: Option[Int]`; for `<`, this is always `Some(body.peer.getCaretPosition)` captured synchronously at call time, and output is inserted via `peer.getDocument.insertString(pos, s, null)` using an `AtomicInteger` to advance the offset across multiple `invokeLater` callbacks. Scroll mode does not affect placement.
+- **`| cmd` in capture mode**: after `endCapture()` + `replaceSelection("")` clears the body selection, `body.peer.selectAll()` is called so that `|` receives the full body content as stdin rather than an empty string.
 
 ### Session Persistence
 

@@ -122,7 +122,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 
 	listenTo(tag.keys)
 	reactions += {
-		case e : KeyPressed if((e.key == Key.F) && e.peer.isControlDown()) =>	
+		case e : KeyPressed if((e.key == Key.P) && e.peer.isControlDown()) =>
 			var p = ZUtilities.selectedText(tag, tag.caret.dot)
 			if(p.isEmpty) p = "."
 		

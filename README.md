@@ -52,7 +52,7 @@ sbt test
 
 ## Features
 
-- **Acme-style mouse chording** — B3 (right-click) to look/navigate/execute, B2-drag to execute selected text
+- **Acme-style mouse chording** — B3 (right-click) to look/navigate/execute, B2-drag to execute selected text; **keyboard capture mode** (Ctrl+Enter) lets you type a command with the keyboard, see it highlighted as you go, then execute as a command (Ctrl+Enter) or look/navigate (Ctrl+F)
 - **Syntax highlighting** — powered by RSyntaxTextArea; use `Hilite` to enable, `Hilite [lang]` for a specific language, `Theme [name]` to switch colour themes
 - **Language Server Protocol (LSP)** — use `Lsp` to start a language server for the current file:
   - Squiggly underlines for errors and warnings

@@ -175,6 +175,32 @@ The `%` tells z: skip the look/search logic, treat this as a command directly.
 
 > **Tip:** Placing the caret at the very end of the file also bypasses look logic — another way to force command execution.
 
+### Keyboard Capture Mode
+
+B2 and B3 require mouse precision for multi-word commands. Capture mode lets you type a command with the keyboard, see it highlighted as you go, then choose how to execute it.
+
+**Press `Ctrl+Enter`** to start capture mode. Everything you type from that point is highlighted as you type. When you're ready:
+
+- **`Ctrl+Enter`** — execute the captured text as a command (B2 analog)
+- **`Ctrl+F`** — look/navigate on the captured text (B3 analog: opens files, jumps to lines, searches)
+- **`Escape`** — cancel without executing; the typed text stays
+
+If text is already selected when you press `Ctrl+Enter` or `Ctrl+F`, the shortcuts act on that selection immediately — no capture mode is entered, and the selection is not deleted.
+
+**Body vs. tag behaviour:**
+- In the **body**: the typed command text is deleted after execution (it was a transient command prompt, not content).
+- In the **tag**: the text stays and remains highlighted after execution, just like a B3-click on a tag command.
+
+**Example — change the font without leaving the keyboard:**
+1. Press `Ctrl+Enter` in any body → capture mode on.
+2. Type `Font Hack 16` → text appears, highlighted as you type.
+3. Press `Ctrl+Enter` → font changes, typed text deleted.
+
+**Example — open a file by typing its path:**
+1. Press `Ctrl+Enter` → capture mode on.
+2. Type `src/main/z.scala` → highlighted.
+3. Press `Ctrl+F` → file opens, path text deleted from body.
+
 ### Putting It Together
 
 Once these three buttons become second nature, z starts to feel very fast. You select with B1, execute with B2, navigate with B3 — and your hands almost never leave the mouse for the common operations of an editing session.
@@ -311,9 +337,9 @@ This is where z becomes genuinely powerful. Rather than embedding a terminal emu
 
 There are four external command operators, each with a distinct relationship between the command, the selection, and the output.
 
-### `< cmd` — Replace With Output
+### `< cmd` — Replace Selection or Insert at Caret
 
-The `<` operator runs *cmd* and **replaces the current selection** (or inserts at the caret if nothing is selected) with the command's standard output.
+The `<` operator runs *cmd* and **replaces the current selection with its standard output**, or inserts at the caret position if nothing is selected. `Scroll` mode does not affect placement.
 
 ```
 < date
@@ -321,7 +347,7 @@ The `<` operator runs *cmd* and **replaces the current selection** (or inserts a
 < git log --oneline -10
 ```
 
-Practical use: you have a placeholder in a file that should be replaced with generated content. Select it, then run `< myscript.py` to replace it in place.
+Practical use: select a placeholder in a file and run `< myscript.py` to replace it with generated content, or position the caret and run `< myscript.py` to insert inline.
 
 ### `> cmd` — Send Selection as Input
 
@@ -337,7 +363,7 @@ Practical use: select a JSON blob and run `> jq .` to pretty-print it in `+Resul
 
 ### `| cmd` — Pipe Through
 
-The `|` operator **pipes the selection through** *cmd* and **replaces the selection with the output**. The selection goes in as stdin; stdout replaces it.
+The `|` operator **pipes the selection through** *cmd* and **replaces the selection with the output**. The selection goes in as stdin; stdout replaces it. With no selection (e.g. in capture mode), the entire body content is piped and replaced with the output.
 
 ```
 | sort
@@ -515,6 +541,8 @@ z creates several scratch buffers automatically:
 ### Controlling Scroll Behaviour
 
 By default, z scrolls a window as new content arrives. For a `+Results` window receiving a lot of output, this can be distracting. Execute `Scroll off` from the window's tag line to stop auto-scrolling — the content still streams in, but the view stays put. `Scroll on` restores the default.
+
+> **Note:** `Scroll` mode applies to `>`, `|`, and `!` output only. The `<` operator replaces the selection (or inserts at the caret) and is unaffected by the scroll setting.
 
 ---
 
@@ -983,7 +1011,9 @@ Everything is back: every window, every scratch buffer, every colour setting. Re
 | `Ctrl+Home` / `Ctrl+End` | Top / Bottom |
 | `Ctrl+Left` / `Ctrl+Right` | Prev / Next word |
 | `Ctrl+Backspace` / `Ctrl+Delete` | Delete word left / right |
-| `Ctrl+F` | File chooser at caret |
+| `Ctrl+Enter` | Execute selection as command, or toggle capture mode |
+| `Ctrl+F` | Look on selection, or end capture mode as look |
+| `Ctrl+P` | File chooser at caret |
 | `Ctrl+Space` | LSP completion |
 
 ### File Commands
@@ -1027,7 +1057,7 @@ Everything is back: every window, every scratch buffer, every colour setting. Re
 |---------|-------|--------|
 | `< cmd` | — | Replaces selection (or inserts at caret) |
 | `> cmd` | Selection (or full file) | `+Results` window |
-| `\| cmd` | Selection | Replaces selection |
+| `\| cmd` | Selection (or full body) | Replaces selection (or full body) |
 | `! cmd` | — | Replaces window (or new window from col/app) |
 | `X 'pat' cmd` | — | Runs cmd in matching windows |
 | `Y 'pat' cmd` | — | Runs cmd in non-matching windows |

@@ -31,6 +31,7 @@ import java.awt.{Font, Color}
 import java.awt.ComponentOrientation.RIGHT_TO_LEFT
 import javax.swing.text.{Utilities, DefaultCaret}
 import javax.swing.{JOptionPane, ScrollPaneConstants, SwingUtilities}
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.regex.Pattern
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 
@@ -62,6 +63,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	var cmdProcessWriter : Option[BufferedWriter] = None
 	var dragSel = false
 	var dragSelMark = -1
+	var captureTA: Option[ZTextArea] = None
 
 	val tag = new ZTextArea(initTagText, true)
 	tag.font = ZFonts.defaultTag
@@ -135,9 +137,14 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 			dragSelMark = -1
 	}
 
+	def cancelCapture(): Unit = {
+		captureTA.foreach(_.abortCapture())
+		captureTA = None
+	}
+
 	listenTo(tag.keys, body.keys)
 	reactions += {
-		case e : KeyPressed if((e.key == Key.F) && e.peer.isControlDown()) =>
+		case e : KeyPressed if((e.key == Key.P) && e.peer.isControlDown()) =>
 			val ta = if(e.source.hashCode == tag.hashCode) tag else body
 			var p = path
 
@@ -166,13 +173,56 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 			}
 
 		case e : KeyReleased =>
-			if(e.key == Key.Enter && indInteractive && cmdProcess.isDefined) {
+			// Ctrl+Enter: execute existing selection as command, or start/end capture mode
+			if(e.key == Key.Enter && e.peer.isControlDown()) {
+				captureTA match {
+					case Some(ta) =>
+						val txt     = ta.endCapture().trim
+						val wasBody = ta == body
+						captureTA = None
+						if(txt.nonEmpty) {
+							if(wasBody) body.peer.replaceSelection("")
+							// | needs a body selection; after deleting capture text, select all remaining body
+							if(wasBody && txt.startsWith("|")) body.peer.selectAll()
+							command(txt)
+						}
+					case None =>
+						val activeTA = if(e.source.hashCode == tag.hashCode) tag else body
+						val sel = Option(activeTA.selected).getOrElse("").trim
+						if(sel.nonEmpty) command(sel)
+						else { captureTA = Some(activeTA); activeTA.startCapture() }
+				}
+			}
+			// Ctrl+F: look on existing selection, or end capture mode as look
+			if(e.key == Key.F && e.peer.isControlDown() && !e.peer.isShiftDown()) {
+				captureTA match {
+					case Some(ta) =>
+						val txt     = ta.endCapture().trim
+						val wasBody = ta == body
+						// Save capture bounds before look() changes the selection
+						val capStart = body.peer.getSelectionStart
+						val capEnd   = body.peer.getSelectionEnd
+						captureTA = None
+						if(txt.nonEmpty) {
+							val found = look(txt, !wasBody)
+							// Delete by position — replaceSelection() would delete whatever look() selected
+							if(found && wasBody) body.peer.getDocument.remove(capStart, capEnd - capStart)
+						}
+					case None =>
+						val activeTA = if(e.source.hashCode == tag.hashCode) tag else body
+						val sel = Option(activeTA.selected).getOrElse("").trim
+						if(sel.nonEmpty) look(sel, activeTA == tag)
+				}
+			}
+			if(e.key == Key.Escape) cancelCapture()
+
+			if(e.key == Key.Enter && !e.peer.isControlDown() && indInteractive && cmdProcess.isDefined) {
 				body.line(body.currLineNo - 1) match {
 					case ZWnd.rePrompt(cmd) =>
 						cmdProcessWriter.foreach { w => w.write(cmd); w.newLine(); w.flush() }
 					case _ => /* Do nothing, if not a valid prompt and command */
 				}
-			} else if(e.key == Key.Enter && indIndent) {
+			} else if(e.key == Key.Enter && !e.peer.isControlDown() && indIndent) {
 				val p = body.line(body.currLineNo - 1)
 				p match {
 					case ZWnd.reWhiteSpace(spc) => body.selected = spc
@@ -394,7 +444,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		return true
 	}
 
-	def externalCmd(op : String, cmd : String, in : Option[String] = None) : Option[Process] = {
+	def externalCmd(op : String, cmd : String, in : Option[String] = None, insertPos : Option[Int] = None) : Option[Process] = {
 		val resolved = cmd.trim match {
 			case ZScripts.reScript(name, args) =>
 				ZScripts.resolve(name, rootPath) match {
@@ -406,12 +456,32 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 				}
 			case _ => cmd
 		}
+		val insertAt = if (op == "<") {
+			if (insertPos.isDefined) {
+				insertPos.map(new AtomicInteger(_))
+			} else {
+				val selStart = body.peer.getSelectionStart
+				val selEnd   = body.peer.getSelectionEnd
+				if (selStart != selEnd) {
+					body.peer.replaceSelection("")
+					Some(new AtomicInteger(selStart))
+				} else {
+					Some(new AtomicInteger(body.peer.getCaretPosition))
+				}
+			}
+		} else {
+			insertPos.map(new AtomicInteger(_))
+		}
 		val onOutput: String => Unit = s => SwingUtilities.invokeLater(() => {
-			if(!scroll) body.append(s)
-			else {
-				val current = body.caret.dot
-				body.selected = s
-				body.caret.dot = current + s.length
+			insertAt match {
+				case Some(pos) =>
+					try { body.peer.getDocument.insertString(pos.getAndAdd(s.length), s, null) }
+					catch { case _: Throwable => body.append(s) }
+				case None if !scroll => body.append(s)
+				case None =>
+					val current = body.caret.dot
+					body.selected = s
+					body.caret.dot = current + s.length
 			}
 		})
 		val onDone: () => Unit = () => SwingUtilities.invokeLater(() =>
@@ -434,9 +504,18 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 				case "<" => ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
 				case ">" => ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, input = in, workdir = Some(wd), env = Some(env))
 				case "|" =>
-					val sel = Option(body.selected).getOrElse("")
-					body.selected = ""
-					ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, input = Some(sel), workdir = Some(wd), env = Some(env))
+					val selStart = body.peer.getSelectionStart
+					val selEnd   = body.peer.getSelectionEnd
+					val input = if (selStart != selEnd) {
+						val sel = body.selected
+						body.selected = ""
+						sel
+					} else {
+						val content = body.text
+						body.text = ""
+						content
+					}
+					ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, input = Some(input), workdir = Some(wd), env = Some(env))
 				case "!" =>
 					body.text = ""
 					ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
