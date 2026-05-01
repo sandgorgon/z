@@ -223,10 +223,10 @@ USER SCRIPTS
 
     Configuration
     -------------
+    ~/.z/scripts/        Created automatically on first launch.
     ~/.z/scripts.conf    Optional. Lists additional search directories:
                            scripts.path = /my/scripts:/team/shared/scripts
                          Colon-separated. Appended after the auto-discovered dirs.
-                         Created automatically at ~/.z/scripts/ on first launch.
 
 
 PATH SYNTAX

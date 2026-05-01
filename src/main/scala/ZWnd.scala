@@ -71,6 +71,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	tag.rows = 1
 
 	val body = new ZTextArea(initBodyText)
+	body.clineHighlight = true
 	bodyScheme.applyTo(body)
 
 	val lsp = new ZLspSupport(body, () => path,

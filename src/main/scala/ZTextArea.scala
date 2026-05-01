@@ -43,7 +43,7 @@ class ZTextArea(txt : String = "", wrap : Boolean = false) extends TextArea(txt)
 
 	// RSTA setup — disable features that conflict with z's interaction model
 	peer.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_NONE)
-	peer.setHighlightCurrentLine(true)
+	peer.setHighlightCurrentLine(false)
 	peer.setPopupMenu(null)
 	peer.setBracketMatchingEnabled(false)
 	peer.setAutoIndentEnabled(false)
