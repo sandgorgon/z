@@ -148,10 +148,16 @@ EDITING COMMANDS
 
 EXTERNAL COMMANDS
 
-    < cmd       Replace the current selection (or insert at caret) with cmd's stdout
+    < cmd       Replace the current selection with cmd's stdout, or insert at the
+                caret if nothing is selected.  Scroll mode does not affect placement.
+
     > cmd       Send the current selection (or full text if nothing selected) as stdin to cmd;
                 output goes to a +Results window
-    | cmd       Pipe the selection through cmd; replace selection with stdout
+
+    | cmd       Pipe the current selection through cmd; replace the selection with stdout.
+                With no selection (e.g. in capture mode): pipes the entire body content
+                and replaces it with the output.
+
     ! cmd       Run cmd and replace the entire window content with its output
                 From the app tag line: output goes to a new window in the rightmost column
                 From a column tag line: output goes to a new window in that column

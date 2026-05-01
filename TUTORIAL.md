@@ -337,9 +337,9 @@ This is where z becomes genuinely powerful. Rather than embedding a terminal emu
 
 There are four external command operators, each with a distinct relationship between the command, the selection, and the output.
 
-### `< cmd` — Replace With Output
+### `< cmd` — Replace Selection or Insert at Caret
 
-The `<` operator runs *cmd* and **replaces the current selection** (or inserts at the caret if nothing is selected) with the command's standard output.
+The `<` operator runs *cmd* and **replaces the current selection with its standard output**, or inserts at the caret position if nothing is selected. `Scroll` mode does not affect placement.
 
 ```
 < date
@@ -347,7 +347,7 @@ The `<` operator runs *cmd* and **replaces the current selection** (or inserts a
 < git log --oneline -10
 ```
 
-Practical use: you have a placeholder in a file that should be replaced with generated content. Select it, then run `< myscript.py` to replace it in place.
+Practical use: select a placeholder in a file and run `< myscript.py` to replace it with generated content, or position the caret and run `< myscript.py` to insert inline.
 
 ### `> cmd` — Send Selection as Input
 
@@ -363,7 +363,7 @@ Practical use: select a JSON blob and run `> jq .` to pretty-print it in `+Resul
 
 ### `| cmd` — Pipe Through
 
-The `|` operator **pipes the selection through** *cmd* and **replaces the selection with the output**. The selection goes in as stdin; stdout replaces it.
+The `|` operator **pipes the selection through** *cmd* and **replaces the selection with the output**. The selection goes in as stdin; stdout replaces it. With no selection (e.g. in capture mode), the entire body content is piped and replaced with the output.
 
 ```
 | sort
@@ -541,6 +541,8 @@ z creates several scratch buffers automatically:
 ### Controlling Scroll Behaviour
 
 By default, z scrolls a window as new content arrives. For a `+Results` window receiving a lot of output, this can be distracting. Execute `Scroll off` from the window's tag line to stop auto-scrolling — the content still streams in, but the view stays put. `Scroll on` restores the default.
+
+> **Note:** `Scroll` mode applies to `>`, `|`, and `!` output only. The `<` operator replaces the selection (or inserts at the caret) and is unaffected by the scroll setting.
 
 ---
 
@@ -1055,7 +1057,7 @@ Everything is back: every window, every scratch buffer, every colour setting. Re
 |---------|-------|--------|
 | `< cmd` | — | Replaces selection (or inserts at caret) |
 | `> cmd` | Selection (or full file) | `+Results` window |
-| `\| cmd` | Selection | Replaces selection |
+| `\| cmd` | Selection (or full body) | Replaces selection (or full body) |
 | `! cmd` | — | Replaces window (or new window from col/app) |
 | `X 'pat' cmd` | — | Runs cmd in matching windows |
 | `Y 'pat' cmd` | — | Runs cmd in non-matching windows |
