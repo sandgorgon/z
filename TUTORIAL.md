@@ -175,6 +175,32 @@ The `%` tells z: skip the look/search logic, treat this as a command directly.
 
 > **Tip:** Placing the caret at the very end of the file also bypasses look logic — another way to force command execution.
 
+### Keyboard Capture Mode
+
+B2 and B3 require mouse precision for multi-word commands. Capture mode lets you type a command with the keyboard, see it highlighted as you go, then choose how to execute it.
+
+**Press `Ctrl+Enter`** to start capture mode. Everything you type from that point is highlighted as you type. When you're ready:
+
+- **`Ctrl+Enter`** — execute the captured text as a command (B2 analog)
+- **`Ctrl+F`** — look/navigate on the captured text (B3 analog: opens files, jumps to lines, searches)
+- **`Escape`** — cancel without executing; the typed text stays
+
+If text is already selected when you press `Ctrl+Enter` or `Ctrl+F`, the shortcuts act on that selection immediately — no capture mode is entered, and the selection is not deleted.
+
+**Body vs. tag behaviour:**
+- In the **body**: the typed command text is deleted after execution (it was a transient command prompt, not content).
+- In the **tag**: the text stays and remains highlighted after execution, just like a B3-click on a tag command.
+
+**Example — change the font without leaving the keyboard:**
+1. Press `Ctrl+Enter` in any body → capture mode on.
+2. Type `Font Hack 16` → text appears, highlighted as you type.
+3. Press `Ctrl+Enter` → font changes, typed text deleted.
+
+**Example — open a file by typing its path:**
+1. Press `Ctrl+Enter` → capture mode on.
+2. Type `src/main/z.scala` → highlighted.
+3. Press `Ctrl+F` → file opens, path text deleted from body.
+
 ### Putting It Together
 
 Once these three buttons become second nature, z starts to feel very fast. You select with B1, execute with B2, navigate with B3 — and your hands almost never leave the mouse for the common operations of an editing session.
@@ -983,7 +1009,9 @@ Everything is back: every window, every scratch buffer, every colour setting. Re
 | `Ctrl+Home` / `Ctrl+End` | Top / Bottom |
 | `Ctrl+Left` / `Ctrl+Right` | Prev / Next word |
 | `Ctrl+Backspace` / `Ctrl+Delete` | Delete word left / right |
-| `Ctrl+F` | File chooser at caret |
+| `Ctrl+Enter` | Execute selection as command, or toggle capture mode |
+| `Ctrl+F` | Look on selection, or end capture mode as look |
+| `Ctrl+P` | File chooser at caret |
 | `Ctrl+Space` | LSP completion |
 
 ### File Commands

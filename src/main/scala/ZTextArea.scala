@@ -25,7 +25,8 @@ import swing.event.{MouseEntered, MouseClicked, Key, KeyReleased, Event}
 import java.awt.Color
 import java.awt.event.{KeyEvent, InputEvent}
 import javax.swing.{SwingUtilities, KeyStroke}
-import javax.swing.event.{UndoableEditListener, UndoableEditEvent}
+import javax.swing.event.{UndoableEditListener, UndoableEditEvent, CaretListener}
+import javax.swing.text.DefaultHighlighter
 import org.fife.ui.rsyntaxtextarea.{RSyntaxTextArea, SyntaxConstants}
 
 class ZTextArea(txt : String = "", wrap : Boolean = false) extends TextArea(txt) {
@@ -54,6 +55,9 @@ class ZTextArea(txt : String = "", wrap : Boolean = false) extends TextArea(txt)
 	peer.getInputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK), "none")
 	peer.getInputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK), "none")
 	peer.getInputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, InputEvent.CTRL_DOWN_MASK), "none")
+	// Reserve Ctrl+Enter (capture execute) and Ctrl+F (capture look) — suppress RSTA defaults to avoid beep
+	peer.getInputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.CTRL_DOWN_MASK), "none")
+	peer.getInputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK), "none")
 
 	listenTo(mouse.moves, mouse.clicks)
 	reactions += {
@@ -115,6 +119,57 @@ class ZTextArea(txt : String = "", wrap : Boolean = false) extends TextArea(txt)
 	def selectionEnd_=(i: Int)                = peer.setSelectionEnd(i)
 	def linePrefix(offset : Int = caret.dot)  = getTextRange(lineStart(lineNo(offset)), offset)
 	def braceMatch(e: MouseClicked)           = ZUtilities.symMatch(this, e)
+
+	private var captureModeActive = false
+	private var captureStartPos = -1
+	private var captureHighlight: Option[AnyRef] = None
+	private var captureCaretListener: Option[CaretListener] = None
+
+	private def clearCapture(): Unit = {
+		captureModeActive = false
+		captureCaretListener.foreach(peer.removeCaretListener); captureCaretListener = None
+		captureHighlight.foreach(peer.getHighlighter.removeHighlight); captureHighlight = None
+	}
+
+	def startCapture(): Unit = {
+		// Light-text areas (e.g. white tag): darken the background so typed text stays visible.
+		// Dark-text areas (e.g. black body): the selection color already contrasts well.
+		val fg = peer.getForeground
+		val brightness = (fg.getRed + fg.getGreen + fg.getBlue) / (3.0 * 255)
+		val highlightColor = if(brightness > 0.5) {
+			val bg = peer.getBackground
+			new Color((bg.getRed * 0.65).toInt, (bg.getGreen * 0.65).toInt, (bg.getBlue * 0.65).toInt)
+		} else {
+			peer.getSelectionColor
+		}
+		val painter = new DefaultHighlighter.DefaultHighlightPainter(highlightColor)
+		captureModeActive = true
+		captureStartPos = peer.getCaretPosition
+		captureHighlight = try { Some(peer.getHighlighter.addHighlight(captureStartPos, captureStartPos, painter)) }
+		                   catch { case _: Throwable => None }
+		val listener: CaretListener = _ => {
+			if(captureModeActive) captureHighlight.foreach { h =>
+				val pos = peer.getCaretPosition
+				try { peer.getHighlighter.changeHighlight(h, captureStartPos min pos, captureStartPos max pos) }
+				catch { case _: Throwable => () }
+			}
+		}
+		captureCaretListener = Some(listener)
+		peer.addCaretListener(listener)
+	}
+
+	def endCapture(): String = {
+		clearCapture()
+		val pos   = peer.getCaretPosition
+		val start = captureStartPos min pos
+		val end   = captureStartPos max pos
+		// Apply real Swing selection: body caller can replaceSelection(""), tag selection persists naturally
+		peer.setCaretPosition(start)
+		peer.moveCaretPosition(end)
+		if(end > start) peer.getText(start, end - start) else ""
+	}
+
+	def abortCapture(): Unit = clearCapture()
 
 	def colors(back : Color, fore : Color, crt : Color, backSel : Color, foreSel : Color): Unit = {
 		background = back

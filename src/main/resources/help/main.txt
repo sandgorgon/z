@@ -61,6 +61,20 @@ MOUSE BUTTONS
     B3+drag     Select text, then on release perform the B3 action on the selection
     B2+drag     Select text, then on release execute the selection as a command
 
+    Ctrl+Enter  If text is already selected: execute it as a command (B2 analog).
+                Otherwise: enter capture mode — mark the current position.
+                Everything typed from that point is highlighted as you go. End with:
+                  Ctrl+Enter  execute the captured text as a command
+                  Ctrl+F      execute the captured text as a look/navigate (B3 analog)
+                  Escape      cancel without executing (typed text stays)
+                Body: typed capture text is deleted after execution.
+                Tag:  typed capture text stays and remains highlighted after execution.
+
+    Ctrl+F      If text is already selected: look/navigate on it (B3 analog).
+                If capture mode is active: end capture and look/navigate on the
+                captured text (body text deleted on success; tag text stays).
+                Outside capture mode with no selection: no-op.
+
     Ctrl+B1     Brace/symbol matching selection.  Matched pairs: {}  <>  ()  []
                 Any other character is used as both the open and close delimiter.
 
@@ -301,7 +315,9 @@ KEYBOARD SHORTCUTS
 
     Tools
       Ctrl+B1                       Brace/symbol matching selection
-      Ctrl+F                        Open a file-chooser to complete the path at the caret
+      Ctrl+Enter                    Execute selection as command, or toggle capture mode
+      Ctrl+F                        Look/navigate on selection, or end capture as look
+      Ctrl+P                        Open a file-chooser to complete the path at the caret
       Ctrl+Space                    LSP code completion (requires Lsp to be active)
 
 

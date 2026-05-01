@@ -73,6 +73,17 @@ When a window has a relative `rawPath`, any B3 navigation that resolves to a pat
 
 Files with `+` in the path prefix (e.g., `+scratch`, `+Results`) are never saved to disk. They appear in `Dump` state but `Put` is a no-op on them.
 
+### Keyboard Capture Mode
+
+`ZTextArea` has a **capture mode** API: `startCapture()`, `endCapture(): String`, `abortCapture()`. `ZWnd` manages the state (`captureActive: Boolean`, `captureTA: ZTextArea`) and exposes `cancelCapture()`.
+
+- **Ctrl+Enter** — if text is selected: executes it as a command (no deletion). If capture is active: ends capture and executes. Otherwise: starts capture, recording the caret position. Everything typed from that point is highlighted via a Swing `Highlighter` (using `peer.getSelectionColor` so it follows the active theme). The `Highlighter` + `CaretListener` approach is synchronous (no `invokeLater`), no flicker.
+- **Ctrl+F** — if text is selected: performs a look on it (no deletion). If capture is active: ends capture and performs a look. No-op outside capture with no selection.
+- **Escape** — cancels capture (no execution, text stays).
+- Body capture text is deleted after execution (`replaceSelection("")`); tag capture text stays and remains selected.
+- `endCapture()` converts the Highlighter region to a real Swing selection before returning, so `replaceSelection("")` and natural selection persistence both work correctly.
+- **Ctrl+P** (was Ctrl+F) opens the file-chooser path picker in `ZWnd`, `ZCol`, and `ZPanel`.
+
 ### Session Persistence
 
 `Dump [fname]` serializes the full editor state (all columns, windows, content of dirty scratch buffers, fonts, colors) to a flat key=value file via `ZSettings`. `Load [fname]` restores it.
