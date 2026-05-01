@@ -456,9 +456,22 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 				}
 			case _ => cmd
 		}
-		// For <, always insert at the current caret position (not at end of document)
-		val insertAt = (if(op == "<") insertPos.orElse(Some(body.peer.getCaretPosition)) else insertPos)
-		               .map(new AtomicInteger(_))
+		val insertAt = if (op == "<") {
+			if (insertPos.isDefined) {
+				insertPos.map(new AtomicInteger(_))
+			} else {
+				val selStart = body.peer.getSelectionStart
+				val selEnd   = body.peer.getSelectionEnd
+				if (selStart != selEnd) {
+					body.peer.replaceSelection("")
+					Some(new AtomicInteger(selStart))
+				} else {
+					Some(new AtomicInteger(body.peer.getCaretPosition))
+				}
+			}
+		} else {
+			insertPos.map(new AtomicInteger(_))
+		}
 		val onOutput: String => Unit = s => SwingUtilities.invokeLater(() => {
 			insertAt match {
 				case Some(pos) =>
@@ -491,9 +504,18 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 				case "<" => ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
 				case ">" => ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, input = in, workdir = Some(wd), env = Some(env))
 				case "|" =>
-					val sel = Option(body.selected).getOrElse("")
-					body.selected = ""
-					ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, input = Some(sel), workdir = Some(wd), env = Some(env))
+					val selStart = body.peer.getSelectionStart
+					val selEnd   = body.peer.getSelectionEnd
+					val input = if (selStart != selEnd) {
+						val sel = body.selected
+						body.selected = ""
+						sel
+					} else {
+						val content = body.text
+						body.text = ""
+						content
+					}
+					ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, input = Some(input), workdir = Some(wd), env = Some(env))
 				case "!" =>
 					body.text = ""
 					ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
