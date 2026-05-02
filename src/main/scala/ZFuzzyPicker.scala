@@ -269,8 +269,16 @@ object ZFuzzyPicker {
 		}
 
 		private def checkRootChange(): Unit = {
-			val (newRoot, _) = ZFuzzyPicker.splitQuery(queryField.getText, searchRoot)
-			if (newRoot != searchRoot) { searchRoot = newRoot; startWalk() }
+			val q = queryField.getText
+			val (newRoot, fuzzyPart) = ZFuzzyPicker.splitQuery(q, searchRoot)
+			if (newRoot != searchRoot) {
+				searchRoot = newRoot
+				if (fuzzyPart != q) {
+					queryField.setText(fuzzyPart)
+					queryField.setCaretPosition(fuzzyPart.length)
+				}
+				startWalk()
+			}
 		}
 
 		private def startWalk(): Unit = {
