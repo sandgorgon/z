@@ -44,6 +44,8 @@ Each level has a **tag line** (top, `ZTextArea`) and a **body** (bottom, `ZTextA
 - **`ZUtilities.scala`** — Static utilities: text selection logic, brace/symbol matching (`symMatch`), external process launching (`extCmd`), and shell command tokenization (handles single-quoted tokens).
 - **`ZFonts.scala`** — Registers bundled fonts (Hack, Bitstream Vera) from classpath resources.
 - **`ZSettings.scala`** — Simple key=value flat-file persistence for app state (used by `Dump`/`Load` and `~/.z/settings` for window geometry and tag line defaults).
+- **`ZPlumbing.scala`** — Plumbing rules engine. Loads `~/.z/plumbing` (one `match label /regex/ exec|look template` per line). `plumb(txt, cwd)` returns `Option[(PlumbAction, String)]` for the first matching rule. Called by `ZWnd.look()` before file-path resolution. Built-in rules: `url` (exec xdg-open), `filecol` (look file:line from file:line:col). `ZWnd` handles `case "Plumb" => ZPlumbing.load()`. Exec results are dispatched via `ZPlumbExecEvent`, handled by `ZCol` which runs the command in a `+plumb` scratch window with the source window's env vars.
+- **`ZFuzzyPicker.scala`** — Keyboard-driven fuzzy file picker invoked by Ctrl+P. `show(root, parent, initialQuery, relativeTo)` is the entry point. Walks the directory tree in a background thread (`CopyOnWriteArrayList` + `AtomicInteger`), skipping common build/cache dirs. Scores matches by consecutive runs, filename position, segment-start hits, and path length. Supports path-prefix queries (`/`, `~/`, `./`, `../`) that re-root the walk after a 150 ms debounce; the prefix is stripped from the query field after the root changes. `relativeTo` (passed as `baseDir` from `ZWnd`) controls the relativization base for returned paths — ensures inserted paths resolve correctly under `look()`.
 
 ### Event Flow
 
@@ -54,7 +56,7 @@ Components communicate upward via Scala Swing's `publish`/`listenTo` reactor pat
 
 ### Command Dispatch
 
-- **B3 click** on text: calls `look()` first (file/path/regex navigation), falls back to `command()` if look fails
+- **B3 click** on text: calls `look()` first. Inside `look()`: plumbing rules run first (via `ZPlumbing.plumb()`), then file-path resolution, then line/regex navigation, then search, finally falls back to `command()` if all look steps fail
 - **B2 drag** on text: calls `command()` directly
 - Each level's `command()` method handles its own commands and delegates unknown ones to child components
 - The `%` prefix forces text to be treated as a command (bypasses look logic)
