@@ -119,6 +119,7 @@ object z extends SwingApplication {
 
 		ZLspManager.loadConf()
 		ZScripts.load()
+		ZPlumbing.load()
 		val scriptsDir = new File(zDir, "scripts")
 		if (!scriptsDir.exists()) scriptsDir.mkdirs()
 		frame = top

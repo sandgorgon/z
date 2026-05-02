@@ -189,6 +189,29 @@ class ZCol(currDir : String) extends BorderPanel {
 				"Z_FILE"      -> e.source.path,
 				"Z_DIR"       -> e.source.rootPath,
 				"Z_SELECTION" -> Option(e.source.body.selected).getOrElse("")))
+		case e : ZPlumbExecEvent =>
+			val w = rawPathWindow("+plumb").getOrElse {
+				val nw = cmdWnd("+plumb")
+				nw.command("Scroll")
+				this += nw
+				nw
+			}
+			w.root = e.source.root
+			w.tag.text = w.tag.text + ZWnd.CmdExecIndicator
+			val onOutput: String => Unit = s => SwingUtilities.invokeLater(() => {
+				val current = w.body.caret.dot
+				w.body.selected = s
+				w.body.caret.dot = current + s.length
+			})
+			val onDone: () => Unit = () => SwingUtilities.invokeLater(() =>
+				w.tag.text = w.tag.text.replaceAll(ZWnd.CmdExecIndicator, ""))
+			val fp  = new File(e.source.path)
+			val env = new HashMap[String, String] +
+				("Z_FILE"      -> e.source.path) +
+				("Z_FP"        -> fp.getCanonicalPath) +
+				("Z_DIR"       -> e.cwd) +
+				("Z_SELECTION" -> Option(e.source.body.selected).getOrElse(""))
+			ZUtilities.extCmd(e.cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(e.cwd), env = Some(env))
 		case e : ZDiagnosticsReadyEvent =>
 			val src = e.source
 			val n   = src.rawPath + "+Diagnostics"

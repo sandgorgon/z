@@ -354,6 +354,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 					lsp.start(projRoot, langId)
 				case "Check"                     => lsp.check()
 				case "Complete"                  => lsp.complete()
+				case "Plumb"                     => ZPlumbing.load()
 				case ZScripts.reAnyScript(name, args) =>
 					ZScripts.resolve(name, rootPath) match {
 						case Right(f) => publish(new ZScriptEvent(this, f.getPath, args.trim))
@@ -391,6 +392,14 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 				}
 				return false
 			case _ =>
+		}
+
+		// Plumbing dispatch: user-defined pattern rules, checked before built-in path resolution
+		val wdForPlumb = { val f = new File(path); if (f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath }
+		ZPlumbing.plumb(txt, wdForPlumb) match {
+			case Some((PlumbExec, cmd)) => publish(new ZPlumbExecEvent(this, cmd, wdForPlumb)); return true
+			case Some((PlumbLook, s))   => return look(s, fromTag)
+			case None =>
 		}
 
 		// Path cases: extract file and optional location suffix
@@ -842,6 +851,7 @@ object ZWnd {
 }
 
 class ZScriptEvent(val source: ZWnd, val scriptPath: String, val args: String) extends Event
+class ZPlumbExecEvent(val source: ZWnd, val cmd: String, val cwd: String) extends Event
 class ZCmdEvent(val source : ZWnd, val command : String) extends Event
 class ZDiagnosticsReadyEvent(val source: ZWnd, val content: String) extends Event
 class ZStatusEvent(val source : ZWnd, val properties : Map[String, String]) extends Event
