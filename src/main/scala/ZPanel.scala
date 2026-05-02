@@ -20,7 +20,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import swing.{BorderPanel, Component, Orientation, SplitPane,FileChooser}
+import swing.{BorderPanel, Component, Orientation, SplitPane}
 import swing.event.{Event, KeyPressed, Key, MouseEvent, MouseEntered, MousePressed, MouseDragged, MouseReleased, MouseClicked}
 import javax.swing.JOptionPane
 import collection.immutable.{Map, HashMap}
@@ -123,23 +123,8 @@ class ZPanel(initTagText: String) extends BorderPanel {
 	listenTo(tag.keys)
 	reactions += {
 		case e : KeyPressed if((e.key == Key.P) && e.peer.isControlDown()) =>
-			var p = ZUtilities.selectedText(tag, tag.caret.dot)
-			if(p.isEmpty) p = "."
-		
-			val fc = new FileChooser(new File(p)) {
-				title = "Path Selection"
-				fileHidingEnabled = false
-				multiSelectionEnabled = false
-				fileSelectionMode = FileChooser.SelectionMode.FilesAndDirectories
-			}
-
-			if(fc.showOpenDialog(this) == FileChooser.Result.Approve)  {
-				var fcp = fc.selectedFile.getPath
-				val cp = new File(p).getCanonicalPath
-
-				if(fcp.startsWith(cp) && fcp.length != cp.length)  fcp = fcp.substring(cp.length + 1).trim
-				tag.selected = fcp
-			}
+			val q = ZUtilities.selectedText(tag, tag.caret.dot)
+			ZFuzzyPicker.show(currentDir, tag.peer, q).foreach(tag.selected = _)
 	}
 
 	def command(cmds : String) = if(cmds != null && !cmds.trim.isEmpty) {

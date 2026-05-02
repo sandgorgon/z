@@ -23,7 +23,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import util.Properties
 import collection.immutable.HashMap
 import io.Source
-import swing.{SplitPane, ScrollPane, Orientation, FileChooser}
+import swing.{SplitPane, ScrollPane, Orientation}
 import swing.event.{KeyPressed, KeyReleased, Key, MouseClicked, MouseEntered, MousePressed, MouseDragged, MouseReleased, Event}
 
 import java.io.{FileWriter, File, BufferedWriter, OutputStreamWriter}
@@ -146,32 +146,11 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	listenTo(tag.keys, body.keys)
 	reactions += {
 		case e : KeyPressed if((e.key == Key.P) && e.peer.isControlDown()) =>
-			val ta = if(e.source.hashCode == tag.hashCode) tag else body
-			var p = path
-
-			if(ta.selected != null && !ta.selected.trim.isEmpty) {
-				val sel = ta.selected.trim
-				if(!(new File(sel)).isAbsolute)
-				{
-					p = p + File.separator + sel
-				}
-				else p = sel
-			}
-
-			val fc = new FileChooser(new File(p)) {
-				title = "Path Selection"
-				fileHidingEnabled = false
-				multiSelectionEnabled = false
-				fileSelectionMode = FileChooser.SelectionMode.FilesAndDirectories
-			}
-
-			if(fc.showOpenDialog(this) == FileChooser.Result.Approve)  {
-				var fcp = fc.selectedFile.getPath
-				val cp = new File(path).getCanonicalPath
-
-				if(fcp.startsWith(cp) && fcp.length != cp.length)  fcp = fcp.substring(cp.length + 1).trim
-				ta.selected = fcp
-			}
+			val ta      = if(e.source.hashCode == tag.hashCode) tag else body
+			val q       = Option(ta.selected).map(_.trim).filter(_.nonEmpty).getOrElse("")
+			val f       = new File(path)
+			val baseDir = if (f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath
+			ZFuzzyPicker.show(root, ta.peer, q, relativeTo = Some(baseDir)).foreach(ta.selected = _)
 
 		case e : KeyReleased =>
 			// Ctrl+Enter: execute existing selection as command, or start/end capture mode
