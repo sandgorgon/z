@@ -20,7 +20,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import swing.{SplitPane, BorderPanel, Orientation, Panel, Component, FileChooser}
+import swing.{SplitPane, BorderPanel, Orientation, Panel, Component}
 import swing.event.{KeyPressed, Key, MouseEvent, MouseEntered, MousePressed, MouseDragged, MouseReleased, MouseClicked, Event}
 import javax.swing.JOptionPane
 import collection.immutable.List
@@ -189,6 +189,29 @@ class ZCol(currDir : String) extends BorderPanel {
 				"Z_FILE"      -> e.source.path,
 				"Z_DIR"       -> e.source.rootPath,
 				"Z_SELECTION" -> Option(e.source.body.selected).getOrElse("")))
+		case e : ZPlumbExecEvent =>
+			val w = rawPathWindow("+plumb").getOrElse {
+				val nw = cmdWnd("+plumb")
+				nw.command("Scroll")
+				this += nw
+				nw
+			}
+			w.root = e.source.root
+			w.tag.text = w.tag.text + ZWnd.CmdExecIndicator
+			val onOutput: String => Unit = s => SwingUtilities.invokeLater(() => {
+				val current = w.body.caret.dot
+				w.body.selected = s
+				w.body.caret.dot = current + s.length
+			})
+			val onDone: () => Unit = () => SwingUtilities.invokeLater(() =>
+				w.tag.text = w.tag.text.replaceAll(ZWnd.CmdExecIndicator, ""))
+			val fp  = new File(e.source.path)
+			val env = new HashMap[String, String] +
+				("Z_FILE"      -> e.source.path) +
+				("Z_FP"        -> fp.getCanonicalPath) +
+				("Z_DIR"       -> e.cwd) +
+				("Z_SELECTION" -> Option(e.source.body.selected).getOrElse(""))
+			ZUtilities.extCmd(e.cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(e.cwd), env = Some(env))
 		case e : ZDiagnosticsReadyEvent =>
 			val src = e.source
 			val n   = src.rawPath + "+Diagnostics"
@@ -205,23 +228,8 @@ class ZCol(currDir : String) extends BorderPanel {
 	listenTo(tag.keys)
 	reactions += {
 		case e : KeyPressed if((e.key == Key.P) && e.peer.isControlDown()) =>
-			var p = ZUtilities.selectedText(tag, tag.caret.dot)
-			if(p.isEmpty)  p = "."
-
-			val fc = new FileChooser(new File(p)) {
-				title = "Path Selection"
-				fileHidingEnabled = false
-				multiSelectionEnabled = false
-				fileSelectionMode = FileChooser.SelectionMode.FilesAndDirectories
-			}
-
-			if(fc.showOpenDialog(this) == FileChooser.Result.Approve)  {
-				var fcp = fc.selectedFile.getPath
-				val cp = new File(p).getCanonicalPath
-
-				if(fcp.startsWith(cp) && fcp.length != cp.length)  fcp = fcp.substring(cp.length + 1).trim
-				tag.selected = fcp
-			}
+			val q = ZUtilities.selectedText(tag, tag.caret.dot)
+			ZFuzzyPicker.show(currentDir, tag.peer, q).foreach(tag.selected = _)
 	}
 
 	def command(cmds : String) = {

@@ -23,7 +23,8 @@ This tutorial will take you from zero to genuinely productive. By the end you wi
 11. [Session Management](#11-session-management)
 12. [Command-Line Flags (Advanced)](#12-command-line-flags-advanced)
 13. [User Scripts](#13-user-scripts)
-14. [Putting It All Together](#14-putting-it-all-together)
+14. [Plumbing Rules](#14-plumbing-rules)
+15. [Putting It All Together](#15-putting-it-all-together)
 - [Quick Reference](#quick-reference)
 
 ---
@@ -243,6 +244,20 @@ Expansion is *invisible* — the tag line keeps the text as you typed it. The re
 These work from tag lines, from body text, anywhere. B3 on an error message that says `main.go:47:` will open `main.go` at line 47.
 
 > **Note:** Searches run forward from the caret to the end of the file only — there is no wrap-around. If the text is not found, z falls through to executing it as a command instead. To search again from the top, move the caret to the beginning of the file first (`Ctrl+Home`).
+
+### Fuzzy File Picker (Ctrl+P)
+
+**`Ctrl+P`** opens a keyboard-driven file picker rooted at the current window's project root. Type any fragment of a filename to filter; matching characters do not need to be consecutive — the picker scores runs, filename hits, and path-segment starts to rank results. Use arrow keys to navigate, Enter to insert the chosen path.
+
+**Path prefix navigation:** prefix your query with `/`, `~/`, `./`, or `../` to re-root the search at a different directory. After the picker settles (150 ms debounce), the prefix is consumed and the box shows only your fuzzy query.
+
+```
+ZWnd          →  matches ZWnd.scala, ZWndHelper.go, …
+../config     →  re-roots one level up, then filters by "config"
+~/dotfiles    →  re-roots at $HOME, filters by "dotfiles"
+```
+
+The inserted path is relative to the current file's directory, so B3-clicking it navigates correctly without a double prefix.
 
 ### Saving Files
 
@@ -892,7 +907,77 @@ Scripts are plain executables — shell scripts, Python scripts, anything. They 
 
 ---
 
-## 14. Putting It All Together
+## 14. Plumbing Rules
+
+Plumbing rules are z's extension point for B3 dispatch. Before the editor applies its built-in look/navigate/execute logic, it checks your plumbing rules top-to-bottom. The first rule whose regex matches the selected text wins.
+
+### Why Plumbing?
+
+The built-in B3 rules cover files, line numbers, and searches. But real-world output contains patterns the editor cannot know in advance: Go compiler errors (`./main.go:42:5:`), Java stack frames (`Foo.java:99`), Rust diagnostics, Jira ticket IDs, custom log formats. Plumbing lets you teach z to act on these without modifying the editor itself.
+
+### The Plumbing File
+
+Rules live in `~/.z/plumbing`. The file is optional; if it does not exist, z uses the built-in rules. If it exists, it completely replaces them — so copy the built-ins into your file if you want to keep them.
+
+Reload at any time by executing `Plumb` from any tag line (no restart needed).
+
+### Rule Format
+
+```
+match <label> /<regex>/ exec <template>
+match <label> /<regex>/ look <template>
+```
+
+- **`exec`** — expand the template and run it as a shell command; output appears in a `+plumb` window.
+- **`look`** — expand the template and re-run B3 navigation on the result; use this to produce a `file:line` reference.
+
+Template variables: `$0` = full match, `$1`…`$N` = capture groups, `$cwd` = working directory.
+
+> **Note:** regex may not contain a literal `/`; use `[/]` instead (e.g. `https:[/][/]` for URL schemes).
+
+### Built-In Rules
+
+When `~/.z/plumbing` does not exist, two rules are active:
+
+| Label | Pattern | Action |
+|-------|---------|--------|
+| `url` | `https?://\S+` | `exec xdg-open $0` — opens URL in the system browser |
+| `filecol` | `^(.+):(\d+):(\d+)` | `look $1:$2` — jumps to `file:line` from `file:line:col` compiler output |
+
+The `filecol` rule is what makes B3-clicking a Go, Scala, or Rust compiler error line jump directly to the source location.
+
+### Example Plumbing File
+
+```
+# ~/.z/plumbing
+
+# Open URLs in the browser
+match url  /https?:[/][/]\S+/  exec xdg-open $0
+
+# Jump from Go/Rust compiler errors:  ./main.go:42:5: undefined: foo
+match goerr  /^([^:]+\.(go|rs)):(\d+):/  look $1:$3
+
+# Jump from Java/Kotlin stack frames:  at com.example.Foo(Foo.java:99)
+match jexc  /\((\S+\.java):(\d+)\)/  look $1:$2
+
+# Open Jira tickets in the browser
+match jira  /[A-Z]+-\d+/  exec xdg-open https://jira.example.com/browse/$0
+```
+
+### Environment Variables
+
+Exec actions receive the same environment as all other external commands:
+
+| Variable | Value |
+|---------|-------|
+| `Z_FILE` | File path as written in the tag line |
+| `Z_FP` | Canonical absolute path |
+| `Z_DIR` | Working directory |
+| `Z_SELECTION` | Currently selected text |
+
+---
+
+## 15. Putting It All Together
 
 Let us walk through a realistic workflow from scratch — opening a Scala project, using LSP, running tests, navigating errors, and saving the session.
 
@@ -1013,7 +1098,7 @@ Everything is back: every window, every scratch buffer, every colour setting. Re
 | `Ctrl+Backspace` / `Ctrl+Delete` | Delete word left / right |
 | `Ctrl+Enter` | Execute selection as command, or toggle capture mode |
 | `Ctrl+F` | Look on selection, or end capture mode as look |
-| `Ctrl+P` | File chooser at caret |
+| `Ctrl+P` | Fuzzy file picker (type to filter, arrows to move, Enter inserts) |
 | `Ctrl+Space` | LSP completion |
 
 ### File Commands
@@ -1072,6 +1157,19 @@ Everything is back: every window, every scratch buffer, every colour setting. Re
 | `,,scriptname [args]` | Col/App | Run script on every window in scope |
 
 Scripts live in `.z/scripts/` (project) or `~/.z/scripts/` (global). See [Section 13](#13-user-scripts).
+
+### Plumbing
+
+| Element | Value |
+|---------|-------|
+| Rule file | `~/.z/plumbing` (optional) |
+| Reload | `Plumb` command from any tag line |
+| Rule syntax | `match <label> /<regex>/ exec <template>` or `look <template>` |
+| Template vars | `$0` full match, `$1`…`$N` groups, `$cwd` working dir |
+| Built-in: `url` | Opens `https?://…` URLs in system browser |
+| Built-in: `filecol` | Jumps to `file:line` from `file:line:col` compiler output |
+
+See [Section 14](#14-plumbing-rules).
 
 ### Editing
 

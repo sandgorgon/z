@@ -1,6 +1,6 @@
 Z — Plan 9 Acme-Inspired Editor
 ================================
-Version: 1.3.0
+Version: 1.4.0
 
 USAGE
 
@@ -31,14 +31,16 @@ MOUSE BUTTONS
 
     B3          Act on the highlighted text (or word under cursor) using these rules, in order:
 
-                  1. Valid file/directory path  →  open in a new window
+                  1. Plumbing rules              →  first matching rule in ~/.z/plumbing wins
+                     (built-in: URLs open in the system browser; file:line:col jumps to the location)
+                  2. Valid file/directory path   →  open in a new window
                      (supports ~, ./, and ../ — see PATH SYNTAX below)
-                  2. :n                         →  go to line n in the current file
-                  3. :/regexp                   →  search forward for regexp from current position
-                  4. filename:n                 →  open filename at line n
-                  5. filename:/regexp           →  open filename, search forward for regexp
-                  6. (none of the above)        →  search forward for the text in the current window
-                  7. (search fails)             →  execute the text as a command
+                  3. :n                          →  go to line n in the current file
+                  4. :/regexp                    →  search forward for regexp from current position
+                  5. filename:n                  →  open filename at line n
+                  6. filename:/regexp            →  open filename, search forward for regexp
+                  7. (none of the above)         →  search forward for the text in the current window
+                  8. (search fails)              →  execute the text as a command
                      · Results appear in a +Results window
                      · Use Kill to cancel a running command
                      · Multiple lines: each line is run as a separate command
@@ -223,10 +225,59 @@ USER SCRIPTS
 
     Configuration
     -------------
+    ~/.z/scripts/        Created automatically on first launch.
     ~/.z/scripts.conf    Optional. Lists additional search directories:
                            scripts.path = /my/scripts:/team/shared/scripts
                          Colon-separated. Appended after the auto-discovered dirs.
-                         Created automatically at ~/.z/scripts/ on first launch.
+
+
+PLUMBING RULES
+
+    Plumbing rules intercept B3 actions before the built-in look/execute logic.
+    Rules are evaluated top-to-bottom; the first match wins.
+
+    Rule file:  ~/.z/plumbing   (optional; if absent, built-in rules are used)
+    Reload:     Plumb           (execute from any tag line to reload the file)
+
+    Rule format (one rule per line; '#' introduces a comment):
+
+        match <label> /<regex>/ exec <template>
+        match <label> /<regex>/ look <template>
+
+      label     A name for the rule (informational only)
+      regex     Java regular expression; groups are captured as $1..$N.
+                Note: regex may not contain a literal '/'; use [/] instead.
+      exec      Expand <template> and run it as a shell command.
+                Output appears in a +plumb scratch window.
+      look      Expand <template> and re-run B3 navigation on the result.
+                Typically produces a file:line reference for jump-to-error.
+
+    Template variables:
+      $0        The full matched text
+      $1..$N    Capture groups 1 through N
+      $cwd      Working directory at the time of the B3 action
+
+    Exec actions run with the same environment variables as other external
+    commands (Z_FILE, Z_FP, Z_DIR, Z_SELECTION) and with the cwd set to the
+    source window's directory.
+
+    Built-in rules (active only when ~/.z/plumbing does not exist):
+      match url     /https?:\/\/\S+/       exec xdg-open $0     (opens URL in browser)
+      match filecol /^(.+):(\d+):(\d+)/   look $1:$2            (jump to file:line from file:line:col)
+
+    Example ~/.z/plumbing:
+
+        # Open URLs in the browser
+        match url  /https?:[/][/]\S+/  exec xdg-open $0
+
+        # Jump to Go compiler error:  ./main.go:42:5: undefined: foo
+        match goerr  /^([^:]+\.go):(\d+):/  look $1:$2
+
+        # Jump to Java exception:  at com.example.Foo(Foo.java:99)
+        match jexc  /\((\S+\.java):(\d+)\)/  look $1:$2
+
+    If ~/.z/plumbing exists but contains no valid rules, no rules are active
+    (the built-in rules are suppressed). An empty plumbing file means "no plumbing".
 
 
 PATH SYNTAX
@@ -323,7 +374,10 @@ KEYBOARD SHORTCUTS
       Ctrl+B1                       Brace/symbol matching selection
       Ctrl+Enter                    Execute selection as command, or toggle capture mode
       Ctrl+F                        Look/navigate on selection, or end capture as look
-      Ctrl+P                        Open a file-chooser to complete the path at the caret
+      Ctrl+P                        Open the fuzzy file picker. Type to filter by filename;
+                                    arrows navigate the list; Enter inserts the chosen path.
+                                    Prefix the query with /, ~/, ./, or ../ to re-root the
+                                    search at a different directory.
       Ctrl+Space                    LSP code completion (requires Lsp to be active)
 
 
