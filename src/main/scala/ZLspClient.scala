@@ -24,11 +24,12 @@ import org.eclipse.lsp4j._
 import org.eclipse.lsp4j.services.LanguageServer
 import org.eclipse.lsp4j.launch.LSPLauncher
 import org.eclipse.lsp4j.jsonrpc.services.{JsonNotification, JsonRequest}
-import java.util.concurrent.{CompletableFuture, TimeUnit}
+import java.util.concurrent.{CompletableFuture, CopyOnWriteArrayList, TimeUnit}
+import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters._
 
-// One ZLspClient per ZWnd. Manages the LSP server process and protocol session
-// for a single file. Uses full-content sync (TextDocumentSyncKind.Full).
+// One ZLspClient per (rootUri, langId) pair — shared across all windows in the same workspace.
+// Uses full-content sync (TextDocumentSyncKind.Full).
 //
 // We do NOT implement the LanguageClient interface directly because in lsp4j 0.21+
 // both LanguageClient and LanguageClientExtensions declare workspace/applyEdit,
@@ -37,8 +38,7 @@ import scala.jdk.CollectionConverters._
 // which accepts any Object as the local service.
 //
 // Threading: all public methods are safe to call from the EDT.
-// Callbacks (onDiagnostics) are invoked on LSP4J background threads —
-// callers must dispatch to the EDT themselves (see ZWnd.onDiagnostics).
+// Callbacks are invoked on LSP4J background threads — callers must dispatch to EDT themselves.
 // Params for Metals' proprietary metals/status notification.
 class MetalsStatusParams {
 	var text:    String  = ""
@@ -47,26 +47,36 @@ class MetalsStatusParams {
 	var tooltip: String  = ""
 }
 
-class ZLspClient(
-	langId: String,
-	serverCmd: String,
-	private var filePath: String,
-	rootUri: String,
-	onDiagnostics: List[Diagnostic] => Unit,
-	onIndexingChange: () => Unit = () => (),
-	onMetalsStatus: MetalsStatusParams => Unit = _ => (),
-) {
+class ZLspClient(langId: String, serverCmd: String, rootUri: String) {
 
-	private var server: LanguageServer = scala.compiletime.uninitialized
-	private var process: Process       = scala.compiletime.uninitialized
-	@volatile private var version      = 0
-	@volatile private var ready        = false
-	private val progressTokens = java.util.concurrent.ConcurrentHashMap.newKeySet[String]()
+	private var server:  LanguageServer = scala.compiletime.uninitialized
+	private var process: Process        = scala.compiletime.uninitialized
+	@volatile private var ready         = false
+
+	private val progressTokens   = ConcurrentHashMap.newKeySet[String]()
+	private val diagCallbacks    = new ConcurrentHashMap[String, List[Diagnostic] => Unit]()
+	private val onReadyListeners = new CopyOnWriteArrayList[() => Unit]()
+	private val indexListeners   = new CopyOnWriteArrayList[() => Unit]()
+	private val statusListeners  = new CopyOnWriteArrayList[MetalsStatusParams => Unit]()
+
 	def indexing: Boolean = !progressTokens.isEmpty
 
-	// Launch the server process and negotiate the LSP session.
-	// onReady is invoked (on a background thread) once initialize/initialized completes.
-	def start(onReady: () => Unit = () => ()): Unit = {
+	// Number of files currently registered — used by ZLspManager for reference-counting.
+	def subscriberCount: Int = diagCallbacks.size()
+
+	// ── per-file registration ────────────────────────────────────────────────
+
+	def registerDiag(uri: String, cb: List[Diagnostic] => Unit): Unit = diagCallbacks.put(uri, cb)
+	def unregisterDiag(uri: String): Unit                             = diagCallbacks.remove(uri)
+
+	def addIndexListener(cb: () => Unit): Unit                        = indexListeners.add(cb)
+	def removeIndexListener(cb: () => Unit): Unit                     = indexListeners.remove(cb)
+	def addStatusListener(cb: MetalsStatusParams => Unit): Unit       = statusListeners.add(cb)
+	def removeStatusListener(cb: MetalsStatusParams => Unit): Unit    = statusListeners.remove(cb)
+
+	// ── lifecycle ────────────────────────────────────────────────────────────
+
+	def start(): Unit = {
 		val tokens = ZUtilities.tokenize(serverCmd)
 		process = new ProcessBuilder(tokens*).start()
 
@@ -88,44 +98,47 @@ class ZLspClient(
 
 		server.initialize(params).thenAccept { _ =>
 			server.initialized(new InitializedParams)
-			ready = true
-			onReady()
+			this.synchronized {
+				ready = true
+				onReadyListeners.forEach(_.apply())
+				onReadyListeners.clear()
+			}
 		}.exceptionally { ex =>
 			System.err.println(s"[z] LSP initialize failed: ${ex.getMessage}")
 			null
 		}
 	}
 
-	def updatePath(p: String): Unit = { filePath = p }
+	// Invoke cb immediately if already ready; otherwise queue for when initialize completes.
+	// Safe to call from any thread.
+	def whenReady(cb: () => Unit): Unit = this.synchronized {
+		if (ready) cb() else onReadyListeners.add(cb)
+	}
 
-	def didOpen(text: String): Unit = if (ready) {
-		version += 1
-		val item = new TextDocumentItem(fileUri(), langId, version, text)
+	// ── LSP document operations (callers supply uri and version) ─────────────
+
+	def didOpen(uri: String, content: String, version: Int): Unit = if (ready) {
+		val item = new TextDocumentItem(uri, langId, version, content)
 		server.getTextDocumentService.didOpen(new DidOpenTextDocumentParams(item))
 	}
 
-	// Send full-content change notification (simplest sync strategy).
-	def didChange(text: String): Unit = if (ready) {
-		version += 1
-		val docId  = new VersionedTextDocumentIdentifier(fileUri(), version)
-		val change = new TextDocumentContentChangeEvent(text)
+	def didChange(uri: String, content: String, version: Int): Unit = if (ready) {
+		val docId  = new VersionedTextDocumentIdentifier(uri, version)
+		val change = new TextDocumentContentChangeEvent(content)
 		server.getTextDocumentService.didChange(
 			new DidChangeTextDocumentParams(docId, java.util.List.of(change))
 		)
 	}
 
-	def didClose(): Unit = if (ready) {
-		val id = new TextDocumentIdentifier(fileUri())
-		server.getTextDocumentService.didClose(new DidCloseTextDocumentParams(id))
+	def didClose(uri: String): Unit = if (ready) {
+		server.getTextDocumentService.didClose(
+			new DidCloseTextDocumentParams(new TextDocumentIdentifier(uri))
+		)
 	}
 
-	// Async completion request. callback is invoked on a background thread with
-	// the list of items. Caller must dispatch to EDT if updating UI.
-	def completion(line: Int, col: Int, callback: List[org.eclipse.lsp4j.CompletionItem] => Unit): Unit = if (ready) {
-		val params = new CompletionParams(
-			new TextDocumentIdentifier(fileUri()),
-			new Position(line, col)
-		)
+	// Async completion. callback invoked on a background thread; caller marshals to EDT.
+	def completion(uri: String, line: Int, col: Int, callback: List[org.eclipse.lsp4j.CompletionItem] => Unit): Unit = if (ready) {
+		val params = new CompletionParams(new TextDocumentIdentifier(uri), new Position(line, col))
 		server.getTextDocumentService.completion(params).thenAccept { result =>
 			val items =
 				if (result == null) List.empty
@@ -151,13 +164,9 @@ class ZLspClient(
 		}
 	}
 
-	// Async hover request. callback is invoked on a background thread with the
-	// extracted markdown/plain text. Caller must dispatch to EDT if updating UI.
-	def hover(line: Int, col: Int, callback: String => Unit): Unit = if (ready) {
-		val params = new HoverParams(
-			new TextDocumentIdentifier(fileUri()),
-			new Position(line, col)
-		)
+	// Async hover. callback invoked on a background thread; caller marshals to EDT.
+	def hover(uri: String, line: Int, col: Int, callback: String => Unit): Unit = if (ready) {
+		val params = new HoverParams(new TextDocumentIdentifier(uri), new Position(line, col))
 		server.getTextDocumentService.hover(params).thenAccept { h =>
 			if (h != null) {
 				val text = extractHoverText(h)
@@ -176,9 +185,8 @@ class ZLspClient(
 	// ── LSP4J incoming callbacks (annotated directly to avoid LanguageClient hierarchy) ──────
 
 	@JsonNotification("textDocument/publishDiagnostics")
-	def publishDiagnostics(params: PublishDiagnosticsParams): Unit = {
-		onDiagnostics(params.getDiagnostics.asScala.toList)
-	}
+	def publishDiagnostics(params: PublishDiagnosticsParams): Unit =
+		Option(diagCallbacks.get(params.getUri)).foreach(_(params.getDiagnostics.asScala.toList))
 
 	@JsonNotification("$/progress")
 	def notifyProgress(params: ProgressParams): Unit = {
@@ -189,17 +197,16 @@ class ZLspClient(
 			case _: WorkDoneProgressEnd   => progressTokens.remove(token)
 			case _ =>
 		}
-		if (indexing != before) onIndexingChange()
+		if (indexing != before) indexListeners.forEach(_.apply())
 	}
 
 	@JsonNotification("metals/status")
-	def metalsStatus(params: MetalsStatusParams): Unit = onMetalsStatus(params)
+	def metalsStatus(params: MetalsStatusParams): Unit = statusListeners.forEach(_(params))
 
 	@JsonNotification("window/showMessage")
 	def showMessage(params: MessageParams): Unit = {}
 
 	// Auto-accept the first action (e.g. Metals' "Import build" prompt).
-	// Returning null silently dismisses the dialog and suppresses build import.
 	@JsonRequest("window/showMessageRequest")
 	def showMessageRequest(params: ShowMessageRequestParams): CompletableFuture[MessageActionItem] =
 		CompletableFuture.completedFuture(
@@ -221,11 +228,6 @@ class ZLspClient(
 	}
 
 	// ── Helpers ──────────────────────────────────────────────────────────────────────
-
-	private def fileUri(): String = {
-		val path = new java.io.File(filePath).getCanonicalPath
-		s"file://$path"    // path starts with / giving file:///...
-	}
 
 	// Declare hover and completion capabilities.
 	private def clientCapabilities(): ClientCapabilities = {

@@ -41,8 +41,8 @@ object ZLspManager {
 		"kotlin"      -> "kotlin-language-server",
 	)
 
-	private var userConf: Map[String, String] = Map.empty
-	private var clients: List[ZLspClient]     = Nil
+	private var userConf: Map[String, String]                         = Map.empty
+	private var sharedClients: Map[(String, String), (ZLspClient, Int)] = Map.empty
 
 	def loadConf(): Unit = {
 		val f = new File(
@@ -52,18 +52,44 @@ object ZLspManager {
 		if (f.exists()) userConf = ZSettings.load(f)
 	}
 
-	// Returns the server launch command for a language ID, user conf overrides defaults.
+	// Returns the server launch command for a language ID; user conf overrides defaults.
 	def serverCmd(langId: String): Option[String] =
 		userConf.get(langId).orElse(defaults.get(langId))
 
-	def register(c: ZLspClient): Unit   = synchronized { clients = c :: clients }
-	def unregister(c: ZLspClient): Unit = synchronized { clients = clients.filterNot(_ == c) }
+	// Returns the shared client for (rootUri, langId), creating and starting one if needed.
+	// Increments the reference count on every call.
+	def acquire(rootUri: String, langId: String, cmd: String): ZLspClient = synchronized {
+		val key = (rootUri, langId)
+		sharedClients.get(key) match {
+			case Some((c, n)) =>
+				sharedClients = sharedClients.updated(key, (c, n + 1))
+				c
+			case None =>
+				val c = new ZLspClient(langId, cmd, rootUri)
+				c.start()
+				sharedClients = sharedClients.updated(key, (c, 1))
+				c
+		}
+	}
+
+	// Decrements the reference count; shuts down and removes the server when it reaches zero.
+	def release(rootUri: String, langId: String): Unit = synchronized {
+		val key = (rootUri, langId)
+		sharedClients.get(key).foreach { (c, n) =>
+			if (n <= 1) {
+				try { c.shutdown() } catch { case _: Throwable => }
+				sharedClients = sharedClients.removed(key)
+			} else {
+				sharedClients = sharedClients.updated(key, (c, n - 1))
+			}
+		}
+	}
 
 	// Called on app exit — shuts down all active LSP servers cleanly.
 	def shutdown(): Unit = synchronized {
-		clients.foreach { c =>
+		sharedClients.values.foreach { (c, _) =>
 			try { c.shutdown() } catch { case _: Throwable => }
 		}
-		clients = Nil
+		sharedClients = Map.empty
 	}
 }

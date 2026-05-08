@@ -26,6 +26,7 @@ import org.eclipse.lsp4j.{Diagnostic, DiagnosticSeverity}
 
 // Owns all LSP infrastructure for one ZWnd: client lifecycle, hover/change timers,
 // autocomplete wiring, and the reflection-based resolve listener.
+// Wraps a shared ZLspClient (one per workspace+language); manages per-window state.
 // Callbacks are invoked on the EDT by the caller (e.g. SwingUtilities.invokeLater).
 class ZLspSupport(
 	body: ZTextArea,
@@ -38,10 +39,23 @@ class ZLspSupport(
 	var status  = ""
 	var enabled = false
 
+	private var docVersion  = 0
+	private var currentUri  = ""
+	private var clientKey: Option[(String, String)] = None
+
 	@volatile private var resolveVersion = 0
 	private var listenerAdded = false
 	private var hoverPoint: java.awt.Point = new java.awt.Point(0, 0)
 	private var showSummaryFor: Option[java.lang.reflect.Method] = None
+
+	// Stable references for addXxxListener / removeXxxListener.
+	private val indexingCb: () => Unit =
+		() => javax.swing.SwingUtilities.invokeLater(() => onStatusChange())
+	private val statusCb: MetalsStatusParams => Unit =
+		p => javax.swing.SwingUtilities.invokeLater(() => {
+			status = if (p.hide) "" else p.text.trim
+			onStatusChange()
+		})
 
 	val parser         = new ZLspDiagnosticParser
 	val provider       = new DefaultCompletionProvider() {
@@ -59,10 +73,11 @@ class ZLspSupport(
 	hoverTimer.addActionListener(_ => {
 		client.foreach { c =>
 			try {
+				val uri  = currentUri
 				val dot  = body.peer.viewToModel2D(hoverPoint).toInt
 				val line = body.lineNo(dot)
 				val col  = dot - body.lineStart(line)
-				c.hover(line, col, text =>
+				c.hover(uri, line, col, text =>
 					javax.swing.SwingUtilities.invokeLater(() => {
 						body.lspTooltip = if (text.isEmpty) None else Some(
 							"<html><pre>" +
@@ -83,7 +98,9 @@ class ZLspSupport(
 	})
 	hoverTimer.setRepeats(false)
 
-	didChangeTimer.addActionListener(_ => client.foreach(_.didChange(body.text)))
+	didChangeTimer.addActionListener(_ => client.foreach { c =>
+		c.didChange(currentUri, body.text, nextVersion())
+	})
 	didChangeTimer.setRepeats(false)
 
 	body.peer.addMouseMotionListener(new java.awt.event.MouseMotionAdapter {
@@ -127,34 +144,38 @@ class ZLspSupport(
 	def start(projRoot: String, langId: String): Unit = {
 		if (!enabled) {
 			ZLspManager.serverCmd(langId).foreach { cmd =>
-				val uri = s"file://${new java.io.File(projRoot).getCanonicalPath}/"
-				val c = new ZLspClient(langId, cmd, getPath(), uri, onDiagnostics,
-					() => javax.swing.SwingUtilities.invokeLater(() => onStatusChange()),
-					p  => javax.swing.SwingUtilities.invokeLater(() => {
-						status = if (p.hide) "" else p.text.trim
-						onStatusChange()
-					}))
-				c.start(() => javax.swing.SwingUtilities.invokeLater(() => {
-					c.didOpen(body.text)
-					c.didChange(body.text)
+				val rootCanon = new java.io.File(projRoot).getCanonicalPath
+				val rootUri   = s"file://$rootCanon/"
+				val c         = ZLspManager.acquire(rootUri, langId, cmd)
+				currentUri    = computeUri()
+				c.registerDiag(currentUri, onDiagnostics)
+				c.addIndexListener(indexingCb)
+				c.addStatusListener(statusCb)
+				c.whenReady(() => javax.swing.SwingUtilities.invokeLater(() => {
+					c.didOpen(currentUri, body.text, nextVersion())
+					c.didChange(currentUri, body.text, nextVersion())
 				}))
-				client  = Some(c)
-				root    = new java.io.File(projRoot).getCanonicalPath
-				ZLspManager.register(c)
-				enabled = true
+				client    = Some(c)
+				clientKey = Some((rootUri, langId))
+				root      = rootCanon
+				enabled   = true
 			}
 		}
 	}
 
 	def stop(): Unit = {
 		client.foreach { c =>
-			c.didClose()
-			c.shutdown()
-			ZLspManager.unregister(c)
+			c.didClose(currentUri)
+			c.unregisterDiag(currentUri)
+			c.removeIndexListener(indexingCb)
+			c.removeStatusListener(statusCb)
+			clientKey.foreach { case (rootUri, langId) => ZLspManager.release(rootUri, langId) }
 		}
-		client  = None
-		root    = ""
-		enabled = false
+		client    = None
+		clientKey = None
+		currentUri = ""
+		root      = ""
+		enabled   = false
 		parser.clearDiagnostics()
 		body.peer.forceReparsing(0)
 	}
@@ -163,20 +184,24 @@ class ZLspSupport(
 		hoverTimer.stop()
 		didChangeTimer.stop()
 		client.foreach { c =>
-			try { c.didClose() }  catch { case _: Throwable => }
-			try { c.shutdown() }  catch { case _: Throwable => }
-			ZLspManager.unregister(c)
+			try { c.didClose(currentUri) } catch { case _: Throwable => }
+			c.unregisterDiag(currentUri)
+			c.removeIndexListener(indexingCb)
+			c.removeStatusListener(statusCb)
+			clientKey.foreach { case (rootUri, langId) => ZLspManager.release(rootUri, langId) }
 		}
-		client = None
+		client    = None
+		clientKey = None
 	}
 
-	def check(): Unit = client.foreach(_.didChange(body.text))
+	def check(): Unit = client.foreach(c => c.didChange(currentUri, body.text, nextVersion()))
 
 	def complete(): Unit = client.foreach { c =>
+		val uri  = currentUri
 		val dot  = body.caret.dot
 		val line = body.lineNo(dot)
 		val col  = dot - body.lineStart(line)
-		c.completion(line, col, items =>
+		c.completion(uri, line, col, items =>
 			javax.swing.SwingUtilities.invokeLater(() => {
 				provider.clear()
 				items.foreach { item =>
@@ -187,18 +212,29 @@ class ZLspSupport(
 		)
 	}
 
-	def didOpen(content: String): Unit   = client.foreach(_.didOpen(content))
-	def didClose(): Unit                  = client.foreach(_.didClose())
-	def didChange(content: String): Unit  = client.foreach(_.didChange(content))
+	def didOpen(content: String): Unit   = client.foreach(c => c.didOpen(currentUri, content, nextVersion()))
+	def didClose(): Unit                  = client.foreach(c => c.didClose(currentUri))
+	def didChange(content: String): Unit  = client.foreach(c => c.didChange(currentUri, content, nextVersion()))
 
-	// Notifies the server that the file path has changed: closes the old URI and
-	// updates the client's path so the next didOpen uses the new URI.
+	// Notifies the server that the file path has changed: closes the old URI,
+	// re-registers diagnostics under the new URI. ZWnd calls didOpen(content) after this.
 	def updatePath(newPath: String): Unit = client.foreach { c =>
-		c.didClose()
-		c.updatePath(newPath)
+		val oldUri = currentUri
+		val newUri = s"file://${new java.io.File(newPath).getCanonicalPath}"
+		if (oldUri != newUri) {
+			c.didClose(oldUri)
+			c.unregisterDiag(oldUri)
+			currentUri = newUri
+			c.registerDiag(newUri, onDiagnostics)
+		}
 	}
 
 	// ── private ─────────────────────────────────────────────────────────────
+
+	private def computeUri(): String =
+		s"file://${new java.io.File(getPath()).getCanonicalPath}"
+
+	private def nextVersion(): Int = { docVersion += 1; docVersion }
 
 	private def onDiagnostics(diags: List[Diagnostic]): Unit = {
 		parser.setDiagnostics(diags)
