@@ -102,6 +102,11 @@ FILE COMMANDS
                      automatically re-applied on load — run Hilite again if needed.
 
     Help             Open this help text (app tag line only)
+    History          Open (or refresh) a +History scratch buffer in the last column,
+                     listing every command run during the session with timestamp,
+                     level (app/col/wnd), and source path. Plain text — B3 any line
+                     to re-run it, pipe through > grep to filter, etc.
+                     App tag line only.
     Props            Open a +Props scratch window showing current properties for the
                      app, column, or window (depending on which tag line it is run from)
 
@@ -412,6 +417,19 @@ SCRATCH BUFFERS
     Scratch buffers are included in Dump state so they survive across sessions.
 
 
+STATUS BAR
+
+    The status bar is split into two lanes:
+
+      Left   Live window state — updated on mouse hover over any window.
+             Shows: line/total @ col  Tab:n  Wrap/NoWrap  Font  [LSP] [Hilite] [Bind]
+             Clears when the mouse is not over any window.
+
+      Right  Command echo — updated only when a command executes (never on hover).
+             Shows: [HH:mm:ss] last-command-run
+             Lets you see what you last did without it being overwritten by mouse movement.
+
+
 GLOBAL SETTINGS  (~/.z/settings)
 
     z reads ~/.z/settings at startup and writes back to it on exit, preserving
@@ -422,7 +440,7 @@ GLOBAL SETTINGS  (~/.z/settings)
     view.rotated          true/false — app-level layout rotation (auto-saved on exit)
 
     tag.app               Content of the app tag line at startup.
-                          Default: "Help NewCol Put Dump Load Dir "
+                          Default: "Help NewCol History Put Dump Load Dir "
     tag.col               Default content for new column tag lines.
                           Default: "CloseCol Close New Sort "
     tag.wnd               Default content for new window tag lines.
@@ -430,13 +448,18 @@ GLOBAL SETTINGS  (~/.z/settings)
     tag.cmd               Default content for command/results window tag lines.
                           Default: "Close | Undo Redo Wrap Kill Clear Font Scroll Input "
 
+    history.limit         Maximum number of entries kept in the command history ring buffer.
+                          Default: 500. Never auto-saved; set manually if you want more or less.
+                          Example:  history.limit = 1000
+
     Tag lines are plain editable text — you can trim commands you never use,
     add your own, or reorder them.  Changes take effect on the next launch.
 
     Example ~/.z/settings:
-        tag.app = Help NewCol Dump Load Fonts
+        tag.app = Help NewCol History Dump Load Fonts
         tag.wnd = Get Put Close | Undo Redo Wrap Ln
         tag.cmd = Close | Kill Clear Scroll
+        history.limit = 1000
 
 
 SYSTEM DEFAULTS

@@ -65,6 +65,8 @@ sbt test
     python = pylsp
     scala  = metals
     ```
+- **Split status bar** — the bottom status bar has two lanes: the left shows live window state (line/col, font, wrap/indent/scroll, LSP) updated on mouse hover; the right shows a timestamped echo of the last command run (`[HH:mm:ss] cmd`), updated only when a command actually executes — the two never overwrite each other
+- **Command history** — `History` (app tag line) opens a `+History` scratch buffer listing every command run during the session with timestamp, level (`app`/`col`/`wnd`), and source. Plain text, so you can search, filter with `> grep`, or B3-click any line to re-run it. The ring buffer size defaults to 500 and is configurable via `history.limit` in `~/.z/settings`
 - **Session persistence** — `Dump` / `Load` save and restore the full editor layout
 - **Configurable tag line defaults** — set `tag.app`, `tag.col`, `tag.wnd`, and `tag.cmd` in `~/.z/settings` to customise the commands pre-loaded into each tag line at startup
 - **Property inspection** — `Props` opens a `+Props` scratch window listing the current properties of the app, column, or window (depending on where it is run from)

@@ -32,25 +32,33 @@ object z extends SwingApplication {
 
 	var frame:MainFrame = null
 
-	val mainPanel = new ZPanel("Help NewCol Put Dump Load Dir ")
+	val mainPanel = new ZPanel("Help NewCol History Put Dump Load Dir ")
 
-	val status = new Label("Plan 9 acme inspired") {
+	val statusLeft = new Label("") {
 		horizontalAlignment = Alignment.Left
 		font = ZFonts.SANS_SERIF_MONO
+	}
+	val statusRight = new Label("") {
+		horizontalAlignment = Alignment.Right
+		font = ZFonts.SANS_SERIF_MONO
+	}
+	val statusBar = new BorderPanel {
+		layout(statusLeft)  = BorderPanel.Position.Center
+		layout(statusRight) = BorderPanel.Position.East
 	}
 
 	val MainWindow = new BorderPanel {
 		layout(mainPanel) = BorderPanel.Position.Center
-		layout(status) = BorderPanel.Position.South
+		layout(statusBar) = BorderPanel.Position.South
 	}
 
 	listenTo(mainPanel)
 	reactions += {
 		case e : ZStatusEvent =>
-			status.text = e.properties.get("line.current").get + "/" + e.properties.get("lines").get + "@" + e.properties.get("column.current").get +
-						" |  Tab: " + e.properties.get("tab.size").get + 
-						" | " + (if(e.properties.get("line.wrap").get == "true") "Wrap" else "NoWrap") + 
-						" | " + (if(e.properties.get("indent.auto").get == "true") "Indent" else "NoIndent") + 
+			statusLeft.text = e.properties.get("line.current").get + "/" + e.properties.get("lines").get + "@" + e.properties.get("column.current").get +
+						" |  Tab: " + e.properties.get("tab.size").get +
+						" | " + (if(e.properties.get("line.wrap").get == "true") "Wrap" else "NoWrap") +
+						" | " + (if(e.properties.get("indent.auto").get == "true") "Indent" else "NoIndent") +
 						" | " + (if(e.properties.get("scroll").get == "true") "Scroll" else "NoScroll") +
 						" | " + e.properties.get("body.font.current").get + " " + e.properties.get("body.font.current.size").get +
 						(if(e.properties.get("bind").get == "true") " | Bind" else "") +
@@ -59,10 +67,13 @@ object z extends SwingApplication {
 						(if(e.properties.get("hilite").get == "true") " | Hilite" else "") +
 						(if(e.properties.get("interactive").get == "true") " | Input: " + ZWnd.rePrompt else "")
 
-		case e : ZColStatusEvent => status.text = e.properties.get("command.prev").get
+		case e : ZStatusClearEvent => statusLeft.text = ""
+
 		case e : ZPanelStatusEvent =>
-						status.text = e.properties.get("command.prev").get
 						e.properties.get("app.dir").foreach(d => frame.title = d + " - z editor")
+
+		case e : ZCmdEchoEvent =>
+						statusRight.text = s"[${e.timestamp}] ${e.cmd}"
 	}
 
 	def top = new MainFrame {
@@ -116,6 +127,7 @@ object z extends SwingApplication {
 		ZCol.cmdTagLine      = p.getOrElse("tag.cmd", ZCol.cmdTagLine)
 		mainPanel.tag.text   = p.getOrElse("tag.app", mainPanel.tag.text)
 		mainPanel.rotated    = p.getOrElse("view.rotated", "false").toBoolean
+		p.get("history.limit").flatMap(_.toIntOption).foreach(CommandLog.setLimit)
 
 		ZLspManager.loadConf()
 		ZScripts.load()

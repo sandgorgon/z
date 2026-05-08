@@ -71,7 +71,7 @@ When z opens, you see three distinct zones stacked vertically:
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Help  NewCol  Put  Dump  Load  Dir          ← App tag line
+│  Help  NewCol  History  Put  Dump  Load  Dir  ← App tag line
 ├──────────────────────────┬──────────────────────────┤
 │  CloseCol  New  Sort     │  CloseCol  New  Sort      ← Column tag lines
 ├──────────────────────────┼──────────────────────────┤
@@ -81,7 +81,7 @@ When z opens, you see three distinct zones stacked vertically:
 │   file content here      │   file content here       │ ← Window bodies
 │                          │                           │
 └──────────────────────────┴──────────────────────────┘
-│  1/342 @ 0  Tab:4  NoWrap  Hack Regular 14           ← Status bar
+│  1/342 @ 0  Tab:4  NoWrap  Hack 14  │  [14:32:05] Sort  ← Status bar
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -99,13 +99,16 @@ Each tag line is just editable text. The commands pre-loaded into it are there f
 
 ### The Status Bar
 
-The status bar at the bottom of each window gives you a live readout:
+The status bar at the bottom is split into two lanes:
 
 ```
-12/340 @ 4   Tab:4   NoWrap   NoIndent   Hack Regular 14
+12/340 @ 4   Tab:4   NoWrap   NoIndent   Hack 14  │  [14:32:05] Sort
+←── window state (left) ────────────────────────────  command echo (right) ──→
 ```
 
-Reading left to right: current line / total lines, cursor column, tab size, wrap state, indent state, and the active font. When LSP or syntax highlighting is active, those appear here too.
+**Left** — live window state, updated whenever you move the mouse over a window: current line / total lines, cursor column, tab size, wrap state, indent state, active font. When LSP or syntax highlighting is active, those appear here too. Clears when the mouse is not over any window.
+
+**Right** — timestamped echo of the last command run, updated only when a command executes. It is never overwritten by mouse movement, so you can always see what you last did.
 
 ---
 
@@ -743,10 +746,11 @@ The commands pre-loaded into each tag line are just defaults — they can be cus
 
 | Key | What it controls | Built-in default |
 |-----|-----------------|-----------------|
-| `tag.app` | App tag line content | `Help NewCol Put Dump Load Dir ` |
+| `tag.app` | App tag line content | `Help NewCol History Put Dump Load Dir ` |
 | `tag.col` | Column tag line default | `CloseCol Close New Sort ` |
 | `tag.wnd` | Window tag line default | `Get Put Zerox Close \| Undo Redo Wrap Ln Indent Mark Bind ` |
 | `tag.cmd` | Command/results window tag line default | `Close \| Undo Redo Wrap Kill Clear Font Scroll Input ` |
+| `history.limit` | Max entries kept in the command history ring buffer | `500` |
 
 For example, to slim down your tag lines:
 
@@ -1116,6 +1120,7 @@ Everything is back: every window, every scratch buffer, every colour setting. Re
 | `CLOSE` | Win | Force close, no prompt |
 | `Dump [fname]` | App | Save session |
 | `Load [fname]` | App | Restore session |
+| `History` | App | Open `+History` scratch buffer with timestamped command log |
 
 ### Navigation
 
@@ -1230,7 +1235,7 @@ Any path containing `+` is a scratch buffer. Never written to disk. Examples: `+
 
 | File | Purpose |
 |------|---------|
-| `~/.z/settings` | Window geometry (auto-saved) and tag line defaults (`tag.app`, `tag.col`, `tag.wnd`, `tag.cmd`) |
+| `~/.z/settings` | Window geometry (auto-saved) and config: `tag.app`, `tag.col`, `tag.wnd`, `tag.cmd`, `history.limit` |
 | `~/.z/lsp.conf` | LSP server configuration |
 | `z.dump` (default) | Saved session (Dump/Load) |
 | `~/.z/scripts.conf` | User script directory configuration |

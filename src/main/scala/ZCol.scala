@@ -222,7 +222,9 @@ class ZCol(currDir : String) extends BorderPanel {
 			}
 			w.root = src.root
 			w.body.text = e.content
-		case e : ZStatusEvent => publish(new ZStatusEvent(e.source, e.properties))
+		case e : ZStatusEvent      => publish(new ZStatusEvent(e.source, e.properties))
+		case e : ZStatusClearEvent => publish(e)
+		case e : ZCmdEchoEvent     => publish(e)
 	}
 
 	listenTo(tag.keys)
@@ -300,6 +302,8 @@ class ZCol(currDir : String) extends BorderPanel {
 			}
 
 			prevCmd = "Cmd: " + cmd
+			val ts = CommandLog.record("col", currentDir, cmd)
+			publish(new ZCmdEchoEvent(ts, "col", currentDir, cmd))
 		}
 	}
 
@@ -326,6 +330,8 @@ class ZCol(currDir : String) extends BorderPanel {
 		}
 
 		prevCmd = "Look: " + txt
+		val ts = CommandLog.record("col", currentDir, txt)
+		publish(new ZCmdEchoEvent(ts, "col", currentDir, txt))
 		return true
 	}
 

@@ -24,7 +24,7 @@ import util.Properties
 import collection.immutable.HashMap
 import io.Source
 import swing.{SplitPane, ScrollPane, Orientation}
-import swing.event.{KeyPressed, KeyReleased, Key, MouseClicked, MouseEntered, MousePressed, MouseDragged, MouseReleased, Event}
+import swing.event.{KeyPressed, KeyReleased, Key, MouseClicked, MouseEntered, MouseExited, MousePressed, MouseDragged, MouseReleased, Event}
 
 import java.io.{FileWriter, File, BufferedWriter, OutputStreamWriter}
 import java.awt.{Font, Color}
@@ -108,6 +108,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	listenTo(tag.mouse.moves, body.mouse.moves)
 	reactions += {
 		case e : MouseEntered => publish(new ZStatusEvent(this, properties))
+		case e : MouseExited  => publish(new ZStatusClearEvent(this))
 		case e : MousePressed => if(SwingUtilities.isMiddleMouseButton(e.peer) || SwingUtilities.isRightMouseButton(e.peer))
 			e.source match {
 				case ta: ZTextArea => dragSelMark = ta.peer.viewToModel2D(e.point).toInt
@@ -341,6 +342,8 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 					}
 				case _                           => publish(new ZCmdEvent(this, cmd))
 			}
+			val ts = CommandLog.record("wnd", path, cmd)
+			publish(new ZCmdEchoEvent(ts, "wnd", path, cmd))
 		}
 	}
 
@@ -834,3 +837,5 @@ class ZPlumbExecEvent(val source: ZWnd, val cmd: String, val cwd: String) extend
 class ZCmdEvent(val source : ZWnd, val command : String) extends Event
 class ZDiagnosticsReadyEvent(val source: ZWnd, val content: String) extends Event
 class ZStatusEvent(val source : ZWnd, val properties : Map[String, String]) extends Event
+class ZStatusClearEvent(val source : ZWnd) extends Event
+class ZCmdEchoEvent(val timestamp: String, val level: String, val source: String, val cmd: String) extends Event
