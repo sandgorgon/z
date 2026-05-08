@@ -41,18 +41,14 @@ class ZCol(currDir : String) extends BorderPanel {
 
 	def lookupByRawPath(p: String): Option[ZWnd] = wndIndex.get(p)
 
-	var colorTBack = new Color(0xFF, 0xFF, 0xFF)
-	var colorTFore = new Color(0x00, 0x00, 0x00)
-	var colorTCaret = new Color(0x00, 0x00, 0x00)
-	var colorTSelBack =new Color(0x96, 0x96, 0x96)
-	var colorTSelFore = new Color(0xFF, 0xFF, 0xFF)
+	var tagScheme = ZColorScheme(Color.WHITE, Color.BLACK, Color.BLACK, ZColors.TagSelBack, Color.WHITE)
 	var prevCmd = ""
 	var currentDir = new File(currDir).getCanonicalPath
 	var dragSel = false
 	var dragSelMark = -1
 
 	val tag = new ZTextArea(ZCol.colTagLine)
-	tag.colors(colorTBack, colorTFore,  colorTCaret, colorTSelBack, colorTSelFore )
+	tagScheme.applyTo(tag)
 	tag.border = BorderFactory.createMatteBorder(0,0,1,0, Color.BLACK)
 	tag.font = ZFonts.defaultTag
 
@@ -222,6 +218,10 @@ class ZCol(currDir : String) extends BorderPanel {
 			}
 			w.root = src.root
 			w.body.text = e.content
+		case e : ZPathChangedEvent =>
+			if (wndIndex.contains(e.oldPath)) {
+				wndIndex = wndIndex - e.oldPath + (e.newPath -> e.source)
+			}
 		case e : ZStatusEvent      => publish(new ZStatusEvent(e.source, e.properties))
 		case e : ZStatusClearEvent => publish(e)
 		case e : ZCmdEchoEvent     => publish(e)
@@ -297,6 +297,16 @@ class ZCol(currDir : String) extends BorderPanel {
 							w.runScript(f.getPath, args, Map("Z_DIR" -> currentDir))
 						case Left(searched) => ZScripts.showError(name, searched)
 					}
+				case ZWnd.reColors(t, r, g, b) if t.startsWith("T") =>
+					tagScheme = tagScheme.withComponent(t.drop(1), r.toInt, g.toInt, b.toInt)
+					tagScheme.applyTo(tag)
+				case ZWnd.reColors(_, _, _, _) => // non-T: col has no body, no-op
+				case ZWnd.reColorAll(t, r, g, b) if t.startsWith("T") =>
+					tagScheme = tagScheme.withComponent(t.drop(1), r.toInt, g.toInt, b.toInt)
+					tagScheme.applyTo(tag)
+					wnds.foreach(_.command(cmd))
+				case ZWnd.reColorAll(_, _, _, _) => // non-T: just propagate to windows
+					wnds.foreach(_.command(cmd))
 				case c =>
 					if(!look(c, false)) wnds.foreach((w) => if(!w.look(c)) w.command(c))
 			}
@@ -307,32 +317,34 @@ class ZCol(currDir : String) extends BorderPanel {
 		}
 	}
 
-	def look(txt : String, traverse : Boolean = true) : Boolean = {
-		if(txt == null || txt.trim.isEmpty)  return true
-
-		txt match {
-			case ZCol.reFileLoc(f, loc) => fileLook(f, loc)
-			case s =>
-				val expanded = ZUtilities.expandPath(s, currentDir)
-				val f = if(ZUtilities.isFullPath(expanded)) expanded else (currDir + ZUtilities.separator + expanded)
-
-				if(new File(f).exists) {
-					val o  = rawPathWindow(f).orElse(pathWindow(expanded))
-					if(o.isEmpty)  {
-						val w = wnd(expanded)
-						this += w
-						w.command("Get")
-					}
-				} else {
-					if(traverse) wnds.foreach((w) => if(!w.look(txt)) w.command(txt))
-					else return false
-				}
+	def look(txt: String, traverse: Boolean = true): Boolean = {
+		if (txt == null || txt.trim.isEmpty) true
+		else {
+			val found = txt match {
+				case ZCol.reFileLoc(f, loc) => fileLook(f, loc); true
+				case s =>
+					val expanded = ZUtilities.expandPath(s, currentDir)
+					val f = if (ZUtilities.isFullPath(expanded)) expanded else (currDir + ZUtilities.separator + expanded)
+					if (new File(f).exists) {
+						val o = rawPathWindow(f).orElse(pathWindow(expanded))
+						if (o.isEmpty) {
+							val w = wnd(expanded)
+							this += w
+							w.command("Get")
+						}
+						true
+					} else if (traverse) {
+						wnds.foreach(w => if (!w.look(txt)) w.command(txt))
+						true
+					} else false
+			}
+			if (found) {
+				prevCmd = "Look: " + txt
+				val ts = CommandLog.record("col", currentDir, txt)
+				publish(new ZCmdEchoEvent(ts, "col", currentDir, txt))
+			}
+			found
 		}
-
-		prevCmd = "Look: " + txt
-		val ts = CommandLog.record("col", currentDir, txt)
-		publish(new ZCmdEchoEvent(ts, "col", currentDir, txt))
-		return true
 	}
 
 	def +=(w : ZWnd) = {
@@ -363,24 +375,10 @@ class ZCol(currDir : String) extends BorderPanel {
 		w
 	}
 
-	private def collectDividers(c: java.awt.Component): List[Int] = c match {
-		case sp: javax.swing.JSplitPane
-			if sp.getClientProperty(ZCol.DividerKey) == java.lang.Boolean.TRUE =>
-			sp.getDividerLocation :: collectDividers(sp.getRightComponent)
-		case _ => Nil
-	}
-
-	private def applyDividers(c: java.awt.Component, locs: List[Int]): Unit = (c, locs) match {
-		case (sp: javax.swing.JSplitPane, loc :: rest) =>
-			sp.setDividerLocation(loc)
-			applyDividers(sp.getRightComponent, rest)
-		case _ =>
-	}
-
 	def refresh = {
 		val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
 			.getLayoutComponent(java.awt.BorderLayout.CENTER)
-		val dividers    = if (center != null) collectDividers(center) else Nil
+		val dividers    = if (center != null) ZUtilities.collectDividers(center) else Nil
 		val tagDividers = wnds.flatMap { w =>
 			val loc = w.peer.getDividerLocation
 			if (loc > 0) Some(w -> loc) else None
@@ -391,7 +389,7 @@ class ZCol(currDir : String) extends BorderPanel {
 		SwingUtilities.invokeLater(() => {
 			if (dividers.nonEmpty) {
 				val centerPeer = newCenter.peer
-				applyDividers(centerPeer, dividers)
+				ZUtilities.applyDividers(centerPeer, dividers)
 			}
 			tagDividers.foreach { case (w, loc) => w.peer.setDividerLocation(loc) }
 		})
@@ -451,35 +449,36 @@ class ZCol(currDir : String) extends BorderPanel {
 	def rawPathWindow(p : String) = windowLocator(p).orElse(lookupByRawPath(p))
 
 	def properties : Map[String, String] = {
-		var p = new HashMap[String, String]
-		p += "window.count" -> String.valueOf(wnds.length)
-		p += "command.prev" -> prevCmd
-		p += "tag.font"     -> tag.font.getFontName
-		p += "tag.size"     -> tag.font.getSize.toString
-		p
+		Map(
+			"window.count"       -> wnds.length.toString,
+			"command.prev"       -> prevCmd,
+			"tag.font"           -> tag.font.getFontName,
+			"tag.size"           -> tag.font.getSize.toString,
+			"tag.color.back"     -> tagScheme.back.getRGB.toString,
+			"tag.color.fore"     -> tagScheme.fore.getRGB.toString,
+			"tag.color.caret"    -> tagScheme.caret.getRGB.toString,
+			"tag.color.selback"  -> tagScheme.selBack.getRGB.toString,
+			"tag.color.selfore"  -> tagScheme.selFore.getRGB.toString,
+		)
 	}
 
-	def dump : Map[String, String] = {
-		var p = properties
-		var i = 1
-		wnds.foreach((w) => {
-			w.dump.foreach((t) => p += "window." + i.toString + "." + t._1 -> t._2)
-			i = i + 1
-		})
-
-		p += "tag.text" -> tag.text
-		p += "rotated"  -> rotated.toString
-
+	def dump: Map[String, String] = {
+		val wndEntries = wnds.zipWithIndex.flatMap { case (w, i) =>
+			w.dump.map { case (k, v) => s"window.${i+1}.$k" -> v }
+		}
 		val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
 			.getLayoutComponent(java.awt.BorderLayout.CENTER)
-		val divs = if (center != null) collectDividers(center) else Nil
-		p += "wnd.divider.count" -> divs.length.toString
-		divs.zipWithIndex.foreach { case (loc, idx) => p += s"wnd.divider.$idx" -> loc.toString }
-
-		p
+		val divs = if (center != null) ZUtilities.collectDividers(center) else Nil
+		val divEntries = divs.zipWithIndex.map { case (loc, idx) => s"wnd.divider.$idx" -> loc.toString }
+		properties ++ wndEntries ++
+			Map("tag.text" -> tag.text, "rotated" -> rotated.toString,
+			    "wnd.divider.count" -> divs.length.toString) ++ divEntries
 	}
 
-	def load(p : Map[String, String], prefix : String = "") = {
+	def load(p: Map[String, String], prefix: String = "") = {
+		def int(key: String, default: Int): Int =
+			p.get(prefix + key).flatMap(_.toIntOption).getOrElse(default)
+
 		val cnt = p.getOrElse(prefix + "window.count", "0").toInt
 		prevCmd = p.getOrElse(prefix + "command.prev", "")
 		tag.text = p.getOrElse(prefix + "tag.text", ZCol.colTagLine)
@@ -487,23 +486,30 @@ class ZCol(currDir : String) extends BorderPanel {
 		tag.font = new Font(
 			p.getOrElse(prefix + "tag.font", ZFonts.defaultTag.getFontName),
 			Font.PLAIN,
-			p.getOrElse(prefix + "tag.size", ZFonts.defaultTag.getSize.toString).toInt)
+			int("tag.size", ZFonts.defaultTag.getSize))
 
-		for(i <- 1 to cnt)
-		{
+		tagScheme = ZColorScheme(
+			new Color(int("tag.color.back",    tagScheme.back.getRGB)),
+			new Color(int("tag.color.fore",    tagScheme.fore.getRGB)),
+			new Color(int("tag.color.caret",   tagScheme.caret.getRGB)),
+			new Color(int("tag.color.selback", tagScheme.selBack.getRGB)),
+			new Color(int("tag.color.selfore", tagScheme.selFore.getRGB)))
+		tagScheme.applyTo(tag)
+
+		for(i <- 1 to cnt) {
 			val w = genWnd()
 			this += w
 			w.load(p, prefix + "window." + i.toString + ".")
 		}
 
-		val divCount = p.getOrElse(prefix + "wnd.divider.count", "0").toInt
+		val divCount = int("wnd.divider.count", 0)
 		if (divCount > 0) {
 			val divLocs = (0 until divCount).flatMap(i =>
 				p.get(prefix + s"wnd.divider.$i").flatMap(_.toIntOption)).toList
 			SwingUtilities.invokeLater(() => {
 				val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
 					.getLayoutComponent(java.awt.BorderLayout.CENTER)
-				if (center != null) applyDividers(center, divLocs)
+				if (center != null) ZUtilities.applyDividers(center, divLocs)
 			})
 		}
 	}
@@ -512,7 +518,7 @@ class ZCol(currDir : String) extends BorderPanel {
 object ZCol {
 	val DividerKey = "z.divider"
 
-	var colTagLine = "CloseCol Close New Sort "
+	var colTagLine = "CloseCol Close New Sort Color ColorAll "
 	var wndTagLine = "Get Put Zerox Close | Undo Redo Wrap Ln Indent Mark Bind "
 	var cmdTagLine = "Close | Undo Redo Wrap Kill Clear Font Scroll Input "
 

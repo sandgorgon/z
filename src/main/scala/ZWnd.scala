@@ -20,13 +20,11 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import util.Properties
 import collection.immutable.HashMap
-import io.Source
 import swing.{SplitPane, ScrollPane, Orientation}
 import swing.event.{KeyPressed, KeyReleased, Key, MouseClicked, MouseEntered, MouseExited, MousePressed, MouseDragged, MouseReleased, Event}
 
-import java.io.{FileWriter, File, BufferedWriter, OutputStreamWriter}
+import java.io.{File, BufferedWriter, OutputStreamWriter}
 import java.awt.{Font, Color}
 import java.awt.ComponentOrientation.RIGHT_TO_LEFT
 import javax.swing.text.{Utilities, DefaultCaret}
@@ -45,18 +43,14 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	var indLineNums = false
 
 	var bodyScheme = ZColorScheme(
-		new Color(0xFF, 0xFF, 0xE0),
-		new Color(0x00, 0x00, 0x00),
-		new Color(0x00, 0x00, 0x00),
-		new Color(0xC8, 0x75, 0x9F),
-		new Color(0xFF, 0xFF, 0xFF))
+		ZColors.BodyBack,
+		Color.BLACK, Color.BLACK,
+		ZColors.BodySelBack, Color.WHITE)
 
 	var tagScheme = ZColorScheme(
-		new Color(0x4A, 0x61, 0x95),
-		new Color(0xFF, 0xFF, 0xFF),
-		new Color(0xC7, 0xC7, 0xC7),
-		new Color(0xFF, 0xFF, 0xFF),   // white — inverted from tag blue
-		new Color(0x4A, 0x61, 0x95))   // tag blue — inverted from tag white
+		ZColors.TagBack, ZColors.TagFore, ZColors.TagCaret,
+		ZColors.TagFore,   // selBack: white (inverted from TagBack)
+		ZColors.TagBack)   // selFore: TagBack (inverted from white)
 
 	var lookUpward: String => Unit = _ => ()
 	var cmdProcess : Option[Process] = None
@@ -64,6 +58,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	var dragSel = false
 	var dragSelMark = -1
 	var captureTA: Option[ZTextArea] = None
+	var rePrompt = ZWnd.defaultPromptRegex
 
 	val tag = new ZTextArea(initTagText, true)
 	tag.font = ZFonts.defaultTag
@@ -198,8 +193,9 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 			if(e.key == Key.Escape) cancelCapture()
 
 			if(e.key == Key.Enter && !e.peer.isControlDown() && indInteractive && cmdProcess.isDefined) {
+				val curPrompt = rePrompt
 				body.line(body.currLineNo - 1) match {
-					case ZWnd.rePrompt(cmd) =>
+					case curPrompt(cmd) =>
 						cmdProcessWriter.foreach { w => w.write(cmd); w.newLine(); w.flush() }
 					case _ => /* Do nothing, if not a valid prompt and command */
 				}
@@ -241,199 +237,229 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		case e : ZDirtyTextEvent => dirty = true
 	}
 
-	def command(cmds : String) : Unit = if(cmds != null && !cmds.trim.isEmpty) {
-		for(cmd <- cmds.linesIterator.map(_.trim)) {
+	def command(cmds: String): Unit = if (cmds != null && !cmds.trim.isEmpty) {
+		for (cmd <- cmds.linesIterator.map(_.trim)) {
 			cmd match {
-				case ZWnd.reExplicitCmd(c)      => command(c)
-				case "Get"                       =>
-					get(if(ZWnd.isScratchBuffer(tag.text)) "" else path)
-					dirty = false
-				case ZWnd.reQuotedGet(f)         => get(f)
-				case ZWnd.reGet(f)               => get(f)
-				case "Put"                       =>
-					put(if(ZWnd.isScratchBuffer(tag.text)) "" else path)
-					dirty = false
-				case ZWnd.reQuotedPut(f)         => put(f)
-				case ZWnd.rePut(f)               => put(f)
-				case "Dirty" | "Clean"           => dirty = !dirty
-				case "Scroll"                    => scroll = !scroll
-				case "Cut"                       => body.cut()
-				case "Paste"                     => body.paste()
-				case "Snarf"                     => body.copy()
-				case "Redo"                      => body.redo()
-				case "Undo"                      => body.undo()
-				case "Wrap"                      => body.lineWrap = !body.lineWrap
-				case "CLine"                     => body.clineHighlight = !body.clineHighlight
-				case "Ln"                        =>
-					indLineNums = !indLineNums
-					bodyScroll.setLineNumbersEnabled(indLineNums)
-					styleGutter()
-				case "Hilite"                    =>
-					val first = !indHilite
-					indHilite = true
-					body.hilite(ZLangRegistry.forPath(path))
-					if(first) ZTheme("z", body)
-				case ZWnd.reHilite("off")        =>
-					indHilite = false
-					body.hilite(SyntaxConstants.SYNTAX_STYLE_NONE)
-				case ZWnd.reHilite(lang)         =>
-					val first = !indHilite
-					indHilite = true
-					body.hilite(ZLangRegistry.forLang(lang))
-					if(first) ZTheme("z", body)
-				case ZWnd.reTheme(theme)         => ZTheme(theme, body)
-				case "Indent"                    => indIndent = !indIndent
-				case "Clear"                     => body.text = ""
-				case "Bind"                      => indBind = !indBind
-				case ZUtilities.reDirQuoted(d)         => applyDir(d)
-				case ZUtilities.reDir(d)               => applyDir(d)
-				case ZWnd.reTab(t)               => if(t != null && !t.isEmpty) body.tabSize = t.toInt
-				case ZUtilities.reFont(font, pt)       =>
-					fontVar = new Font(font, Font.PLAIN, pt.toInt)
-					body.font = fontVar
-					styleGutter()
-				case ZUtilities.reFONT(font, pt)       =>
-					fontFixed = new Font(font, Font.PLAIN, pt.toInt)
-					body.font = fontFixed
-					styleGutter()
-				case ZUtilities.reTagFont(font, pt)    => tag.font = new Font(font, Font.PLAIN, pt.toInt)
-				case "Font"                      => body.font = fontVar; styleGutter()
-				case "FONT"                      => body.font = fontFixed; styleGutter()
-				case "Input"                     => indInteractive = !indInteractive
-				case ZWnd.reInput(prompt)        => ZWnd.rePrompt = prompt.r
-				case "Kill"                      =>
-					cmdProcess.foreach { p =>
-						cmdProcessWriter.foreach(_.close())
-						p.destroy()
-						tag.text = tag.text.replaceAll(ZWnd.CmdExecIndicator, "")
-					}
-					cmdProcess = None
-					cmdProcessWriter = None
-				case ZWnd.reExternalCmd(op, c)   =>
-					cmdProcess.foreach(_.destroy())
-					cmdProcess = externalCmd(op, c)
-					cmdProcessWriter = cmdProcess.map(p => new BufferedWriter(new OutputStreamWriter(p.getOutputStream)))
-				case ZWnd.reColors(t, r, g, b)   =>
-					if (t.startsWith("T")) {
-						tagScheme = tagScheme.withComponent(t.drop(1), r.toInt, g.toInt, b.toInt)
-						tagScheme.applyTo(tag)
-					} else {
-						bodyScheme = bodyScheme.withComponent(t, r.toInt, g.toInt, b.toInt)
-						bodyScheme.applyTo(body)
-						styleGutter()
-					}
-				case "Lsp"                       =>
-					JOptionPane.showMessageDialog(null,
-						"Lsp requires a project root path, e.g:  Lsp ~/myapp",
-						"LSP Error", JOptionPane.ERROR_MESSAGE)
-				case ZWnd.reLsp("off")           =>
-					lsp.stop()
-				case ZWnd.reLsp(p)               =>
-					val projRoot = ZUtilities.expandPath(p.trim, root)
-					val langId   = ZLangRegistry.langIdFor(path)
-					lsp.start(projRoot, langId)
-				case "Check"                     => lsp.check()
-				case "Complete"                  => lsp.complete()
-				case "Plumb"                     => ZPlumbing.load()
-				case ZScripts.reAnyScript(name, args) =>
-					ZScripts.resolve(name, rootPath) match {
-						case Right(f) => publish(new ZScriptEvent(this, f.getPath, args.trim))
-						case Left(searched) => ZScripts.showError(name, searched)
-					}
-				case _                           => publish(new ZCmdEvent(this, cmd))
+				case ZWnd.reExplicitCmd(c) => command(c)
+				case c =>
+					if (!handleFileCmd(c) && !handleDisplayCmd(c) && !handleEditCmd(c) &&
+					    !handleProcessCmd(c) && !handleLspCmd(c) && !handleColorCmd(c) &&
+					    !handleScriptCmd(c))
+						publish(new ZCmdEvent(this, c))
 			}
 			val ts = CommandLog.record("wnd", path, cmd)
 			publish(new ZCmdEchoEvent(ts, "wnd", path, cmd))
 		}
 	}
 
-	def look(txt: String, fromTag: Boolean = false) : Boolean  = {
-		if(txt == null || txt.trim.isEmpty)  return true
+	private def handleFileCmd(cmd: String): Boolean = cmd match {
+		case "Get" =>
+			get(if (ZWnd.isScratchBuffer(tag.text)) "" else path)
+			dirty = false
+			true
+		case ZWnd.reQuotedGet(f)       => get(f); true
+		case ZWnd.reGet(f)             => get(f); true
+		case "Put" =>
+			put(if (ZWnd.isScratchBuffer(tag.text)) "" else path)
+			dirty = false
+			true
+		case ZWnd.reQuotedPut(f)       => put(f); true
+		case ZWnd.rePut(f)             => put(f); true
+		case "Dirty" | "Clean"         => dirty = !dirty; true
+		case ZUtilities.reDirQuoted(d) => applyDir(d); true
+		case ZUtilities.reDir(d)       => applyDir(d); true
+		case _                         => false
+	}
 
-		// Early-return cases: line number and regexp search
-		txt match {
+	private def handleDisplayCmd(cmd: String): Boolean = cmd match {
+		case "Scroll"  => scroll = !scroll; true
+		case "Wrap"    => body.lineWrap = !body.lineWrap; true
+		case "CLine"   => body.clineHighlight = !body.clineHighlight; true
+		case "Ln"      =>
+			indLineNums = !indLineNums
+			bodyScroll.setLineNumbersEnabled(indLineNums)
+			styleGutter()
+			true
+		case "Hilite"  =>
+			val first = !indHilite
+			indHilite = true
+			body.hilite(ZLangRegistry.forPath(path))
+			if (first) ZTheme("z", body)
+			true
+		case ZWnd.reHilite("off")           =>
+			indHilite = false
+			body.hilite(SyntaxConstants.SYNTAX_STYLE_NONE)
+			true
+		case ZWnd.reHilite(lang)            =>
+			val first = !indHilite
+			indHilite = true
+			body.hilite(ZLangRegistry.forLang(lang))
+			if (first) ZTheme("z", body)
+			true
+		case ZWnd.reTheme(theme)            => ZTheme(theme, body); true
+		case "Indent"                       => indIndent = !indIndent; true
+		case "Bind"                         => indBind = !indBind; true
+		case ZUtilities.reFont(font, pt)    =>
+			fontVar = new Font(font, Font.PLAIN, pt.toInt)
+			body.font = fontVar
+			styleGutter()
+			true
+		case ZUtilities.reFONT(font, pt)    =>
+			fontFixed = new Font(font, Font.PLAIN, pt.toInt)
+			body.font = fontFixed
+			styleGutter()
+			true
+		case ZUtilities.reTagFont(font, pt) => tag.font = new Font(font, Font.PLAIN, pt.toInt); true
+		case "Font"                         => body.font = fontVar; styleGutter(); true
+		case "FONT"                         => body.font = fontFixed; styleGutter(); true
+		case _                              => false
+	}
+
+	private def handleEditCmd(cmd: String): Boolean = cmd match {
+		case "Cut"         => body.cut(); true
+		case "Paste"       => body.paste(); true
+		case "Snarf"       => body.copy(); true
+		case "Redo"        => body.redo(); true
+		case "Undo"        => body.undo(); true
+		case "Clear"       => body.text = ""; true
+		case ZWnd.reTab(t) => if (t != null && !t.isEmpty) body.tabSize = t.toInt; true
+		case _             => false
+	}
+
+	private def handleProcessCmd(cmd: String): Boolean = cmd match {
+		case "Input"                   => indInteractive = !indInteractive; true
+		case ZWnd.reInput(prompt)      => rePrompt = prompt.r; true
+		case "Kill"                    =>
+			cmdProcess.foreach { p =>
+				cmdProcessWriter.foreach(_.close())
+				p.destroy()
+				tag.text = tag.text.replaceAll(ZWnd.CmdExecIndicator, "")
+			}
+			cmdProcess = None
+			cmdProcessWriter = None
+			true
+		case ZWnd.reExternalCmd(op, c) =>
+			cmdProcess.foreach(_.destroy())
+			cmdProcess = externalCmd(op, c)
+			cmdProcessWriter = cmdProcess.map(p => new BufferedWriter(new OutputStreamWriter(p.getOutputStream)))
+			true
+		case _                         => false
+	}
+
+	private def handleLspCmd(cmd: String): Boolean = cmd match {
+		case "Lsp"             =>
+			JOptionPane.showMessageDialog(null,
+				"Lsp requires a project root path, e.g:  Lsp ~/myapp",
+				"LSP Error", JOptionPane.ERROR_MESSAGE)
+			true
+		case ZWnd.reLsp("off") => lsp.stop(); true
+		case ZWnd.reLsp(p)     =>
+			val projRoot = ZUtilities.expandPath(p.trim, root)
+			val langId   = ZLangRegistry.langIdFor(path)
+			lsp.start(projRoot, langId)
+			true
+		case "Check"           => lsp.check(); true
+		case "Complete"        => lsp.complete(); true
+		case "Plumb"           => ZPlumbing.load(); true
+		case _                 => false
+	}
+
+	private def applyColorComponent(t: String, r: String, g: String, b: String): Unit =
+		if (t.startsWith("T")) {
+			tagScheme = tagScheme.withComponent(t.drop(1), r.toInt, g.toInt, b.toInt)
+			tagScheme.applyTo(tag)
+		} else {
+			bodyScheme = bodyScheme.withComponent(t, r.toInt, g.toInt, b.toInt)
+			bodyScheme.applyTo(body)
+			styleGutter()
+		}
+
+	private def handleColorCmd(cmd: String): Boolean = cmd match {
+		case ZWnd.reColors(t, r, g, b)   => applyColorComponent(t, r, g, b); true
+		case ZWnd.reColorAll(t, r, g, b) => applyColorComponent(t, r, g, b); true
+		case _                            => false
+	}
+
+	private def handleScriptCmd(cmd: String): Boolean = cmd match {
+		case ZScripts.reAnyScript(name, args) =>
+			ZScripts.resolve(name, rootPath) match {
+				case Right(f)       => publish(new ZScriptEvent(this, f.getPath, args.trim))
+				case Left(searched) => ZScripts.showError(name, searched)
+			}
+			true
+		case _ => false
+	}
+
+	def look(txt: String, fromTag: Boolean = false) : Boolean  = {
+		if (txt == null || txt.trim.isEmpty) true
+		else txt match {
 			case ZWnd.reLineNo(no) =>
-				var i = no.toInt
-				if(i >= 1 && i <= body.lineCount) {
-					i = i - 1
-					body.caret.dot = body.lineStart(i)
-					body.caret.moveDot(body.lineEnd(i)-1)
+				val n = no.toInt
+				if (n >= 1 && n <= body.lineCount) {
+					body.caret.dot = body.lineStart(n - 1)
+					body.caret.moveDot(body.lineEnd(n - 1) - 1)
 					body.requestFocus()
-					return true
-				}
-				return false
+					true
+				} else false
 			case ZWnd.reRegExp(re) =>
 				val pos = body.caret.position
 				val t   = body.text.substring(pos)
 				val m   = ZWnd.compiledPattern(re).matcher(t)
-				if(m.find())  {
+				if (m.find()) {
 					body.caret.dot = pos + m.start()
 					body.caret.moveDot(pos + m.end())
 					body.requestFocus()
-					return true
-				}
-				return false
+					true
+				} else false
 			case _ =>
+				// Plumbing dispatch: user-defined pattern rules, checked before built-in path resolution
+				val wdForPlumb = { val f = new File(path); if (f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath }
+				ZPlumbing.plumb(txt, wdForPlumb) match {
+					case Some((PlumbExec, cmd)) => publish(new ZPlumbExecEvent(this, cmd, wdForPlumb)); true
+					case Some((PlumbLook, s))   => look(s, fromTag)
+					case None =>
+						// Path cases: extract file and optional location suffix
+						val (stxt, loc) = txt match {
+							case ZWnd.reFilePath(f, l)        => (f, l)
+							case ZWnd.reFilePath2(f, l)       => (f, l)
+							case ZWnd.reQuotedFilePath(f, l)  => (f, l)
+							case ZWnd.reQuotedFilePath2(f, l) => (f, l)
+							case _                            => (txt, "")
+						}
+
+						val sp      = ZUtilities.expandPath(stxt, root)
+						val absPath = new File(path)
+						val baseDir = if (absPath.isDirectory) path else absPath.getParent
+						val rb      = ZPathResolver.resolveBase(rawPath, stxt, fromTag, tag.text, root, baseDir)
+						val ep      = (if (ZUtilities.isFullPath(sp)) "" else (rb + ZUtilities.separator)) + sp
+
+						if (new File(ep).exists) {
+							val resolvedPath = if (!ZUtilities.isFullPath(rawPath) && ep.startsWith(root + ZUtilities.separator))
+							                       ep.substring(root.length + 1)
+							                   else ep
+							if (indBind) {
+								path = resolvedPath
+								command("Get")
+								if (loc.nonEmpty) look(loc)
+							} else {
+								lookUpward(resolvedPath + loc)
+							}
+							true
+						} else {
+							val pos = body.caret.position
+							val t   = body.text.substring(pos)
+							val m   = Pattern.compile(stxt, Pattern.MULTILINE).matcher(t)
+							if (m.find() && m.end() > m.start()) {
+								body.caret.dot = pos + m.start()
+								body.caret.moveDot(pos + m.end())
+								body.requestFocus()
+							} else {
+								command(stxt)
+							}
+							true
+						}
+				}
 		}
-
-		// Plumbing dispatch: user-defined pattern rules, checked before built-in path resolution
-		val wdForPlumb = { val f = new File(path); if (f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath }
-		ZPlumbing.plumb(txt, wdForPlumb) match {
-			case Some((PlumbExec, cmd)) => publish(new ZPlumbExecEvent(this, cmd, wdForPlumb)); return true
-			case Some((PlumbLook, s))   => return look(s, fromTag)
-			case None =>
-		}
-
-		// Path cases: extract file and optional location suffix
-		val (stxt, loc) = txt match {
-			case ZWnd.reFilePath(f, l)        => (f, l)
-			case ZWnd.reFilePath2(f, l)       => (f, l)
-			case ZWnd.reQuotedFilePath(f, l)  => (f, l)
-			case ZWnd.reQuotedFilePath2(f, l) => (f, l)
-			case _                            => (txt, "")
-		}
-
-		val sp      = ZUtilities.expandPath(stxt, root)
-		val absPath = new File(path)
-		val baseDir = if (absPath.isDirectory) path else absPath.getParent
-		val isWndPathPrefix = !ZUtilities.isFullPath(rawPath) &&
-		                      rawPath.startsWith(stxt) &&
-		                      (!fromTag || tag.text.startsWith(stxt))
-		val resolveBase = if (isWndPathPrefix) root else baseDir
-		val ep = (if(ZUtilities.isFullPath(sp)) "" else (resolveBase + ZUtilities.separator)) + sp
-
-		if(new File(ep).exists)
-		{
-			val resolvedPath = if (!ZUtilities.isFullPath(rawPath) && ep.startsWith(root + ZUtilities.separator))
-			                       ep.substring(root.length + 1)
-			                   else ep
-			if(indBind)
-			{
-				path = resolvedPath
-				command("Get")
-				if(loc.nonEmpty) look(loc)
-			}
-			else
-			{
-				lookUpward(resolvedPath + loc)
-			}
-
-			return true
-		}
-
-		val pos = body.caret.position
-		val t   = body.text.substring(pos)
-		val m   = Pattern.compile(stxt, Pattern.MULTILINE).matcher(t)
-
-		if(m.find() && m.end() > m.start())  {
-			body.caret.dot = pos + m.start()
-			body.caret.moveDot(pos + m.end())
-			body.requestFocus()
-			return true
-		}
-
-		command(stxt)
-		return true
 	}
 
 	def externalCmd(op : String, cmd : String, in : Option[String] = None, insertPos : Option[Int] = None) : Option[Process] = {
@@ -575,10 +601,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	def root = rootPath
 	def root_=(s : String) = { rootPath = new File(s).getCanonicalPath }
 
-	private def resolvePath(p: String): String = {
-		val ep = ZUtilities.expandPath(p, root)
-		if (ZUtilities.isFullPath(ep)) ep else new File(root + ZUtilities.separator + ep).getCanonicalPath
-	}
+	private def resolvePath(p: String): String = ZPathResolver.resolvePath(p, root)
 
 	def path = tag.text match {
 		case ZWnd.reQuotedScratch(_, p) => resolvePath(p)
@@ -588,7 +611,11 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		case _                          => new File(root).getCanonicalPath
 	}
 
-	def path_=(p : String) = tag.text = tag.text.replace(rawPath, p)
+	def path_=(p: String) = {
+		val old = rawPath
+		tag.text = tag.text.replace(old, p)
+		if (rawPath != old) publish(new ZPathChangedEvent(this, old, rawPath))
+	}
 
 	def rawPath = tag.text match {
 		case ZWnd.reQuotedPath(dirty, p) => p
@@ -608,44 +635,37 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 
 	def clean = dirty == false
 
-	def put(f : String) = if(f != null && !f.trim().isEmpty && !new File(f).isDirectory && !ZWnd.isScratchBuffer(f)) {
-		var valid = false
-		try {
-			scala.util.Using(new FileWriter(f))(_.write(body.text)).get
-			valid = true
-		} catch {
-			case e : Throwable => JOptionPane.showMessageDialog(null, e.getMessage, "Put Error", JOptionPane.ERROR_MESSAGE)
-		}
-
-		valid
-	}
-
-	def get(f : String = path) = if(f != null && !f.trim.isEmpty){
-		var valid = false
-		try {
-			val ef = ZUtilities.expandPath(f, root)
-			val o = new File(if(ef.startsWith(ZUtilities.separator)) ef else (root + File.separator + ef))
-
-			if(o.isDirectory)
-				body.text = o.list.toList.sortWith((a,b) => a < b ).
-						map((e) => if(new File(f + File.separator + e).isDirectory) { e + File.separator }  else e).
-							mkString(Properties.lineSeparator)
-			else {
-				// Notify LSP of the file switch before loading new content.
-				val newPath = o.getCanonicalPath
-				if (lsp.enabled && newPath != path) lsp.updatePath(newPath)
-				body.text = scala.util.Using(Source.fromFile(f))(_.mkString).get
-				if (lsp.enabled && newPath != path) lsp.didOpen(body.text)
+	def put(f: String): Boolean =
+		f != null && !f.trim.isEmpty && !new File(f).isDirectory && !ZWnd.isScratchBuffer(f) && {
+			ZFileIO.writeFile(f, body.text) match {
+				case Right(_)    => true
+				case Left(msg)   =>
+					JOptionPane.showMessageDialog(null, msg, "Put Error", JOptionPane.ERROR_MESSAGE)
+					false
 			}
-
-			body.caret.position = 0
-			valid = true
-			if(indHilite) body.hilite(ZLangRegistry.forPath(f))
-		} catch {
-			case e : Throwable => JOptionPane.showMessageDialog(null, f + " " + e.getMessage, "Get Error", JOptionPane.ERROR_MESSAGE)
 		}
 
-		valid
+	def get(f: String = path): Boolean = f != null && !f.trim.isEmpty && {
+		val ef = ZUtilities.expandPath(f, root)
+		val o  = new File(if (ef.startsWith(ZUtilities.separator)) ef else root + File.separator + ef)
+		val result = if (o.isDirectory) ZFileIO.readDir(o.getPath) else ZFileIO.readFile(f)
+		result match {
+			case Right(content) =>
+				if (!o.isDirectory) {
+					val newPath = o.getCanonicalPath
+					if (lsp.enabled && newPath != path) {
+						lsp.updatePath(newPath)
+						lsp.didOpen(content)
+					}
+				}
+				body.text = content
+				body.caret.position = 0
+				if (indHilite) body.hilite(ZLangRegistry.forPath(f))
+				true
+			case Left(msg) =>
+				JOptionPane.showMessageDialog(null, s"$f $msg", "Get Error", JOptionPane.ERROR_MESSAGE)
+				false
+		}
 	}
 
 	def scroll = indScroll
@@ -674,58 +694,55 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		g.setBorderColor(bodyScheme.back)
 	}
 
-	def properties : Map[String, String] = {
-		var p  = new HashMap[String, String]
+	def properties: Map[String, String] = Map(
+		"path"                    -> path,
+		"path.root"               -> root,
+		"path.rawpath"            -> rawPath,
+		"dirty"                   -> dirty.toString,
+		"scroll"                  -> scroll.toString,
+		"tab.size"                -> body.tabSize.toString,
+		"indent.auto"             -> indIndent.toString,
+		"interactive"             -> indInteractive.toString,
+		"interactive.prompt"      -> rePrompt.pattern.pattern(),
+		"bind"                    -> indBind.toString,
+		"lsp"                     -> lsp.enabled.toString,
+		"lsp.root"                -> lsp.root,
+		"lsp.indexing"            -> lsp.indexing.toString,
+		"lsp.status"              -> lsp.status,
+		"hilite"                  -> indHilite.toString,
+		"line.numbers"            -> indLineNums.toString,
+		"lines"                   -> body.lineCount.toString,
+		"line.current"            -> (body.currLineNo + 1).toString,
+		"line.wrap"               -> body.lineWrap.toString,
+		"column.current"          -> body.currColumn.toString,
+		"selection.start"         -> body.selectionStart.toString,
+		"selection.end"           -> body.selectionEnd.toString,
+		"body.color.back"         -> bodyScheme.back.getRGB.toString,
+		"body.color.fore"         -> bodyScheme.fore.getRGB.toString,
+		"body.color.caret"        -> bodyScheme.caret.getRGB.toString,
+		"body.color.selback"      -> bodyScheme.selBack.getRGB.toString,
+		"body.color.selfore"      -> bodyScheme.selFore.getRGB.toString,
+		"body.font.fixed"         -> fontFixed.getFontName,
+		"body.font.fixed.size"    -> fontFixed.getSize.toString,
+		"body.font.variable"      -> fontVar.getFontName,
+		"body.font.variable.size" -> fontVar.getSize.toString,
+		"body.font.current"       -> body.font.getFontName,
+		"body.font.current.size"  -> body.font.getSize.toString,
+		"tag.color.back"          -> tagScheme.back.getRGB.toString,
+		"tag.color.fore"          -> tagScheme.fore.getRGB.toString,
+		"tag.color.caret"         -> tagScheme.caret.getRGB.toString,
+		"tag.color.selback"       -> tagScheme.selBack.getRGB.toString,
+		"tag.color.selfore"       -> tagScheme.selFore.getRGB.toString,
+		"tag.font"                -> tag.font.getFontName,
+		"tag.size"                -> tag.font.getSize.toString,
+	)
 
-		p += "path" -> path
-		p += "path.root" -> root
-		p += "path.rawpath" -> rawPath
-		p += "dirty" -> (if(dirty) "true" else "false")
-		p += "scroll" -> (if(scroll) "true" else "false")
-		p += "tab.size" -> String.valueOf(body.tabSize)
-		p += "indent.auto" -> (if(indIndent) "true" else "false")
-		p += "interactive" -> (if(indInteractive) "true" else "false")
-		p += "bind"         -> (if(indBind)        "true" else "false")
-		p += "lsp"          -> (if(lsp.enabled)    "true" else "false")
-		p += "lsp.root"     -> lsp.root
-		p += "lsp.indexing" -> (if(lsp.indexing)   "true" else "false")
-		p += "lsp.status"   -> lsp.status
-		p += "hilite"       -> (if(indHilite)      "true" else "false")
-		p += "line.numbers" -> (if(indLineNums)    "true" else "false")
-		p += "lines" -> String.valueOf(body.lineCount)
-		p += "line.current" -> String.valueOf(body.currLineNo + 1)
-		p += "line.wrap" -> (if(body.lineWrap) "true" else "false")
-		p += "column.current" -> String.valueOf(body.currColumn)
-		p += "selection.start" -> String.valueOf(body.selectionStart)
-		p += "selection.end" -> String.valueOf(body.selectionEnd)
-		p += "body.color.back"    -> bodyScheme.back.getRGB.toString
-		p += "body.color.fore"    -> bodyScheme.fore.getRGB.toString
-		p += "body.color.caret"   -> bodyScheme.caret.getRGB.toString
-		p += "body.color.selback" -> bodyScheme.selBack.getRGB.toString
-		p += "body.color.selfore" -> bodyScheme.selFore.getRGB.toString
-		p += "body.font.fixed" -> fontFixed.getFontName
-		p += "body.font.fixed.size" -> fontFixed.getSize.toString
-		p += "body.font.variable" -> fontVar.getFontName
-		p += "body.font.variable.size" -> fontVar.getSize.toString
-		p += "body.font.current" -> body.font.getFontName
-		p += "body.font.current.size" -> String.valueOf(body.font.getSize)
-		p += "tag.color.back"    -> tagScheme.back.getRGB.toString
-		p += "tag.color.fore"    -> tagScheme.fore.getRGB.toString
-		p += "tag.color.caret"   -> tagScheme.caret.getRGB.toString
-		p += "tag.color.selback" -> tagScheme.selBack.getRGB.toString
-		p += "tag.color.selfore" -> tagScheme.selFore.getRGB.toString
-		p += "tag.font" -> tag.font.getFontName
-		p += "tag.size" -> String.valueOf(tag.font.getSize)
-		p
-	}
-
-	def dump : Map[String, String] = {
-		var p = properties
-		p += "body.text"   -> (if(dirty || ZWnd.isScratchBuffer(tag.text)) body.text else "")
-		p += "tag.text"    -> tag.text
+	def dump: Map[String, String] = {
 		val tagDiv = peer.getDividerLocation
-		if (tagDiv > 0) p += "tag.divider" -> tagDiv.toString
-		p
+		properties ++ Map(
+			"body.text" -> (if(dirty || ZWnd.isScratchBuffer(tag.text)) body.text else ""),
+			"tag.text"  -> tag.text,
+		) ++ (if (tagDiv > 0) Map("tag.divider" -> tagDiv.toString) else Map.empty)
 	}
 
 	def load(p: Map[String, String], prefix : String = "") = {
@@ -792,7 +809,7 @@ object ZWnd {
 			p
 		})
 
-	var rePrompt = """[^\$%>\?#]*[\$%>\?#]\s*(.+)\s*""".r
+	val defaultPromptRegex = """[^\$%>\?#]*[\$%>\?#]\s*(.+)\s*""".r
 	val reInput = """Input\s+(.+)""".r
 
 	val rePre = """.*?(\S*)$""".r
@@ -821,7 +838,8 @@ object ZWnd {
 	val reHilite = """Hilite\s+(\S+)""".r
 	val reLsp    = """Lsp\s+(.+)""".r
 	val reTheme  = """Theme\s+(\S+)""".r
-	val reColors = """Color(TBack|TFore|TCaret|TSelFore|TSelBack|Back|Fore|Caret|SelFore|SelBack)\s+(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})""".r
+	val reColors    = """Color(TBack|TFore|TCaret|TSelFore|TSelBack|Back|Fore|Caret|SelFore|SelBack)\s+(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})""".r
+	val reColorAll  = """ColorAll(TBack|TFore|TCaret|TSelFore|TSelBack|Back|Fore|Caret|SelFore|SelBack)\s+(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})""".r
 
 	val CmdExecIndicator = " <!> "
 
@@ -836,6 +854,7 @@ class ZScriptEvent(val source: ZWnd, val scriptPath: String, val args: String) e
 class ZPlumbExecEvent(val source: ZWnd, val cmd: String, val cwd: String) extends Event
 class ZCmdEvent(val source : ZWnd, val command : String) extends Event
 class ZDiagnosticsReadyEvent(val source: ZWnd, val content: String) extends Event
+class ZPathChangedEvent(val source: ZWnd, val oldPath: String, val newPath: String) extends Event
 class ZStatusEvent(val source : ZWnd, val properties : Map[String, String]) extends Event
 class ZStatusClearEvent(val source : ZWnd) extends Event
 class ZCmdEchoEvent(val timestamp: String, val level: String, val source: String, val cmd: String) extends Event

@@ -32,6 +32,7 @@ object CommandLog {
 	private val entries = new CopyOnWriteArrayList[Entry]()
 
 	def setLimit(n: Int): Unit = if (n > 0) maxEntries = n
+	def clear(): Unit = { entries.clear(); maxEntries = 500 }
 
 	def record(level: String, source: String, cmd: String): String = {
 		val ts = LocalTime.now().format(fmt)

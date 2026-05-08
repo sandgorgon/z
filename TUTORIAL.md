@@ -618,7 +618,16 @@ ColorSelFore 255 255 255  ← Selection foreground
 
 ColorTBack 50 50 60       ← Tag background
 ColorTFore 180 180 220    ← Tag foreground
+ColorTCaret 180 180 220   ← Tag caret
+ColorTSelBack 96 96 96    ← Tag selection background
+ColorTSelFore 255 255 255 ← Tag selection foreground
 ```
+
+**Scope rules:**
+
+- `Color T*` — applies to the **current level's tag line only**. Run from a window tag to style that window's tag, from a column tag to style the column's tag, or from the app tag to style the app tag.
+- `ColorAll T*` — applies to the current level's tag **and cascades down** to all children. Run from the app tag to restyle every tag line in the editor at once; from a column tag to restyle that column and all its windows.
+- Body colour variants (`ColorBack`, `ColorFore`, etc.) only apply at the window level. Running them from a column or app tag line has no effect.
 
 `Props` will show you the current RGB values for all colour settings if you need to inspect or copy them.
 
@@ -747,7 +756,7 @@ The commands pre-loaded into each tag line are just defaults — they can be cus
 | Key | What it controls | Built-in default |
 |-----|-----------------|-----------------|
 | `tag.app` | App tag line content | `Help NewCol History Put Dump Load Dir ` |
-| `tag.col` | Column tag line default | `CloseCol Close New Sort ` |
+| `tag.col` | Column tag line default | `CloseCol Close New Sort Color ColorAll ` |
 | `tag.wnd` | Window tag line default | `Get Put Zerox Close \| Undo Redo Wrap Ln Indent Mark Bind ` |
 | `tag.cmd` | Command/results window tag line default | `Close \| Undo Redo Wrap Kill Clear Font Scroll Input ` |
 | `history.limit` | Max entries kept in the command history ring buffer | `500` |
@@ -1202,8 +1211,9 @@ See [Section 14](#14-plumbing-rules).
 | `CLine` | Toggle current-line highlight |
 | `Hilite [lang\|off]` | Syntax highlighting |
 | `Theme [name]` | Colour theme |
-| `ColorBack R G B` | Body background colour |
-| `ColorFore R G B` | Body foreground colour |
+| `Color(Back\|Fore\|Caret\|SelBack\|SelFore) R G B` | Body colours (window level only) |
+| `Color(TBack\|TFore\|TCaret\|TSelBack\|TSelFore) R G B` | Tag colour, current level only |
+| `ColorAll(TBack\|TFore\|TCaret\|TSelBack\|TSelFore) R G B` | Tag colour, cascades to all children |
 
 ### LSP
 

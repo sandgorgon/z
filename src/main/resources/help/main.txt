@@ -314,9 +314,20 @@ APPEARANCE
                       default for new windows.
 
     Color(Back|Fore|Caret|SelBack|SelFore) R G B
-                      Set body colours (integers 0–255)
+                      Set body colours (integers 0–255).
+                      At the window level, applies to that window's body.
+                      At the column or app level, body colours are not applicable (no-op).
     Color(TBack|TFore|TCaret|TSelBack|TSelFore) R G B
-                      Set tag line colours (integers 0–255)
+                      Set tag line colours (integers 0–255).
+                      Applies to the current level's tag line only — does not cascade.
+                      Works at window, column, and app level.
+    ColorAll(TBack|TFore|TCaret|TSelBack|TSelFore) R G B
+                      Set tag line colours and cascade the change down.
+                      From the app tag line: changes the app tag, then all column tags,
+                        then all window tags.
+                      From a column tag line: changes the column tag and all its window tags.
+                      From a window tag line: same as Color (windows are leaf nodes).
+                      Body-colour variants (ColorAllBack, etc.) are not supported.
 
     Hilite            Enable syntax highlighting, auto-detecting language from the file extension
     Hilite [lang]     Enable syntax highlighting for a specific language
@@ -442,7 +453,7 @@ GLOBAL SETTINGS  (~/.z/settings)
     tag.app               Content of the app tag line at startup.
                           Default: "Help NewCol History Put Dump Load Dir "
     tag.col               Default content for new column tag lines.
-                          Default: "CloseCol Close New Sort "
+                          Default: "CloseCol Close New Sort Color ColorAll "
     tag.wnd               Default content for new window tag lines.
                           Default: "Get Put Zerox Close | Undo Redo Wrap Ln Indent Mark Bind "
     tag.cmd               Default content for command/results window tag lines.

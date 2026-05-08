@@ -30,7 +30,7 @@ import java.lang.reflect.Method;
 object z extends SwingApplication {
 	ZFonts.registerFonts
 
-	var frame:MainFrame = null
+	var frame: MainFrame = scala.compiletime.uninitialized
 
 	val mainPanel = new ZPanel("Help NewCol History Put Dump Load Dir ")
 
@@ -55,17 +55,19 @@ object z extends SwingApplication {
 	listenTo(mainPanel)
 	reactions += {
 		case e : ZStatusEvent =>
-			statusLeft.text = e.properties.get("line.current").get + "/" + e.properties.get("lines").get + "@" + e.properties.get("column.current").get +
-						" |  Tab: " + e.properties.get("tab.size").get +
-						" | " + (if(e.properties.get("line.wrap").get == "true") "Wrap" else "NoWrap") +
-						" | " + (if(e.properties.get("indent.auto").get == "true") "Indent" else "NoIndent") +
-						" | " + (if(e.properties.get("scroll").get == "true") "Scroll" else "NoScroll") +
-						" | " + e.properties.get("body.font.current").get + " " + e.properties.get("body.font.current.size").get +
-						(if(e.properties.get("bind").get == "true") " | Bind" else "") +
-						(if(e.properties.get("lsp").get == "true") " | LSP: " + e.properties.getOrElse("lsp.root", "") +
-						{ val st = e.properties.getOrElse("lsp.status", ""); if (st.nonEmpty) s" ($st)" else "" } else "") +
-						(if(e.properties.get("hilite").get == "true") " | Hilite" else "") +
-						(if(e.properties.get("interactive").get == "true") " | Input: " + ZWnd.rePrompt else "")
+			val p = e.properties
+			statusLeft.text =
+						p.getOrElse("line.current", "?") + "/" + p.getOrElse("lines", "?") + "@" + p.getOrElse("column.current", "?") +
+						" |  Tab: " + p.getOrElse("tab.size", "?") +
+						" | " + (if(p.getOrElse("line.wrap",    "false") == "true") "Wrap"   else "NoWrap") +
+						" | " + (if(p.getOrElse("indent.auto",  "false") == "true") "Indent" else "NoIndent") +
+						" | " + (if(p.getOrElse("scroll",       "false") == "true") "Scroll" else "NoScroll") +
+						" | " + p.getOrElse("body.font.current", "?") + " " + p.getOrElse("body.font.current.size", "?") +
+						(if(p.getOrElse("bind",        "false") == "true") " | Bind"   else "") +
+						(if(p.getOrElse("lsp",         "false") == "true") " | LSP: " + p.getOrElse("lsp.root", "") +
+						{ val st = p.getOrElse("lsp.status", ""); if (st.nonEmpty) s" ($st)" else "" } else "") +
+						(if(p.getOrElse("hilite",      "false") == "true") " | Hilite" else "") +
+						(if(p.getOrElse("interactive", "false") == "true") " | Input: " + p.getOrElse("interactive.prompt", "") else "")
 
 		case e : ZStatusClearEvent => statusLeft.text = ""
 
@@ -99,7 +101,7 @@ object z extends SwingApplication {
 	override def startup(args: Array[String]) = {
 		val zDir     = new File(util.Properties.userHome + ZUtilities.separator + ".z")
 		val settings = new File(zDir, "settings")
-		var p : Map[String, String] = null
+		var p : Map[String, String] = Map.empty
 
 		// Migrate: if ~/.z is an old flat file, move its content to ~/.z/settings
 		if(zDir.exists && zDir.isFile) {
@@ -111,16 +113,9 @@ object z extends SwingApplication {
 			zDir.mkdirs()
 		}
 
-		if(settings.exists) {
-			p = ZSettings.load(settings)
-
-			if(p.get("app.width") == None || p.get("app.width").get.toInt < 10)  p += "app.width" -> "600"
-			if(p.get("app.height") == None || p.get("app.height").get.toInt < 10)  p += "app.height" -> "400"
-		} else {
-			p = new HashMap[String, String]
-			p += "app.width" -> "600"
-			p += "app.height" -> "400"
-		}
+		p = if (settings.exists) ZSettings.load(settings) else Map.empty
+		if (p.get("app.width").flatMap(_.toIntOption).forall(_ < 10))  p += "app.width"  -> "600"
+		if (p.get("app.height").flatMap(_.toIntOption).forall(_ < 10)) p += "app.height" -> "400"
 
 		ZCol.colTagLine      = p.getOrElse("tag.col", ZCol.colTagLine)
 		ZCol.wndTagLine      = p.getOrElse("tag.wnd", ZCol.wndTagLine)
@@ -135,7 +130,7 @@ object z extends SwingApplication {
 		val scriptsDir = new File(zDir, "scripts")
 		if (!scriptsDir.exists()) scriptsDir.mkdirs()
 		frame = top
-		frame.preferredSize = new Dimension(p.get("app.width").get.toInt, p.get("app.height").get.toInt)
+		frame.preferredSize = new Dimension(p.getOrElse("app.width", "600").toInt, p.getOrElse("app.height", "400").toInt)
 		frame.pack()
 		frame.centerOnScreen()
 		frame.visible = true

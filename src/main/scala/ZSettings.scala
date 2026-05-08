@@ -27,15 +27,23 @@ import java.util.Properties
 import java.io.{File, FileReader, FileWriter}
 
 object ZSettings {
-	def load(f : File) : Map[String, String] = {
+	def load(f: File): Map[String, String] = {
 		val properties = new Properties
-		Using(new FileReader(f))(properties.load).get
-		properties.asScala.toMap
+		Using(new FileReader(f))(properties.load) match {
+			case scala.util.Success(_)  => properties.asScala.toMap
+			case scala.util.Failure(e)  =>
+				System.err.println(s"[z] Failed to load settings from ${f.getPath}: ${e.getMessage}")
+				Map.empty
+		}
 	}
 
-	def dump(m : Map[String, String], f : File, comments : String) = {
+	def dump(m: Map[String, String], f: File, comments: String): Unit = {
 		val p = new Properties
-		m.foreach((e) => p.put(e._1, e._2))
-		Using(new FileWriter(f))(p.store(_, comments)).get
+		m.foreach(e => p.put(e._1, e._2))
+		Using(new FileWriter(f))(p.store(_, comments)) match {
+			case scala.util.Failure(e) =>
+				System.err.println(s"[z] Failed to save settings to ${f.getPath}: ${e.getMessage}")
+			case _ =>
+		}
 	}
 }

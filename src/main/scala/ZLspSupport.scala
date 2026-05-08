@@ -41,6 +41,7 @@ class ZLspSupport(
 	@volatile private var resolveVersion = 0
 	private var listenerAdded = false
 	private var hoverPoint: java.awt.Point = new java.awt.Point(0, 0)
+	private var showSummaryFor: Option[java.lang.reflect.Method] = None
 
 	val parser         = new ZLspDiagnosticParser
 	val provider       = new DefaultCompletionProvider() {
@@ -63,10 +64,10 @@ class ZLspSupport(
 				val col  = dot - body.lineStart(line)
 				c.hover(line, col, text =>
 					javax.swing.SwingUtilities.invokeLater(() => {
-						body.lspTooltip = if (text.isEmpty) null else
+						body.lspTooltip = if (text.isEmpty) None else Some(
 							"<html><pre>" +
 							text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") +
-							"</pre></html>"
+							"</pre></html>")
 						if (text.nonEmpty) {
 							val pt = hoverPoint
 							javax.swing.ToolTipManager.sharedInstance().mouseMoved(
@@ -238,15 +239,13 @@ class ZLspSupport(
 
 			// Resolve and cache the showSummaryFor method once so we pay the lookup cost
 			// only once, and call setAccessible(true) to bypass the package-private class barrier.
-			var showSummaryFor: java.lang.reflect.Method = null
-
-			def getShowSummaryFor(descW: AnyRef): java.lang.reflect.Method = {
-				if (showSummaryFor == null) {
-					showSummaryFor = descW.getClass.getMethod("showSummaryFor", classOf[Completion], classOf[String])
-					showSummaryFor.setAccessible(true)
+			def getShowSummaryFor(descW: AnyRef): java.lang.reflect.Method =
+				showSummaryFor.getOrElse {
+					val m = descW.getClass.getMethod("showSummaryFor", classOf[Completion], classOf[String])
+					m.setAccessible(true)
+					showSummaryFor = Some(m)
+					m
 				}
-				showSummaryFor
-			}
 
 			jlist.addListSelectionListener { e =>
 				if (!e.getValueIsAdjusting) {

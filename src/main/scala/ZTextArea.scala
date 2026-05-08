@@ -30,10 +30,10 @@ import javax.swing.text.DefaultHighlighter
 import org.fife.ui.rsyntaxtextarea.{RSyntaxTextArea, SyntaxConstants}
 
 class ZTextArea(txt : String = "", wrap : Boolean = false) extends TextArea(txt) {
-	var lspTooltip: String = null
+	var lspTooltip: Option[String] = None
 
 	override lazy val peer: RSyntaxTextArea = new RSyntaxTextArea(txt) with SuperMixin {
-		override def getToolTipText(e: java.awt.event.MouseEvent): String = lspTooltip
+		override def getToolTipText(e: java.awt.event.MouseEvent): String = lspTooltip.orNull
 	}
 
 	border = null

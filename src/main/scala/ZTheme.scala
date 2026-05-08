@@ -36,11 +36,11 @@ object ZTheme {
 
 	// z theme — tokens tuned for z's pale-yellow body background (#FFFFE0)
 	private def applyZ(ta: ZTextArea): Unit = {
-		ta.peer.setBackground(new Color(0xFF, 0xFF, 0xE0))
+		ta.peer.setBackground(ZColors.BodyBack)
 		ta.peer.setForeground(new Color(0x00, 0x00, 0x00))
 		ta.peer.setCurrentLineHighlightColor(new Color(0xEB, 0xEB, 0xC0))
 		ta.peer.setCaretColor(new Color(0x00, 0x00, 0x00))
-		ta.peer.setSelectionColor(new Color(0xC8, 0x75, 0x9F))
+		ta.peer.setSelectionColor(ZColors.BodySelBack)
 		ta.peer.setSelectedTextColor(new Color(0xFF, 0xFF, 0xFF))
 
 		val scheme = ta.peer.getSyntaxScheme.clone().asInstanceOf[SyntaxScheme]
