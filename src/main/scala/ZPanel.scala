@@ -116,8 +116,10 @@ class ZPanel(initTagText: String) extends BorderPanel {
 			case "Lt" => prevCol(e.source).getOrElse(e.source) += e.wnd
 		}
 
-		case e : ZStatusEvent => publish(new ZStatusEvent(e.source, e.properties))
-		case e : ZColStatusEvent => 	publish(new ZColStatusEvent(e.source, e.properties))
+		case e : ZStatusEvent      => publish(new ZStatusEvent(e.source, e.properties))
+		case e : ZStatusClearEvent => publish(e)
+		case e : ZColStatusEvent   => publish(new ZColStatusEvent(e.source, e.properties))
+		case e : ZCmdEchoEvent     => publish(e)
 	}
 
 	listenTo(tag.keys)
@@ -156,6 +158,18 @@ class ZPanel(initTagText: String) extends BorderPanel {
 				case "Fonts" => fonts
 				case "Help" => help
 				case "Props" => props
+				case "History" =>
+					if (cols.nonEmpty) {
+						val col = cols.last
+						val w = col.rawPathWindow("+History").getOrElse {
+							val nw = col.cmdWnd("+History")
+							nw.command("Scroll")
+							col += nw
+							nw
+						}
+						w.body.text = CommandLog.render
+						w.dirty = false
+					}
 				case ZCol.reExternalCmd(op, cmd) =>
 					if(cols.length < 1)  this += new ZCol(currentDir)
 					cols.last.command("! " + cmd)
@@ -177,6 +191,8 @@ class ZPanel(initTagText: String) extends BorderPanel {
 
 			prevCmd = "Cmd: " + cmd
 			publish(new ZPanelStatusEvent(this, properties))
+			val ts = CommandLog.record("app", currentDir, cmd)
+			publish(new ZCmdEchoEvent(ts, "app", currentDir, cmd))
 		}
 	}
 
@@ -197,8 +213,10 @@ class ZPanel(initTagText: String) extends BorderPanel {
 				}
 		}
 
-		prevCmd = "Look: " + txt	
+		prevCmd = "Look: " + txt
 		publish(new ZPanelStatusEvent(this, properties))
+		val ts = CommandLog.record("app", currentDir, txt)
+		publish(new ZCmdEchoEvent(ts, "app", currentDir, txt))
 		return retval
 	}
 
