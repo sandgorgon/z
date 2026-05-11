@@ -967,11 +967,13 @@ A block must contain a `plumb to` action to be valid.
 
 | Variable | Value |
 |----------|-------|
-| `$0` | Full selected text (the data field) |
+| `$0` | Current value of the data field |
 | `$1`…`$n` | Capture groups from `data matches` |
 | `$wdir` | Working directory |
 | `$arg` | Absolute path resolved by `arg isfile` or `arg isdir` |
 | `$file` | Alias for `$arg` |
+
+All variables are available in every action template — `data set`, `attr add`, and `plumb start`. `$1`…`$n` are frozen at condition-evaluation time and do not change across actions. `$0` is live: it reflects the current value of `data`, so after a `data set` action, `$0` in the next action sees the updated value.
 
 ### Ports
 

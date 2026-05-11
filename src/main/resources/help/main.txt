@@ -263,9 +263,9 @@ PLUMBING RULES
                                     multiple appear, the last one wins — use
                                     sh -c "cmd1 && cmd2" to chain commands)
 
-    Template variables:
-      $0        Full selected text (the data field)
-      $1..$n    Capture groups from data matches
+    Template variables (available in all action templates: data set, attr add, plumb start):
+      $0        Current value of the data field (updated after each data set)
+      $1..$n    Capture groups from data matches (frozen at condition time)
       $wdir     Working directory
       $arg      Absolute path resolved by arg isfile / arg isdir  ($file is an alias)
 
