@@ -34,6 +34,7 @@ import java.util.regex.Pattern
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 
 class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = ".") extends SplitPane(Orientation.Horizontal) {
+	val colRoot  = new File(currDir).getCanonicalPath
 	var rootPath = new File(currDir).getAbsolutePath
 	var indIndent = false
 	var indScroll = true
@@ -146,7 +147,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 			val q       = Option(ta.selected).map(_.trim).filter(_.nonEmpty).getOrElse("")
 			val f       = new File(path)
 			val baseDir = if (f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath
-			ZFuzzyPicker.show(root, ta.peer, q, relativeTo = Some(baseDir)).foreach(ta.selected = _)
+			ZFuzzyPicker.show(colRoot, ta.peer, q, relativeTo = Some(baseDir)).foreach(ta.selected = _)
 
 		case e : KeyReleased =>
 			// Ctrl+Enter: execute existing selection as command, or start/end capture mode
@@ -414,9 +415,12 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 			case _ =>
 				// Plumbing dispatch: user-defined pattern rules, checked before built-in path resolution
 				val wdForPlumb = { val f = new File(path); if (f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath }
-				ZPlumbing.plumb(txt, wdForPlumb) match {
-					case Some((PlumbExec, cmd)) => publish(new ZPlumbExecEvent(this, cmd, wdForPlumb)); true
-					case Some((PlumbLook, s))   => look(s, fromTag)
+				ZPlumbing.plumb(PlumbMessage(txt, wdForPlumb, src = path)) match {
+					case Some(r) if r.port == PlumbPortExec =>
+						publish(new ZPlumbExecEvent(this, r.cmd.getOrElse(""), wdForPlumb)); true
+					case Some(r) =>
+						val target = r.message.data + r.message.attrs.get("addr").map(":" + _).getOrElse("")
+						look(target, fromTag)
 					case None =>
 						// Path cases: extract file and optional location suffix
 						val (stxt, loc) = txt match {
