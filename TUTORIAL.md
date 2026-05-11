@@ -618,7 +618,16 @@ ColorSelFore 255 255 255  ← Selection foreground
 
 ColorTBack 50 50 60       ← Tag background
 ColorTFore 180 180 220    ← Tag foreground
+ColorTCaret 180 180 220   ← Tag caret
+ColorTSelBack 96 96 96    ← Tag selection background
+ColorTSelFore 255 255 255 ← Tag selection foreground
 ```
+
+**Scope rules:**
+
+- `Color T*` — applies to the **current level's tag line only**. Run from a window tag to style that window's tag, from a column tag to style the column's tag, or from the app tag to style the app tag.
+- `ColorAll T*` — applies to the current level's tag **and cascades down** to all children. Run from the app tag to restyle every tag line in the editor at once; from a column tag to restyle that column and all its windows.
+- Body colour variants (`ColorBack`, `ColorFore`, etc.) only apply at the window level. Running them from a column or app tag line has no effect.
 
 `Props` will show you the current RGB values for all colour settings if you need to inspect or copy them.
 
@@ -747,7 +756,7 @@ The commands pre-loaded into each tag line are just defaults — they can be cus
 | Key | What it controls | Built-in default |
 |-----|-----------------|-----------------|
 | `tag.app` | App tag line content | `Help NewCol History Put Dump Load Dir ` |
-| `tag.col` | Column tag line default | `CloseCol Close New Sort ` |
+| `tag.col` | Column tag line default | `CloseCol Close New Sort Color ColorAll ` |
 | `tag.wnd` | Window tag line default | `Get Put Zerox Close \| Undo Redo Wrap Ln Indent Mark Bind ` |
 | `tag.cmd` | Command/results window tag line default | `Close \| Undo Redo Wrap Kill Clear Font Scroll Input ` |
 | `history.limit` | Max entries kept in the command history ring buffer | `500` |
@@ -913,7 +922,9 @@ Scripts are plain executables — shell scripts, Python scripts, anything. They 
 
 ## 14. Plumbing Rules
 
-Plumbing rules are z's extension point for B3 dispatch. Before the editor applies its built-in look/navigate/execute logic, it checks your plumbing rules top-to-bottom. The first rule whose regex matches the selected text wins.
+Plumbing rules are z's extension point for B3 dispatch. Before the editor applies its built-in look/navigate/execute logic, it checks your plumbing rules top-to-bottom. The first rule whose conditions all match wins.
+
+The rule format follows Plan 9 Acme's plumbing model: multi-line blocks with separate condition and action verbs, giving you expressive guards (file existence checks, working-directory context, source window) before committing to an action.
 
 ### Why Plumbing?
 
@@ -921,34 +932,80 @@ The built-in B3 rules cover files, line numbers, and searches. But real-world ou
 
 ### The Plumbing File
 
-Rules live in `~/.z/plumbing`. The file is optional; if it does not exist, z uses the built-in rules. If it exists, it completely replaces them — so copy the built-ins into your file if you want to keep them.
+Rules live in `~/.z/plumbing`. The file is optional; if it does not exist, z uses the built-in rules. If it exists, it completely replaces them — copy the built-ins into your file if you want to keep them.
 
 Reload at any time by executing `Plumb` from any tag line (no restart needed).
 
 ### Rule Format
 
+Rules are **blank-line-separated blocks**. Each block is a sequence of condition lines followed by action lines. All conditions must pass; actions are applied in order once they do.
+
 ```
-match <label> /<regex>/ exec <template>
-match <label> /<regex>/ look <template>
+# Comment lines start with #
+
+# Condition lines (all must pass):
+data matches <regex>        # match the selected text; sets $1..$n from groups
+arg isfile <path-template>  # expanded path must be an existing file; sets $arg
+arg isdir  <path-template>  # expanded path must be an existing directory; sets $arg
+wdir matches <regex>        # match the working directory
+src is <value>              # match the source window's path exactly
+type is <value>             # always passes (Plan 9 compat)
+
+# Action lines (applied in order):
+data set <template>         # rewrite the matched data
+attr add <key>=<template>   # set an attribute (e.g. addr=<line-number>)
+attr set <key>=<template>   # alias for attr add
+plumb to edit               # open result in editor (look)
+plumb to exec               # run result as a shell command
+plumb start <cmd-template>  # command to run when port is exec
+plumb client <program>      # ignored (Plan 9 compat)
 ```
 
-- **`exec`** — expand the template and run it as a shell command; output appears in a `+plumb` window.
-- **`look`** — expand the template and re-run B3 navigation on the result; use this to produce a `file:line` reference.
+A block must contain a `plumb to` action to be valid.
 
-Template variables: `$0` = full match, `$1`…`$N` = capture groups, `$cwd` = working directory.
+### Template Variables
 
-> **Note:** regex may not contain a literal `/`; use `[/]` instead (e.g. `https:[/][/]` for URL schemes).
+| Variable | Value |
+|----------|-------|
+| `$0` | Current value of the data field |
+| `$1`…`$n` | Capture groups from `data matches` |
+| `$wdir` | Working directory |
+| `$arg` | Absolute path resolved by `arg isfile` or `arg isdir` |
+| `$file` | Alias for `$arg` |
+
+All variables are available in every action template — `data set`, `attr add`, and `plumb start`. `$1`…`$n` are frozen at condition-evaluation time and do not change across actions. `$0` is live: it reflects the current value of `data`, so after a `data set` action, `$0` in the next action sees the updated value.
+
+### Ports
+
+- **`plumb to edit`** — opens the data as a file or look target. If `attr add addr=<n>` was set, navigation jumps to that line.
+- **`plumb to exec`** — runs the command from `plumb start` in a `+plumb` scratch window.
 
 ### Built-In Rules
 
-When `~/.z/plumbing` does not exist, two rules are active:
+When `~/.z/plumbing` does not exist, three blocks are active:
 
-| Label | Pattern | Action |
-|-------|---------|--------|
-| `url` | `https?://\S+` | `exec xdg-open $0` — opens URL in the system browser |
-| `filecol` | `^(.+):(\d+):(\d+)` | `look $1:$2` — jumps to `file:line` from `file:line:col` compiler output |
+```
+# URL → browser
+data matches https?://\S+
+plumb to exec
+plumb start xdg-open $0
 
-The `filecol` rule is what makes B3-clicking a Go, Scala, or Rust compiler error line jump directly to the source location.
+# file:line:col → navigate to line (file must exist)
+data matches ^(.+):(\d+):(\d+)$
+arg isfile $1
+data set $1
+attr add addr=$2
+plumb to edit
+
+# file:line → navigate to line (file must exist)
+data matches ^(.+):(\d+)$
+arg isfile $1
+data set $1
+attr add addr=$2
+plumb to edit
+```
+
+The `arg isfile` guard is what makes these safe: `foo:42:7` only triggers file navigation if `foo` is an existing file in the current working directory. Plain text that happens to match `word:number:number` is ignored.
 
 ### Example Plumbing File
 
@@ -956,21 +1013,49 @@ The `filecol` rule is what makes B3-clicking a Go, Scala, or Rust compiler error
 # ~/.z/plumbing
 
 # Open URLs in the browser
-match url  /https?:[/][/]\S+/  exec xdg-open $0
+data matches https?://\S+
+plumb to exec
+plumb start xdg-open $0
 
 # Jump from Go/Rust compiler errors:  ./main.go:42:5: undefined: foo
-match goerr  /^([^:]+\.(go|rs)):(\d+):/  look $1:$3
+data matches ^([^:]+\.(go|rs)):(\d+):
+arg isfile $1
+data set $1
+attr add addr=$3
+plumb to edit
 
 # Jump from Java/Kotlin stack frames:  at com.example.Foo(Foo.java:99)
-match jexc  /\((\S+\.java):(\d+)\)/  look $1:$2
+data matches \((\S+\.java):(\d+)\)
+arg isfile $1
+data set $1
+attr add addr=$2
+plumb to edit
 
-# Open Jira tickets in the browser
-match jira  /[A-Z]+-\d+/  exec xdg-open https://jira.example.com/browse/$0
+# Open Jira tickets in the browser (only in work directories)
+wdir matches /work/
+data matches [A-Z]+-\d+
+plumb to exec
+plumb start xdg-open https://jira.example.com/browse/$0
+
+# Generic file:line:col navigation (fallback, no existence check)
+data matches ^(.+):(\d+):(\d+)$
+data set $1
+attr add addr=$2
+plumb to edit
 ```
 
-### Environment Variables
+### Backward Compatibility
 
-Exec actions receive the same environment as all other external commands:
+The old single-line format is still accepted alongside new-format blocks:
+
+```
+match url  /https?:\/\/\S+/  exec xdg-open $0
+match filecol  /^(.+):(\d+):(\d+)/  look $1:$2
+```
+
+Old-format lines use `/` as the regex delimiter (literal `/` must be escaped as `\/`) and `$0` means the full match from the regex (not the full data). New-format blocks are recommended for all new rules.
+
+### Environment Variables for Exec Actions
 
 | Variable | Value |
 |---------|-------|
@@ -1169,10 +1254,12 @@ Scripts live in `.z/scripts/` (project) or `~/.z/scripts/` (global). See [Sectio
 |---------|-------|
 | Rule file | `~/.z/plumbing` (optional) |
 | Reload | `Plumb` command from any tag line |
-| Rule syntax | `match <label> /<regex>/ exec <template>` or `look <template>` |
-| Template vars | `$0` full match, `$1`…`$N` groups, `$cwd` working dir |
-| Built-in: `url` | Opens `https?://…` URLs in system browser |
-| Built-in: `filecol` | Jumps to `file:line` from `file:line:col` compiler output |
+| Rule format | Blank-line-separated blocks (Plan 9 style) |
+| Conditions | `data matches`, `arg isfile`, `arg isdir`, `wdir matches`, `src is` |
+| Actions | `data set`, `attr add`, `plumb to edit\|exec`, `plumb start` |
+| Template vars | `$0` full data, `$1`…`$n` groups, `$wdir`, `$arg`/`$file` |
+| Built-in: URL | Opens `https?://…` in browser |
+| Built-in: file:line(:col) | `arg isfile` guard → navigate to line (file must exist) |
 
 See [Section 14](#14-plumbing-rules).
 
@@ -1202,8 +1289,9 @@ See [Section 14](#14-plumbing-rules).
 | `CLine` | Toggle current-line highlight |
 | `Hilite [lang\|off]` | Syntax highlighting |
 | `Theme [name]` | Colour theme |
-| `ColorBack R G B` | Body background colour |
-| `ColorFore R G B` | Body foreground colour |
+| `Color(Back\|Fore\|Caret\|SelBack\|SelFore) R G B` | Body colours (window level only) |
+| `Color(TBack\|TFore\|TCaret\|TSelBack\|TSelFore) R G B` | Tag colour, current level only |
+| `ColorAll(TBack\|TFore\|TCaret\|TSelBack\|TSelFore) R G B` | Tag colour, cascades to all children |
 
 ### LSP
 

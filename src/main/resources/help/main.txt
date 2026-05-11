@@ -239,49 +239,90 @@ USER SCRIPTS
 PLUMBING RULES
 
     Plumbing rules intercept B3 actions before the built-in look/execute logic.
-    Rules are evaluated top-to-bottom; the first match wins.
+    Rules are evaluated top-to-bottom; the first rule whose conditions all pass wins.
 
     Rule file:  ~/.z/plumbing   (optional; if absent, built-in rules are used)
     Reload:     Plumb           (execute from any tag line to reload the file)
 
-    Rule format (one rule per line; '#' introduces a comment):
+    Rule format — blank-line-separated blocks (Plan 9 Acme style):
 
-        match <label> /<regex>/ exec <template>
-        match <label> /<regex>/ look <template>
+        # Condition lines (all must pass)
+        data matches <regex>        match selected text; sets $1..$n from groups
+        arg isfile <template>       expanded path must be an existing file; sets $arg
+        arg isdir  <template>       expanded path must be an existing directory; sets $arg
+        wdir matches <regex>        match the working directory
+        src is <value>              match source window path exactly
+        type is <value>             always passes (Plan 9 compat)
 
-      label     A name for the rule (informational only)
-      regex     Java regular expression; groups are captured as $1..$N.
-                Note: regex may not contain a literal '/'; use [/] instead.
-      exec      Expand <template> and run it as a shell command.
-                Output appears in a +plumb scratch window.
-      look      Expand <template> and re-run B3 navigation on the result.
-                Typically produces a file:line reference for jump-to-error.
+        # Action lines (applied in order once conditions pass)
+        data set <template>         rewrite the data
+        attr add <key>=<template>   set an attribute (e.g. addr=42 for line number)
+        plumb to edit               open result in editor (look); uses attr addr for line
+        plumb to exec               run plumb-start command in a +plumb window
+        plumb start <template>      command for exec destination (one per block; if
+                                    multiple appear, the last one wins — use
+                                    sh -c "cmd1 && cmd2" to chain commands)
 
-    Template variables:
-      $0        The full matched text
-      $1..$N    Capture groups 1 through N
-      $cwd      Working directory at the time of the B3 action
+    Template variables (available in all action templates: data set, attr add, plumb start):
+      $0        Current value of the data field (updated after each data set)
+      $1..$n    Capture groups from data matches (frozen at condition time)
+      $wdir     Working directory
+      $arg      Absolute path resolved by arg isfile / arg isdir  ($file is an alias)
 
     Exec actions run with the same environment variables as other external
     commands (Z_FILE, Z_FP, Z_DIR, Z_SELECTION) and with the cwd set to the
     source window's directory.
 
     Built-in rules (active only when ~/.z/plumbing does not exist):
-      match url     /https?:\/\/\S+/       exec xdg-open $0     (opens URL in browser)
-      match filecol /^(.+):(\d+):(\d+)/   look $1:$2            (jump to file:line from file:line:col)
+
+        # URL → browser
+        data matches https?://\S+
+        plumb to exec
+        plumb start xdg-open $0
+
+        # file:line:col → navigate to line (file must exist relative to cwd)
+        data matches ^(.+):(\d+):(\d+)$
+        arg isfile $1
+        data set $1
+        attr add addr=$2
+        plumb to edit
+
+        # file:line → navigate to line (file must exist relative to cwd)
+        data matches ^(.+):(\d+)$
+        arg isfile $1
+        data set $1
+        attr add addr=$2
+        plumb to edit
+
+    The arg isfile guard means file:line:col only triggers when the file
+    actually exists — plain text like "foo:42:7" is ignored.
 
     Example ~/.z/plumbing:
 
         # Open URLs in the browser
-        match url  /https?:[/][/]\S+/  exec xdg-open $0
+        data matches https?://\S+
+        plumb to exec
+        plumb start xdg-open $0
 
-        # Jump to Go compiler error:  ./main.go:42:5: undefined: foo
-        match goerr  /^([^:]+\.go):(\d+):/  look $1:$2
+        # Jump from Go/Rust compiler errors:  ./main.go:42:5: undefined: foo
+        data matches ^([^:]+\.(go|rs)):(\d+):
+        arg isfile $1
+        data set $1
+        attr add addr=$3
+        plumb to edit
 
-        # Jump to Java exception:  at com.example.Foo(Foo.java:99)
-        match jexc  /\((\S+\.java):(\d+)\)/  look $1:$2
+        # Jump from Java/Kotlin stack frames:  at com.example.Foo(Foo.java:99)
+        data matches \((\S+\.java):(\d+)\)
+        arg isfile $1
+        data set $1
+        attr add addr=$2
+        plumb to edit
 
-    If ~/.z/plumbing exists but contains no valid rules, no rules are active
+    Old single-line format is still accepted for backward compatibility:
+        match <label> /<regex>/ exec <template>
+        match <label> /<regex>/ look <template>
+
+    If ~/.z/plumbing exists but contains no valid blocks, no rules are active
     (the built-in rules are suppressed). An empty plumbing file means "no plumbing".
 
 
@@ -314,9 +355,20 @@ APPEARANCE
                       default for new windows.
 
     Color(Back|Fore|Caret|SelBack|SelFore) R G B
-                      Set body colours (integers 0–255)
+                      Set body colours (integers 0–255).
+                      At the window level, applies to that window's body.
+                      At the column or app level, body colours are not applicable (no-op).
     Color(TBack|TFore|TCaret|TSelBack|TSelFore) R G B
-                      Set tag line colours (integers 0–255)
+                      Set tag line colours (integers 0–255).
+                      Applies to the current level's tag line only — does not cascade.
+                      Works at window, column, and app level.
+    ColorAll(TBack|TFore|TCaret|TSelBack|TSelFore) R G B
+                      Set tag line colours and cascade the change down.
+                      From the app tag line: changes the app tag, then all column tags,
+                        then all window tags.
+                      From a column tag line: changes the column tag and all its window tags.
+                      From a window tag line: same as Color (windows are leaf nodes).
+                      Body-colour variants (ColorAllBack, etc.) are not supported.
 
     Hilite            Enable syntax highlighting, auto-detecting language from the file extension
     Hilite [lang]     Enable syntax highlighting for a specific language
@@ -442,7 +494,7 @@ GLOBAL SETTINGS  (~/.z/settings)
     tag.app               Content of the app tag line at startup.
                           Default: "Help NewCol History Put Dump Load Dir "
     tag.col               Default content for new column tag lines.
-                          Default: "CloseCol Close New Sort "
+                          Default: "CloseCol Close New Sort Color ColorAll "
     tag.wnd               Default content for new window tag lines.
                           Default: "Get Put Zerox Close | Undo Redo Wrap Ln Indent Mark Bind "
     tag.cmd               Default content for command/results window tag lines.

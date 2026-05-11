@@ -34,18 +34,14 @@ class ZPanel(initTagText: String) extends BorderPanel {
 	var cols : List[ZCol] = Nil
 	var rotated = false
 
-	var colorTBack = new Color(0xFF, 0xFF, 0xFF)
-	var colorTFore = new Color(0x00, 0x00, 0x00)
-	var colorTCaret = new Color(0x00, 0x00, 0x00)
-	var colorTSelBack =new Color(0x96, 0x96, 0x96)
-	var colorTSelFore = new Color(0xFF, 0xFF, 0xFF)
-	var  dragSel = false
+	var tagScheme = ZColorScheme(Color.WHITE, Color.BLACK, Color.BLACK, ZColors.TagSelBack, Color.WHITE)
+	var dragSel = false
 	var dragSelMark = -1
 	var prevCmd = ""
 	var currentDir = new File(".").getCanonicalPath
 
 	val tag = new ZTextArea(initTagText)
-	tag.colors(colorTBack, colorTFore,  colorTCaret, colorTSelBack, colorTSelFore )
+	tagScheme.applyTo(tag)
 	tag.border = BorderFactory.createMatteBorder(0,0,1,0, Color.BLACK)
 	tag.font = ZFonts.SANS_SERIF_MONO
 
@@ -170,6 +166,16 @@ class ZPanel(initTagText: String) extends BorderPanel {
 						w.body.text = CommandLog.render
 						w.dirty = false
 					}
+				case ZWnd.reColors(t, r, g, b) if t.startsWith("T") =>
+					tagScheme = tagScheme.withComponent(t.drop(1), r.toInt, g.toInt, b.toInt)
+					tagScheme.applyTo(tag)
+				case ZWnd.reColors(_, _, _, _) => // non-T: panel has no body, no-op
+				case ZWnd.reColorAll(t, r, g, b) if t.startsWith("T") =>
+					tagScheme = tagScheme.withComponent(t.drop(1), r.toInt, g.toInt, b.toInt)
+					tagScheme.applyTo(tag)
+					cols.foreach(_.command(cmd))
+				case ZWnd.reColorAll(_, _, _, _) => // non-T: just propagate to columns
+					cols.foreach(_.command(cmd))
 				case ZCol.reExternalCmd(op, cmd) =>
 					if(cols.length < 1)  this += new ZCol(currentDir)
 					cols.last.command("! " + cmd)
@@ -196,28 +202,27 @@ class ZPanel(initTagText: String) extends BorderPanel {
 		}
 	}
 
-	def look(txt : String) : Boolean = {
-		var  retval = true
-		if(txt == null || txt.trim.isEmpty)  return retval
-
-		txt match {
-			case ZCol.reFileLoc(f, loc) =>
-				if(cols.length < 1) this += new ZCol(currentDir)
-				cols.last.fileLook(f, loc)				
-			case s => 
-				if(new File(s).exists) {
-					if(cols.length < 1)  this += new ZCol(currentDir)
-					cols.last.look(s)
-				} else {
-					retval = cols.exists(_.look(s))
-				}
+	def look(txt: String): Boolean = {
+		if (txt == null || txt.trim.isEmpty) true
+		else {
+			val found = txt match {
+				case ZCol.reFileLoc(f, loc) =>
+					if (cols.length < 1) this += new ZCol(currentDir)
+					cols.last.fileLook(f, loc)
+					true
+				case s =>
+					if (new File(s).exists) {
+						if (cols.length < 1) this += new ZCol(currentDir)
+						cols.last.look(s)
+						true
+					} else cols.exists(_.look(s))
+			}
+			prevCmd = "Look: " + txt
+			publish(new ZPanelStatusEvent(this, properties))
+			val ts = CommandLog.record("app", currentDir, txt)
+			publish(new ZCmdEchoEvent(ts, "app", currentDir, txt))
+			found
 		}
-
-		prevCmd = "Look: " + txt
-		publish(new ZPanelStatusEvent(this, properties))
-		val ts = CommandLog.record("app", currentDir, txt)
-		publish(new ZCmdEchoEvent(ts, "app", currentDir, txt))
-		return retval
 	}
 
 	def +=(col : ZCol):ZCol = {
@@ -233,30 +238,16 @@ class ZPanel(initTagText: String) extends BorderPanel {
 		col
 	}
 
-	private def collectDividers(c: java.awt.Component): List[Int] = c match {
-		case sp: javax.swing.JSplitPane
-			if sp.getClientProperty(ZPanel.DividerKey) == java.lang.Boolean.TRUE =>
-			sp.getDividerLocation :: collectDividers(sp.getRightComponent)
-		case _ => Nil
-	}
-
-	private def applyDividers(c: java.awt.Component, locs: List[Int]): Unit = (c, locs) match {
-		case (sp: javax.swing.JSplitPane, loc :: rest) =>
-			sp.setDividerLocation(loc)
-			applyDividers(sp.getRightComponent, rest)
-		case _ =>
-	}
-
 	def refresh = {
 		val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
 			.getLayoutComponent(java.awt.BorderLayout.CENTER)
-		val dividers = if (center != null) collectDividers(center) else Nil
+		val dividers = if (center != null) ZUtilities.collectDividers(center) else Nil
 		val newCenter = render(cols)
 		layout(newCenter) = BorderPanel.Position.Center
 		revalidate()
 		if (dividers.nonEmpty) {
 			val centerPeer = newCenter.peer
-			SwingUtilities.invokeLater(() => applyDividers(centerPeer, dividers))
+			SwingUtilities.invokeLater(() => ZUtilities.applyDividers(centerPeer, dividers))
 		}
 	}
 
@@ -409,41 +400,48 @@ class ZPanel(initTagText: String) extends BorderPanel {
 				SwingUtilities.invokeLater(() => {
 					val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
 						.getLayoutComponent(java.awt.BorderLayout.CENTER)
-					if (center != null) applyDividers(center, divLocs)
+					if (center != null) ZUtilities.applyDividers(center, divLocs)
 				})
 			}
+
+			def intProp(key: String, default: Int): Int = p.get(key).flatMap(_.toIntOption).getOrElse(default)
+			tagScheme = ZColorScheme(
+				new Color(intProp("tag.color.back",    tagScheme.back.getRGB)),
+				new Color(intProp("tag.color.fore",    tagScheme.fore.getRGB)),
+				new Color(intProp("tag.color.caret",   tagScheme.caret.getRGB)),
+				new Color(intProp("tag.color.selback", tagScheme.selBack.getRGB)),
+				new Color(intProp("tag.color.selfore", tagScheme.selFore.getRGB)))
+			tagScheme.applyTo(tag)
 		}
 	}
 
-	def properties : Map[String, String] = {
-		var p = new HashMap[String, String]
-		p += "column.count"          -> String.valueOf(cols.length)
-		p += "command.prev"          -> prevCmd
-		p += "app.dir"               -> currentDir
-		p += "app.font.fixed"        -> ZFonts.defaultFixed.getFontName
-		p += "app.font.fixed.size"   -> ZFonts.defaultFixed.getSize.toString
-		p += "app.font.variable"     -> ZFonts.defaultVar.getFontName
-		p += "app.font.variable.size"-> ZFonts.defaultVar.getSize.toString
-		p += "app.font.tag"          -> ZFonts.defaultTag.getFontName
-		p += "app.font.tag.size"     -> ZFonts.defaultTag.getSize.toString
-		p += "app.rotated"           -> rotated.toString
-		p
-	}
+	def properties: Map[String, String] = Map(
+		"column.count"           -> cols.length.toString,
+		"command.prev"           -> prevCmd,
+		"app.dir"                -> currentDir,
+		"app.font.fixed"         -> ZFonts.defaultFixed.getFontName,
+		"app.font.fixed.size"    -> ZFonts.defaultFixed.getSize.toString,
+		"app.font.variable"      -> ZFonts.defaultVar.getFontName,
+		"app.font.variable.size" -> ZFonts.defaultVar.getSize.toString,
+		"app.font.tag"           -> ZFonts.defaultTag.getFontName,
+		"app.font.tag.size"      -> ZFonts.defaultTag.getSize.toString,
+		"app.rotated"            -> rotated.toString,
+		"tag.color.back"         -> tagScheme.back.getRGB.toString,
+		"tag.color.fore"         -> tagScheme.fore.getRGB.toString,
+		"tag.color.caret"        -> tagScheme.caret.getRGB.toString,
+		"tag.color.selback"      -> tagScheme.selBack.getRGB.toString,
+		"tag.color.selfore"      -> tagScheme.selFore.getRGB.toString,
+	)
 
-	def dump(s : String = "z.dump") = {
-		var p = properties
-		var i = 1
-		cols.foreach((c) => {
-			c.dump.foreach((t) => p += "column." + i.toString + "." + t._1 -> t._2)
-			i = i + 1
-		})
-
+	def dump(s: String = "z.dump"): Unit = {
+		val colEntries = cols.zipWithIndex.flatMap { case (c, i) =>
+			c.dump.map { case (k, v) => s"column.${i+1}.$k" -> v }
+		}
 		val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
 			.getLayoutComponent(java.awt.BorderLayout.CENTER)
-		val divs = if (center != null) collectDividers(center) else Nil
-		p += "col.divider.count" -> divs.length.toString
-		divs.zipWithIndex.foreach { case (loc, idx) => p += s"col.divider.$idx" -> loc.toString }
-
+		val divs = if (center != null) ZUtilities.collectDividers(center) else Nil
+		val divEntries = divs.zipWithIndex.map { case (loc, idx) => s"col.divider.$idx" -> loc.toString }
+		val p = properties ++ colEntries ++ Map("col.divider.count" -> divs.length.toString) ++ divEntries
 		ZSettings.dump(p, new File(s), "Z Dump")
 	}
 }

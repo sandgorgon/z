@@ -147,11 +147,11 @@ object ZFuzzyPicker {
 	}
 
 	// UI colors matching the editor's default schemes
-	private val ColQuery     = new Color(0x4A, 0x61, 0x95)  // tag blue
+	private val ColQuery     = ZColors.TagBack
 	private val ColQueryText = Color.WHITE
-	private val ColListBg    = new Color(0xFF, 0xFF, 0xE0)  // body yellow
+	private val ColListBg    = ZColors.BodyBack
 	private val ColListFg    = Color.BLACK
-	private val ColSelBg     = new Color(0xC8, 0x75, 0x9F)  // editor selection
+	private val ColSelBg     = ZColors.BodySelBack
 	private val ColSelFg     = Color.WHITE
 	private val ColStatus    = new Color(0xEE, 0xEE, 0xEE)
 

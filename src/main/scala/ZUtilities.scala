@@ -38,8 +38,24 @@ object ZUtilities {
 		t
 	}
 
+	val DividerKey = "z.divider"
+
 	def separator = File.separator
 	def isFullPath(s: String) = (new File(s)).isAbsolute
+
+	def collectDividers(c: java.awt.Component): List[Int] = c match {
+		case sp: javax.swing.JSplitPane
+			if sp.getClientProperty(DividerKey) == java.lang.Boolean.TRUE =>
+			sp.getDividerLocation :: collectDividers(sp.getRightComponent)
+		case _ => Nil
+	}
+
+	def applyDividers(c: java.awt.Component, locs: List[Int]): Unit = (c, locs) match {
+		case (sp: javax.swing.JSplitPane, loc :: rest) =>
+			sp.setDividerLocation(loc)
+			applyDividers(sp.getRightComponent, rest)
+		case _ =>
+	}
 
 	val reDirQuoted = """Dir\s+'(.+)'""".r
 	val reDir       = """Dir\s+(\S+)""".r
@@ -48,31 +64,31 @@ object ZUtilities {
 	val reTagFont   = """TagFont\s+'(.+)'\s+([0-9]+)""".r
 
 	def expandPath(s: String, root: String): String = {
-		if(s == null || s.isBlank) return s
-
-		val home = System.getProperty("user.home")
-
-		if(s == "~")
-			new File(home).getCanonicalPath
-		else if(s.startsWith("~/"))
-			new File(home + separator + s.drop(2)).getCanonicalPath
-		else if(s == "." || s == ".." || s.startsWith("./") || s.startsWith("../"))
-			new File(root + separator + s).getCanonicalPath
-		else s
+		if (s == null || s.isBlank) s
+		else {
+			val home = System.getProperty("user.home")
+			if (s == "~")
+				new File(home).getCanonicalPath
+			else if (s.startsWith("~/"))
+				new File(home + separator + s.drop(2)).getCanonicalPath
+			else if (s == "." || s == ".." || s.startsWith("./") || s.startsWith("../"))
+				new File(root + separator + s).getCanonicalPath
+			else s
+		}
 	}
 
 	def selectedText(ta : ZTextArea, e : MouseEvent) : String = selectedText(ta, ta.peer.viewToModel2D(e.point).toInt)
 	def selectedText(ta : ZTextArea, pt : Point) : String = selectedText(ta, ta.peer.viewToModel2D(pt).toInt)
 	def selectedText(ta : ZTextArea, pos : Int) : String = {
-		val sel = Option(ta.selected).filter(_ => pos >= ta.selectionStart && pos <= ta.selectionEnd)
-		if(sel.isDefined) return sel.get.trim
-
-		val end = Utilities.getWordEnd(ta.peer, pos)
-		val start = ta.lineStart(ta.lineNo(pos))
-
-		ta.getTextRange(start, end) match {
-			case ZWnd.rePre(t) => t
-			case _ => ""
+		Option(ta.selected).filter(_ => pos >= ta.selectionStart && pos <= ta.selectionEnd) match {
+			case Some(s) => s.trim
+			case None =>
+				val end   = Utilities.getWordEnd(ta.peer, pos)
+				val start = ta.lineStart(ta.lineNo(pos))
+				ta.getTextRange(start, end) match {
+					case ZWnd.rePre(t) => t
+					case _ => ""
+				}
 		}
 	}
 
