@@ -233,6 +233,9 @@ class ZPanel(initTagText: String) extends BorderPanel {
 					cols.flatMap(_.wnds).find(w =>
 						!ZWnd.isScratchBuffer(w.rawPath) && w.path == cp))
 			}
+		col.colHandle.onDragRelease = (dx, dy) =>
+			if (math.abs(dx) >= math.abs(dy)) { if (dx < 0) col.command("Lt") else col.command("Rt") }
+			else                               { if (dy < 0) col.command("Lt") else col.command("Rt") }
 		refresh
 		listenTo(col)
 		col

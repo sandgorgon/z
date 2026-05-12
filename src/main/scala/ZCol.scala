@@ -49,12 +49,19 @@ class ZCol(currDir : String) extends BorderPanel {
 
 	val tag = new ZTextArea(ZCol.colTagLine)
 	tagScheme.applyTo(tag)
-	tag.border = BorderFactory.createMatteBorder(0,0,1,0, Color.BLACK)
 	tag.font = ZFonts.defaultTag
+
+	val colHandle = new ZDragHandle(ZColors.handleFor(tagScheme.back))
+
+	val tagRow = new BorderPanel {
+		peer.setBorder(BorderFactory.createMatteBorder(0,0,1,0, Color.BLACK))
+		layout(colHandle) = BorderPanel.Position.West
+		layout(tag) = BorderPanel.Position.Center
+	}
 
 	val body : Panel = new BorderPanel
 
-	layout(tag) = BorderPanel.Position.North
+	layout(tagRow) = BorderPanel.Position.North
 	layout(body) = BorderPanel.Position.Center
 
 	deafTo(this)
@@ -300,10 +307,12 @@ class ZCol(currDir : String) extends BorderPanel {
 				case ZWnd.reColors(t, r, g, b) if t.startsWith("T") =>
 					tagScheme = tagScheme.withComponent(t.drop(1), r.toInt, g.toInt, b.toInt)
 					tagScheme.applyTo(tag)
+					colHandle.background = ZColors.handleFor(tagScheme.back)
 				case ZWnd.reColors(_, _, _, _) => // non-T: col has no body, no-op
 				case ZWnd.reColorAll(t, r, g, b) if t.startsWith("T") =>
 					tagScheme = tagScheme.withComponent(t.drop(1), r.toInt, g.toInt, b.toInt)
 					tagScheme.applyTo(tag)
+					colHandle.background = ZColors.handleFor(tagScheme.back)
 					wnds.foreach(_.command(cmd))
 				case ZWnd.reColorAll(_, _, _, _) => // non-T: just propagate to windows
 					wnds.foreach(_.command(cmd))
@@ -351,6 +360,9 @@ class ZCol(currDir : String) extends BorderPanel {
 		wnds = wnds :+ w
 		wndIndex = wndIndex + (w.rawPath -> w)
 		w.lookUpward = path => look(path, false)
+		w.tagHandle.onDragRelease = (dx, dy) =>
+			if (math.abs(dy) >= math.abs(dx)) { if (dy < 0) w.command("Up") else w.command("Dn") }
+			else                               { if (dx < 0) w.command("Lt") else w.command("Rt") }
 		listenTo(w)
 		refresh
 	}
@@ -495,6 +507,7 @@ class ZCol(currDir : String) extends BorderPanel {
 			new Color(int("tag.color.selback", tagScheme.selBack.getRGB)),
 			new Color(int("tag.color.selfore", tagScheme.selFore.getRGB)))
 		tagScheme.applyTo(tag)
+		colHandle.background = ZColors.handleFor(tagScheme.back)
 
 		for(i <- 1 to cnt) {
 			val w = genWnd()

@@ -72,14 +72,24 @@ object z extends SwingApplication {
 		case e : ZStatusClearEvent => statusLeft.text = ""
 
 		case e : ZPanelStatusEvent =>
-						e.properties.get("app.dir").foreach(d => frame.title = d + " - z editor")
+						e.properties.get("app.dir").foreach { d =>
+							val f = new java.io.File(d)
+							val label = Option(f.getParentFile).map(_.getName).filter(_.nonEmpty)
+								.fold(f.getName)(par => s"$par/${f.getName}")
+							frame.title = label + " — z"
+						}
 
 		case e : ZCmdEchoEvent =>
 						statusRight.text = s"[${e.timestamp}] ${e.cmd}"
 	}
 
 	def top = new MainFrame {
-		title = new File(".").getCanonicalPath + " - z editor"
+		title = {
+			val f = new File(".").getCanonicalFile
+			val label = Option(f.getParentFile).map(_.getName).filter(_.nonEmpty)
+				.fold(f.getName)(par => s"$par/${f.getName}")
+			label + " — z"
+		}
 		iconImage = Toolkit.getDefaultToolkit().createImage(resourceFromClassloader("images/z.png"))
 
 		contents = MainWindow

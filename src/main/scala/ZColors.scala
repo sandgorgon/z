@@ -31,4 +31,17 @@ object ZColors {
 	val TagSelBack = new Color(0x96, 0x96, 0x96)   // panel/col tag selection background
 	val BodyBack   = new Color(0xFF, 0xFF, 0xE0)   // editor body background
 	val BodySelBack= new Color(0xC8, 0x75, 0x9F)   // body selection background
+
+	// Returns a handle color that contrasts with the given tag background:
+	// lightens dark tags, darkens light ones.
+	def handleFor(base: Color): Color = {
+		val lum = (0.299 * base.getRed + 0.587 * base.getGreen + 0.114 * base.getBlue) / 255
+		if (lum < 0.5) {
+			val f = 1.4
+			new Color((base.getRed * f).toInt.min(255), (base.getGreen * f).toInt.min(255), (base.getBlue * f).toInt.min(255))
+		} else {
+			val f = 0.75
+			new Color((base.getRed * f).toInt, (base.getGreen * f).toInt, (base.getBlue * f).toInt)
+		}
+	}
 }

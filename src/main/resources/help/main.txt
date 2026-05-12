@@ -121,6 +121,13 @@ WINDOW MANAGEMENT
     Up / Dn     Move the window up/down within its column
     Sort        Sort windows in a column alphabetically (from app tag line: sorts each column separately)
 
+    Drag handle Each tag line has a narrow grip bar on its left edge (cursor changes
+                to a move icon on hover). Press B1 on it and drag at least 20px to reorder:
+                  Window grip — vertical drag: moves the window Up/Dn within the column
+                              — horizontal drag: moves the window Lt/Rt to an adjacent column
+                  Column grip — horizontal drag (normal layout): moves the column Lt/Rt
+                              — vertical drag (rotated layout): moves the column Lt/Rt
+
     RotateView  Toggle the layout orientation.
                 From a column tag line: flips that column's windows between top-to-bottom and
                 side-by-side stacking.

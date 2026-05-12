@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import collection.immutable.HashMap
-import swing.{SplitPane, ScrollPane, Orientation}
+import swing.{SplitPane, Orientation}
 import swing.event.{KeyPressed, KeyReleased, Key, MouseClicked, MouseEntered, MouseExited, MousePressed, MouseDragged, MouseReleased, Event}
 
 import java.io.{File, BufferedWriter, OutputStreamWriter}
@@ -66,6 +66,8 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	tagScheme.applyTo(tag)
 	tag.rows = 1
 
+	val tagHandle = new ZDragHandle(ZColors.handleFor(tagScheme.back))
+
 	val body = new ZTextArea(initBodyText)
 	body.clineHighlight = true
 	bodyScheme.applyTo(body)
@@ -79,8 +81,9 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	body.font = fontFixed
 
 	dividerSize = 2
-	topComponent = new ScrollPane(tag) {
-		peer.setComponentOrientation(RIGHT_TO_LEFT)
+	topComponent = new swing.BorderPanel {
+		layout(tagHandle) = swing.BorderPanel.Position.West
+		layout(tag) = swing.BorderPanel.Position.Center
 	}
 
 	val bodyScroll = new org.fife.ui.rtextarea.RTextScrollPane(body.peer, false) {
@@ -100,6 +103,15 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	bodyScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS)
 	bottomComponent = swing.Component.wrap(bodyScroll)
 	styleGutter()
+
+	tag.peer.getDocument.addDocumentListener(new javax.swing.event.DocumentListener {
+		def changedUpdate(e: javax.swing.event.DocumentEvent): Unit = ()
+		def insertUpdate(e: javax.swing.event.DocumentEvent): Unit  = adjustTagDivider()
+		def removeUpdate(e: javax.swing.event.DocumentEvent): Unit  = adjustTagDivider()
+	})
+	peer.addComponentListener(new java.awt.event.ComponentAdapter {
+		override def componentResized(e: java.awt.event.ComponentEvent): Unit = adjustTagDivider()
+	})
 
 	listenTo(tag.mouse.moves, body.mouse.moves)
 	reactions += {
@@ -365,10 +377,26 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		case _                 => false
 	}
 
+	private def tagContentHeight(): Int = {
+		val insets = tag.peer.getInsets
+		try {
+			tag.peer.getUI.getRootView(tag.peer)
+				.getPreferredSpan(javax.swing.text.View.Y_AXIS).toInt +
+			insets.top + insets.bottom
+		} catch { case _: Throwable =>
+			tag.peer.getFontMetrics(tag.peer.getFont).getHeight + insets.top + insets.bottom
+		}
+	}
+
+	private def adjustTagDivider(): Unit = SwingUtilities.invokeLater(() =>
+		if (peer.getHeight > 0) peer.setDividerLocation(tagContentHeight())
+	)
+
 	private def applyColorComponent(t: String, r: String, g: String, b: String): Unit =
 		if (t.startsWith("T")) {
 			tagScheme = tagScheme.withComponent(t.drop(1), r.toInt, g.toInt, b.toInt)
 			tagScheme.applyTo(tag)
+			tagHandle.background = ZColors.handleFor(tagScheme.back)
 		} else {
 			bodyScheme = bodyScheme.withComponent(t, r.toInt, g.toInt, b.toInt)
 			bodyScheme.applyTo(body)
@@ -778,6 +806,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 			new Color(int("tag.color.selback", tagScheme.selBack.getRGB)),
 			new Color(int("tag.color.selfore", tagScheme.selFore.getRGB)))
 		tagScheme.applyTo(tag)
+		tagHandle.background = ZColors.handleFor(tagScheme.back)
 		tag.text = p.getOrElse(prefix + "tag.text", "+ " + ZCol.wndTagLine.trim)
 
 		indIndent      = p.getOrElse(prefix + "indent.auto",  "false") == "true"
