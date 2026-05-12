@@ -1,6 +1,6 @@
 Z — Plan 9 Acme-Inspired Editor
 ================================
-Version: 1.4.0
+Version: 1.8.0
 
 USAGE
 
@@ -72,10 +72,18 @@ MOUSE BUTTONS
                 Body: typed capture text is deleted after execution.
                 Tag:  typed capture text stays and remains highlighted after execution.
 
+                Cascade behaviour from app and column tag lines:
+                  App tag    — Ctrl+Enter runs the command in every column;
+                               Ctrl+F performs a look in every column (which in turn
+                               searches each column's windows)
+                  Column tag — Ctrl+Enter runs the command in every window in the column;
+                               Ctrl+F performs a look across the column's windows
+
     Ctrl+F      If text is already selected: look/navigate on it (B3 analog).
                 If capture mode is active: end capture and look/navigate on the
                 captured text (body text deleted on success; tag text stays).
                 Outside capture mode with no selection: no-op.
+                Cascade behaviour from app and column tag lines: see Ctrl+Enter above.
 
     Ctrl+B1     Brace/symbol matching selection.  Matched pairs: {}  <>  ()  []
                 Any other character is used as both the open and close delimiter.
@@ -94,6 +102,15 @@ FILE COMMANDS
     New              Create a new empty window; from the app tag line, creates one in each column
     NewCol           Create a new column (app tag line only)
     Zerox            Clone the current window into a new window (window tag line only)
+    NewZ [path]      Launch a new independent z instance. Path supports ~, ./, ../
+                     No-arg behaviour depends on which tag line it is executed from:
+                       Window tag  →  directory of the current window's file
+                       Column tag  →  the column's working directory
+                       App tag     →  z's working directory
+                     With a path: if it is a directory, opens there; if it is a file, opens at
+                     its parent directory. Path is resolved relative to the invoking level's
+                     working directory.
+                     No-op when running from sbt rather than the installed fat jar.
 
     Dump [fname]     Save the full editor state to fname (default: z.dump in working dir)
                      App tag line only.
@@ -390,7 +407,13 @@ APPEARANCE
 
 LANGUAGE SERVER PROTOCOL (LSP)
 
-    Lsp             Start an LSP server for the current file's language. Enables:
+    Lsp [projRoot]  Start an LSP server for the current file's language.
+                     projRoot sets the LSP workspace root (where the language server
+                     looks for build files: build.sbt, go.mod, Cargo.toml, etc.).
+                     Omit projRoot to use the window's current root as the workspace.
+                     This is independent of Dir — Dir controls where shell commands run;
+                     projRoot controls where the language server indexes the project.
+                     Enables:
                       · Squiggly underlines for errors, warnings, and info messages
                       · Hover tooltips with type info and documentation
                       · Code completion (Ctrl+Space or the Complete command)
@@ -501,7 +524,7 @@ GLOBAL SETTINGS  (~/.z/settings)
     tag.app               Content of the app tag line at startup.
                           Default: "Help NewCol History Put Dump Load Dir "
     tag.col               Default content for new column tag lines.
-                          Default: "CloseCol Close New Sort Color ColorAll "
+                          Default: "CloseCol Close New Sort "
     tag.wnd               Default content for new window tag lines.
                           Default: "Get Put Zerox Close | Undo Redo Wrap Ln Indent Mark Bind "
     tag.cmd               Default content for command/results window tag lines.

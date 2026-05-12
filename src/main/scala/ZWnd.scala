@@ -281,6 +281,21 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		case "Dirty" | "Clean"         => dirty = !dirty; true
 		case ZUtilities.reDirQuoted(d) => applyDir(d); true
 		case ZUtilities.reDir(d)       => applyDir(d); true
+		case "NewZ" =>
+			val f = new java.io.File(path)
+			val dir = if (f.isDirectory) f else f.getParentFile
+			if (dir != null && dir.exists()) ZUtilities.spawnZ(dir)
+			true
+		case ZWnd.reNewZQuoted(p) =>
+			val f = new java.io.File(ZPathResolver.resolvePath(p.trim, root))
+			val dir = if (f.isDirectory) f else f.getParentFile
+			if (dir != null && dir.exists()) ZUtilities.spawnZ(dir)
+			true
+		case ZWnd.reNewZ(p) =>
+			val f = new java.io.File(ZPathResolver.resolvePath(p.trim, root))
+			val dir = if (f.isDirectory) f else f.getParentFile
+			if (dir != null && dir.exists()) ZUtilities.spawnZ(dir)
+			true
 		case _                         => false
 	}
 
@@ -855,6 +870,8 @@ object ZWnd {
 	val reTab = """Tab\s+([0-9]+)""".r
 	val reQuotedGet = """Get\s+'(.+)'""".r
 	val reGet = """Get\s+(\S+)""".r
+	val reNewZQuoted = """NewZ\s+'(.+)'""".r
+	val reNewZ       = """NewZ\s+(\S+)""".r
 	val reQuotedPut = """Put\s+'(.+)'.*""".r
 	val rePut = """Put\s+(\S+).*""".r
 	val reLineNo = """^:([0-9]+)$""".r
