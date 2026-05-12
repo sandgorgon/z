@@ -98,6 +98,14 @@ object ZFuzzyPicker {
 		             q.startsWith("./") || q.startsWith("../") || q == "." || q == ".."
 		if (!isPath) return (currentRoot, q)
 
+		// Try the full query as a directory first so that e.g. ~/Documents re-roots
+		// there rather than splitting into root=~/ fuzzy=Documents (which matches
+		// the current root when already at home and suppresses the re-root).
+		val fullExpanded = ZUtilities.expandPath(q.stripSuffix("/"), currentRoot)
+		val fullDir = new File(if (fullExpanded.nonEmpty) fullExpanded else currentRoot)
+		if (fullDir.isDirectory) return (fullDir.getCanonicalPath, "")
+
+		// Fallback: split at last slash — prefix is the new root, suffix is the fuzzy query.
 		val lastSlash = q.lastIndexOf('/')
 		val (pathPart, fuzzyPart) =
 			if (lastSlash >= 0) (q.substring(0, lastSlash + 1), q.substring(lastSlash + 1))
