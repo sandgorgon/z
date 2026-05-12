@@ -195,6 +195,19 @@ object ZUtilities {
 		ta.caret.moveDot(mark)
 	}
 
+	def spawnZ(dir: File): Unit = {
+		val src = getClass.getProtectionDomain.getCodeSource
+		if (src == null) return
+		val jarFile = new File(src.getLocation.toURI)
+		if (!jarFile.getName.endsWith(".jar")) return
+		val javaExe = ProcessHandle.current().info().command().orElse("java")
+		val pb = new java.lang.ProcessBuilder(javaExe, "-jar", jarFile.getAbsolutePath, dir.getAbsolutePath)
+		pb.directory(dir)
+		pb.redirectOutput(java.lang.ProcessBuilder.Redirect.DISCARD)
+		pb.redirectError(java.lang.ProcessBuilder.Redirect.DISCARD)
+		pb.start()
+	}
+
 	def extCmd(cmd : String, onOutput : String => Unit, onDone : () => Unit, redirectErrStream : Boolean = false, input : Option[String] = None, workdir : Option[String] = None, env : Option[HashMap[String, String]] = None) : Option[Process] = {
 		val tokens = tokenize(cmd)
 		if(tokens.isEmpty) {

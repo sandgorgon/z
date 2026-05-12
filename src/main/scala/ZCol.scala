@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import swing.{SplitPane, BorderPanel, Orientation, Panel, Component}
-import swing.event.{KeyPressed, Key, MouseEvent, MouseEntered, MousePressed, MouseDragged, MouseReleased, MouseClicked, Event}
+import swing.event.{KeyPressed, KeyReleased, Key, MouseEvent, MouseEntered, MousePressed, MouseDragged, MouseReleased, MouseClicked, Event}
 import javax.swing.JOptionPane
 import collection.immutable.List
 import collection.immutable.HashMap
@@ -234,11 +234,39 @@ class ZCol(currDir : String) extends BorderPanel {
 		case e : ZCmdEchoEvent     => publish(e)
 	}
 
+	var captureActive = false
+
 	listenTo(tag.keys)
 	reactions += {
 		case e : KeyPressed if((e.key == Key.P) && e.peer.isControlDown()) =>
 			val q = ZUtilities.selectedText(tag, tag.caret.dot)
 			ZFuzzyPicker.show(currentDir, tag.peer, q).foreach(tag.selected = _)
+		case e : KeyReleased =>
+			if (e.key == Key.Enter && e.peer.isControlDown()) {
+				if (captureActive) {
+					val txt = tag.endCapture().trim
+					captureActive = false
+					if (txt.nonEmpty) wnds.foreach(_.command(txt))
+				} else {
+					val sel = Option(tag.selected).getOrElse("").trim
+					if (sel.nonEmpty) wnds.foreach(_.command(sel))
+					else { captureActive = true; tag.startCapture() }
+				}
+			}
+			if (e.key == Key.F && e.peer.isControlDown() && !e.peer.isShiftDown()) {
+				if (captureActive) {
+					val txt = tag.endCapture().trim
+					captureActive = false
+					if (txt.nonEmpty) look(txt)
+				} else {
+					val sel = Option(tag.selected).getOrElse("").trim
+					if (sel.nonEmpty) look(sel)
+				}
+			}
+			if (e.key == Key.Escape) {
+				tag.abortCapture()
+				captureActive = false
+			}
 	}
 
 	def command(cmds : String) = {
@@ -316,6 +344,16 @@ class ZCol(currDir : String) extends BorderPanel {
 					wnds.foreach(_.command(cmd))
 				case ZWnd.reColorAll(_, _, _, _) => // non-T: just propagate to windows
 					wnds.foreach(_.command(cmd))
+				case "NewZ" =>
+					ZUtilities.spawnZ(new File(currentDir))
+				case ZWnd.reNewZQuoted(p) =>
+					val f = new File(ZPathResolver.resolvePath(p.trim, currentDir))
+					val dir = if (f.isDirectory) f else f.getParentFile
+					if (dir != null && dir.exists()) ZUtilities.spawnZ(dir)
+				case ZWnd.reNewZ(p) =>
+					val f = new File(ZPathResolver.resolvePath(p.trim, currentDir))
+					val dir = if (f.isDirectory) f else f.getParentFile
+					if (dir != null && dir.exists()) ZUtilities.spawnZ(dir)
 				case c =>
 					if(!look(c, false)) wnds.foreach((w) => if(!w.look(c)) w.command(c))
 			}
@@ -531,7 +569,7 @@ class ZCol(currDir : String) extends BorderPanel {
 object ZCol {
 	val DividerKey = "z.divider"
 
-	var colTagLine = "CloseCol Close New Sort Color ColorAll "
+	var colTagLine = "CloseCol Close New Sort "
 	var wndTagLine = "Get Put Zerox Close | Undo Redo Wrap Ln Indent Mark Bind "
 	var cmdTagLine = "Close | Undo Redo Wrap Kill Clear Font Scroll Input "
 

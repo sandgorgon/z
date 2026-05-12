@@ -138,13 +138,14 @@ That's it. Any text in any window or tag line can become a command with a B2-dra
 
 B3 is the smart button. It does not just execute — it *thinks* first, working through a priority list:
 
-1. **Valid file or directory path** → opens it in a new window
-2. **`:n`** → jumps to line *n* in the current file
-3. **`:/regexp`** → searches forward for *regexp* from the current position
-4. **`filename:n`** → opens *filename* at line *n*
-5. **`filename:/regexp`** → opens *filename*, then searches for *regexp*
-6. **Anything else** → searches forward for the text in the current window
-7. **Search fails** → executes the text as a command
+1. **Plumbing rules** → first matching rule in `~/.z/plumbing` wins (see [Section 14](#14-plumbing-rules))
+2. **Valid file or directory path** → opens it in a new window
+3. **`:n`** → jumps to line *n* in the current file
+4. **`:/regexp`** → searches forward for *regexp* from the current position
+5. **`filename:n`** → opens *filename* at line *n*
+6. **`filename:/regexp`** → opens *filename*, then searches for *regexp*
+7. **Anything else** → searches forward for the text in the current window
+8. **Search fails** → executes the text as a command
 
 This cascade is elegant. B3 on `main.go` opens `main.go`. B3 on `:42` jumps to line 42. B3 on `foo` finds the next occurrence of "foo". B3 on `Put` saves the file. The right thing happens naturally.
 
@@ -194,6 +195,12 @@ If text is already selected when you press `Ctrl+Enter` or `Ctrl+F`, the shortcu
 **Body vs. tag behaviour:**
 - In the **body**: the typed command text is deleted after execution (it was a transient command prompt, not content).
 - In the **tag**: the text stays and remains highlighted after execution, just like a B3-click on a tag command.
+
+**Cascade behaviour from app and column tag lines:**
+- `Ctrl+Enter` from a **column tag** runs the command across all windows in that column.
+- `Ctrl+Enter` from the **app tag** runs the command across all columns (which each cascade to their windows).
+- `Ctrl+F` from a **column tag** performs a look traversing all windows in that column.
+- `Ctrl+F` from the **app tag** performs a look across all columns.
 
 **Example — change the font without leaving the keyboard:**
 1. Press `Ctrl+Enter` in any body → capture mode on.
@@ -498,6 +505,7 @@ All four variables are available to every external command — `< > | !` operato
 
 - **`New`** — creates a new empty window. From the app tag line, creates one in each column.
 - **`NewCol`** — creates a new column (app tag line only).
+- **`NewZ [path]`** — launches an independent z instance. Without an argument, opens at the current file's directory (from a window), the column's directory, or the app's directory. With a path argument, opens at that directory (or the parent directory if a file path is given). Only works when running from a built JAR — no-op from `sbt run`.
 - **`Zerox`** — clones the current window into a new window. Both windows show the same file; changes in one are reflected in the other.
 
 ### Moving Things Around
@@ -554,6 +562,9 @@ z creates several scratch buffers automatically:
 | `+Props` | The `Props` command |
 | `+Fonts` | The `Fonts` command |
 | `+Help` | The `Help` command |
+| `+History` | The `History` command (timestamped command log) |
+| `+plumb` | Plumbing rules with `plumb to exec` (exec output) |
+| `+Cmd` | User scripts `,cmd` / `,,cmd` run from col or app tag line |
 | `path+Mark` | The `Mark` command |
 
 ### Controlling Scroll Behaviour
@@ -756,7 +767,7 @@ The commands pre-loaded into each tag line are just defaults — they can be cus
 | Key | What it controls | Built-in default |
 |-----|-----------------|-----------------|
 | `tag.app` | App tag line content | `Help NewCol History Put Dump Load Dir ` |
-| `tag.col` | Column tag line default | `CloseCol Close New Sort Color ColorAll ` |
+| `tag.col` | Column tag line default | `CloseCol Close New Sort ` |
 | `tag.wnd` | Window tag line default | `Get Put Zerox Close \| Undo Redo Wrap Ln Indent Mark Bind ` |
 | `tag.cmd` | Command/results window tag line default | `Close \| Undo Redo Wrap Kill Clear Font Scroll Input ` |
 | `history.limit` | Max entries kept in the command history ring buffer | `500` |
@@ -1199,6 +1210,7 @@ Everything is back: every window, every scratch buffer, every colour setting. Re
 | `Put` | Win/Col/App | Save file(s) |
 | `New` | Col/App | New empty window |
 | `NewCol` | App | New column |
+| `NewZ [path]` | Win/Col/App | Launch new independent z instance |
 | `Zerox` | Win | Clone window |
 | `Close` | Win/Col/App | Close (prompts if dirty) |
 | `CloseCol` | Col | Close column |
