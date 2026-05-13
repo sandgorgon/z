@@ -462,9 +462,10 @@ KEYBOARD SHORTCUTS
       Ctrl+Enter                    Execute selection as command, or toggle capture mode
       Ctrl+F                        Look/navigate on selection, or end capture as look
       Ctrl+P                        Open the fuzzy file picker. Type to filter by filename;
-                                    arrows navigate the list; Enter inserts the chosen path.
-                                    Prefix the query with /, ~/, ./, or ../ to re-root the
-                                    search at a different directory.
+                                    arrows navigate the list; Enter opens the chosen file in
+                                    a new window (from a tag line) or inserts the path as
+                                    text (from the body). Prefix the query with /, ~/, ./, or
+                                    ../ to re-root the search at a different directory.
       Ctrl+Space                    LSP code completion (requires Lsp to be active)
 
 
