@@ -159,7 +159,9 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 			val q       = Option(ta.selected).map(_.trim).filter(_.nonEmpty).getOrElse("")
 			val f       = new File(path)
 			val baseDir = if (f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath
-			ZFuzzyPicker.show(colRoot, ta.peer, q, relativeTo = Some(baseDir)).foreach(ta.selected = _)
+			ZFuzzyPicker.show(colRoot, ta.peer, q, relativeTo = Some(baseDir)).foreach { p =>
+				if (ta == tag) look(p, fromTag = true) else ta.selected = p
+			}
 
 		case e : KeyReleased =>
 			// Ctrl+Enter: execute existing selection as command, or start/end capture mode

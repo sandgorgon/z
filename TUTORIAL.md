@@ -257,7 +257,7 @@ These work from tag lines, from body text, anywhere. B3 on an error message that
 
 ### Fuzzy File Picker (Ctrl+P)
 
-**`Ctrl+P`** opens a keyboard-driven file picker rooted at the current window's project root. Type any fragment of a filename to filter; matching characters do not need to be consecutive — the picker scores runs, filename hits, and path-segment starts to rank results. Use arrow keys to navigate, Enter to insert the chosen path.
+**`Ctrl+P`** opens a keyboard-driven file picker rooted at the current window's project root. Type any fragment of a filename to filter; matching characters do not need to be consecutive — the picker scores runs, filename hits, and path-segment starts to rank results. Use arrow keys to navigate, then Enter to confirm. When invoked from a tag line (app, column, or window) the chosen file opens immediately as a new window; when invoked from the body the path is inserted as text at the cursor.
 
 **Path prefix navigation:** prefix your query with `/`, `~/`, `./`, or `../` to re-root the search at a different directory. After the picker settles (150 ms debounce), the prefix is consumed and the box shows only your fuzzy query.
 
@@ -1198,7 +1198,7 @@ Everything is back: every window, every scratch buffer, every colour setting. Re
 | `Ctrl+Backspace` / `Ctrl+Delete` | Delete word left / right |
 | `Ctrl+Enter` | Execute selection as command, or toggle capture mode |
 | `Ctrl+F` | Look on selection, or end capture mode as look |
-| `Ctrl+P` | Fuzzy file picker (type to filter, arrows to move, Enter inserts) |
+| `Ctrl+P` | Fuzzy file picker (Enter opens file from tag line, inserts path from body) |
 | `Ctrl+Space` | LSP completion |
 
 ### File Commands
