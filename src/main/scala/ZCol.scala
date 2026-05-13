@@ -240,7 +240,7 @@ class ZCol(currDir : String) extends BorderPanel {
 	reactions += {
 		case e : KeyPressed if((e.key == Key.P) && e.peer.isControlDown()) =>
 			val q = ZUtilities.selectedText(tag, tag.caret.dot)
-			ZFuzzyPicker.show(currentDir, tag.peer, q).foreach(tag.selected = _)
+			ZFuzzyPicker.show(currentDir, tag.peer, q).foreach(look(_))
 		case e : KeyReleased =>
 			if (e.key == Key.Enter && e.peer.isControlDown()) {
 				if (captureActive) {
