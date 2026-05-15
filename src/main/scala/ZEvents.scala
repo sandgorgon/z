@@ -40,3 +40,7 @@ class ZColStatusEvent(val source: ZCol, val properties: Map[String, String]) ext
 
 // ZPanel-sourced events
 class ZPanelStatusEvent(val source: ZPanel, val properties: Map[String, String]) extends Event
+
+// ZTextArea-sourced events
+class ZCleanTextEvent extends Event
+class ZDirtyTextEvent extends Event

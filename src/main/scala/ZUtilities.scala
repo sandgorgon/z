@@ -23,7 +23,7 @@ import util.Properties
 import scala.util.boundary
 import boundary.break
 import scala.jdk.CollectionConverters._
-import swing.TextArea
+import swing.{BorderPanel, Component, Orientation, SplitPane, TextArea}
 import swing.event.MouseEvent
 import collection.immutable.HashMap
 import java.io.{File, BufferedReader, BufferedWriter, OutputStreamWriter, InputStreamReader}
@@ -39,6 +39,18 @@ object ZUtilities {
 	}
 
 	val DividerKey = "z.divider"
+
+	def renderSplitTree(items: List[Component], orient: Orientation.Value): Component = items match {
+		case Nil      => new BorderPanel
+		case h :: Nil => h
+		case h :: t   =>
+			new SplitPane(orient, h, renderSplitTree(t, orient)) {
+				peer.putClientProperty(DividerKey, true)
+				oneTouchExpandable = true
+				resizeWeight = 0.5
+				continuousLayout = true
+			}
+	}
 
 	def separator = File.separator
 	def isFullPath(s: String) = (new File(s)).isAbsolute

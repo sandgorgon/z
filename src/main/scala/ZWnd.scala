@@ -34,8 +34,8 @@ import java.util.regex.Pattern
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 
 class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = ".") extends SplitPane(Orientation.Horizontal) {
-	val colRoot  = new File(currDir).getCanonicalPath
-	var rootPath = new File(currDir).getAbsolutePath
+	val colRoot           = new File(currDir).getCanonicalPath
+	private var rootPath  = new File(currDir).getAbsolutePath
 	var indIndent = false
 	var indScroll = true
 	var indInteractive = false
@@ -73,7 +73,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	bodyScheme.applyTo(body)
 
 	val lsp = new ZLspSupport(body, () => path,
-		() => publish(new ZStatusEvent(this, properties)),
+		() => publish(new ZStatusEvent(this, statusProperties)),
 		content => publish(new ZDiagnosticsReadyEvent(this, content)))
 
 	var fontVar   = ZFonts.defaultVar
@@ -116,7 +116,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 
 	listenTo(tag.mouse.moves, body.mouse.moves)
 	reactions += {
-		case e : MouseEntered => publish(new ZStatusEvent(this, properties))
+		case e : MouseEntered => publish(new ZStatusEvent(this, statusProperties))
 		case e : MouseExited  => publish(new ZStatusClearEvent(this))
 		case e : MousePressed => if(SwingUtilities.isMiddleMouseButton(e.peer) || SwingUtilities.isRightMouseButton(e.peer))
 			e.source match {
@@ -225,7 +225,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 				if(p.trim().isEmpty)  body.lineSet(body.currLineNo -1, "")
 			}
 
-			publish(new ZStatusEvent(this, properties))
+			publish(new ZStatusEvent(this, statusProperties))
 	}
 
 	listenTo(tag.mouse.clicks, body.mouse.clicks)
@@ -244,7 +244,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 				}
 			}
 
-			publish(new ZStatusEvent(this, properties))
+			publish(new ZStatusEvent(this, statusProperties))
 	}
 
 	listenTo(body)
@@ -421,7 +421,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 
 	private def handleScriptCmd(cmd: String): Boolean = cmd match {
 		case ZScripts.reAnyScript(name, args) =>
-			ZScripts.resolve(name, rootPath) match {
+			ZScripts.resolve(name, root) match {
 				case Right(f)       => publish(new ZScriptEvent(this, f.getPath, args.trim))
 				case Left(searched) => ZScripts.showError(name, searched)
 			}
@@ -441,36 +441,37 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		}
 	}
 
-	private def lookViaFilePath(txt: String, fromTag: Boolean): Boolean = {
-		val (stxt, loc) = txt match {
-			case ZWnd.reFilePath(f, l)        => (f, l)
-			case ZWnd.reFilePath2(f, l)       => (f, l)
-			case ZWnd.reQuotedFilePath(f, l)  => (f, l)
-			case ZWnd.reQuotedFilePath2(f, l) => (f, l)
-			case _                            => (txt, "")
-		}
+	private def parseLookPath(txt: String): (String, String) = txt match {
+		case ZWnd.reFilePath(f, l)        => (f, l)
+		case ZWnd.reFilePath2(f, l)       => (f, l)
+		case ZWnd.reQuotedFilePath(f, l)  => (f, l)
+		case ZWnd.reQuotedFilePath2(f, l) => (f, l)
+		case _                            => (txt, "")
+	}
+
+	private def lookViaFilePath(txt: String, fromTag: Boolean): Option[Boolean] = {
+		val (stxt, loc) = parseLookPath(txt)
 		val sp      = ZUtilities.expandPath(stxt, root)
 		val absPath = new File(path)
 		val baseDir = if (absPath.isDirectory) path else absPath.getParent
 		val rb      = ZPathResolver.resolveBase(rawPath, stxt, fromTag, tag.text, root, baseDir)
 		val ep      = (if (ZUtilities.isFullPath(sp)) "" else (rb + ZUtilities.separator)) + sp
-
 		if (new File(ep).exists) {
 			val resolvedPath = if (!ZUtilities.isFullPath(rawPath) && ep.startsWith(root + ZUtilities.separator))
 			                       ep.substring(root.length + 1)
 			                   else ep
 			if (indBind) { path = resolvedPath; command("Get"); if (loc.nonEmpty) look(loc) }
 			else lookUpward(resolvedPath + loc)
-			true
-		} else {
-			lookViaRegex(stxt)
-		}
+			Some(true)
+		} else None
 	}
 
-	private def lookViaRegex(stxt: String): Boolean = {
-		val pos = body.caret.position
-		val t   = body.text.substring(pos)
-		val m   = Pattern.compile(stxt, Pattern.MULTILINE).matcher(t)
+	// Catch-all: try txt as a regex in the body, then fall back to dispatching as a command.
+	private def lookViaRegex(txt: String): Boolean = {
+		val stxt = parseLookPath(txt)._1
+		val pos  = body.caret.position
+		val t    = body.text.substring(pos)
+		val m    = Pattern.compile(stxt, Pattern.MULTILINE).matcher(t)
 		if (m.find() && m.end() > m.start()) {
 			body.caret.dot = pos + m.start()
 			body.caret.moveDot(pos + m.end())
@@ -503,7 +504,9 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 					true
 				} else false
 			case _ =>
-				lookViaPlumbing(txt, fromTag).getOrElse(lookViaFilePath(txt, fromTag))
+				lookViaPlumbing(txt, fromTag)
+					.orElse(lookViaFilePath(txt, fromTag))
+					.getOrElse(lookViaRegex(txt))
 		}
 	}
 
@@ -739,29 +742,35 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		g.setBorderColor(bodyScheme.back)
 	}
 
-	def properties: Map[String, String] = Map(
+	// Hot path — emitted on every keystroke via ZStatusEvent.
+	def statusProperties: Map[String, String] = Map(
+		"line.current"            -> (body.currLineNo + 1).toString,
+		"lines"                   -> body.lineCount.toString,
+		"column.current"          -> body.currColumn.toString,
+		"tab.size"                -> body.tabSize.toString,
+		"line.wrap"               -> body.lineWrap.toString,
+		"indent.auto"             -> indIndent.toString,
+		"scroll"                  -> scroll.toString,
+		"body.font.current"       -> body.font.getFontName,
+		"body.font.current.size"  -> body.font.getSize.toString,
+		"bind"                    -> indBind.toString,
+		"lsp"                     -> lsp.enabled.toString,
+		"lsp.root"                -> lsp.root,
+		"lsp.status"              -> lsp.status,
+		"lsp.indexing"            -> lsp.indexing.toString,
+		"hilite"                  -> indHilite.toString,
+		"interactive"             -> indInteractive.toString,
+		"interactive.prompt"      -> rePrompt.pattern.pattern(),
+	)
+
+	def properties: Map[String, String] = statusProperties ++ Map(
 		"path"                    -> path,
 		"path.root"               -> root,
 		"path.rawpath"            -> rawPath,
 		"dirty"                   -> dirty.toString,
-		"scroll"                  -> scroll.toString,
-		"tab.size"                -> body.tabSize.toString,
-		"indent.auto"             -> indIndent.toString,
-		"interactive"             -> indInteractive.toString,
-		"interactive.prompt"      -> rePrompt.pattern.pattern(),
-		"bind"                    -> indBind.toString,
-		"lsp"                     -> lsp.enabled.toString,
-		"lsp.root"                -> lsp.root,
-		"lsp.indexing"            -> lsp.indexing.toString,
-		"lsp.status"              -> lsp.status,
-		"hilite"                  -> indHilite.toString,
-		"line.numbers"            -> indLineNums.toString,
-		"lines"                   -> body.lineCount.toString,
-		"line.current"            -> (body.currLineNo + 1).toString,
-		"line.wrap"               -> body.lineWrap.toString,
-		"column.current"          -> body.currColumn.toString,
 		"selection.start"         -> body.selectionStart.toString,
 		"selection.end"           -> body.selectionEnd.toString,
+		"line.numbers"            -> indLineNums.toString,
 		"body.color.back"         -> bodyScheme.back.getRGB.toString,
 		"body.color.fore"         -> bodyScheme.fore.getRGB.toString,
 		"body.color.caret"        -> bodyScheme.caret.getRGB.toString,
@@ -771,8 +780,6 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		"body.font.fixed.size"    -> fontFixed.getSize.toString,
 		"body.font.variable"      -> fontVar.getFontName,
 		"body.font.variable.size" -> fontVar.getSize.toString,
-		"body.font.current"       -> body.font.getFontName,
-		"body.font.current.size"  -> body.font.getSize.toString,
 		"tag.color.back"          -> tagScheme.back.getRGB.toString,
 		"tag.color.fore"          -> tagScheme.fore.getRGB.toString,
 		"tag.color.caret"         -> tagScheme.caret.getRGB.toString,
@@ -832,6 +839,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		indLineNums = p.getOrElse(prefix + "line.numbers", "false") == "true"
 		if(indLineNums) bodyScroll.setLineNumbersEnabled(true)
 		styleGutter()
+		// indHilite must be set before Get so the highlighting is applied when the file loads.
 		if(!dirty)  command("Get") else  body.text = p.getOrElse(prefix + "body.text", "")
 
 		if(body.lineCount > 0) {

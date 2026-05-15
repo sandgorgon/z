@@ -256,18 +256,8 @@ class ZPanel(initTagText: String) extends BorderPanel with ZDragSelect with ZCap
 	}
 
 
-	def render(l : List[ZCol] = Nil) : Component = {
-		if(l == Nil) return new BorderPanel
-		if(l.size == 1) return l.head
-
-		val orient = if(rotated) Orientation.Horizontal else Orientation.Vertical
-		new SplitPane(orient, l.head, render(l.tail)) {
-			peer.putClientProperty(ZUtilities.DividerKey, true)
-			oneTouchExpandable = true
-			resizeWeight = 0.5
-			continuousLayout = true
-		}
-	}	
+	def render(l: List[ZCol] = Nil): Component =
+		ZUtilities.renderSplitTree(l, if (rotated) Orientation.Horizontal else Orientation.Vertical)	
 
 	def nextCol(col : ZCol) : Option[ZCol] =
 		cols.dropWhile(_ != col).drop(1).headOption

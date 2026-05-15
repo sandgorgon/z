@@ -77,6 +77,7 @@ class ZLspClient(langId: String, serverCmd: String, rootUri: String) {
 	// ── lifecycle ────────────────────────────────────────────────────────────
 
 	def start(): Unit = {
+		if (ready) return
 		val tokens = ZUtilities.tokenize(serverCmd)
 		process = new ProcessBuilder(tokens*).start()
 

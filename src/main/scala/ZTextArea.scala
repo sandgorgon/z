@@ -186,5 +186,3 @@ class ZTextArea(txt : String = "", wrap : Boolean = false) extends TextArea(txt)
 	}
 }
 
-class ZCleanTextEvent extends Event
-class ZDirtyTextEvent extends Event

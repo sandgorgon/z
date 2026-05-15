@@ -57,10 +57,8 @@ class ZCol(currDir : String) extends BorderPanel with ZDragSelect with ZCaptureM
 		layout(tag) = BorderPanel.Position.Center
 	}
 
-	val body : Panel = new BorderPanel
-
 	layout(tagRow) = BorderPanel.Position.North
-	layout(body) = BorderPanel.Position.Center
+	layout(new BorderPanel) = BorderPanel.Position.Center
 	peer.setMinimumSize(new java.awt.Dimension(0, 0))
 
 	protected def onDragMiddle(txt: String): Unit = command(txt)
@@ -147,7 +145,7 @@ class ZCol(currDir : String) extends BorderPanel with ZDragSelect with ZCaptureM
 		val w = resultsWindowFor(e.source)
 		w.runScript(e.scriptPath, e.args, Map(
 			"Z_FILE"      -> e.source.path,
-			"Z_DIR"       -> e.source.rootPath,
+			"Z_DIR"       -> e.source.root,
 			"Z_SELECTION" -> Option(e.source.body.selected).getOrElse("")))
 	}
 
@@ -308,7 +306,7 @@ class ZCol(currDir : String) extends BorderPanel with ZDragSelect with ZCaptureM
 		wnds.foreach { src =>
 			resultsWindowFor(src).runScript(scriptPath, args, Map(
 				"Z_FILE"      -> src.path,
-				"Z_DIR"       -> src.rootPath,
+				"Z_DIR"       -> src.root,
 				"Z_SELECTION" -> Option(src.body.selected).getOrElse("")))
 		}
 
@@ -353,18 +351,8 @@ class ZCol(currDir : String) extends BorderPanel with ZDragSelect with ZCaptureM
 		refresh
 	}
 
-	def render( wl : List[ZWnd]) : Component = {
-		if(wl.isEmpty) return new BorderPanel
-		if(wl.size == 1) return wl.head
-
-		val orient = if(rotated) Orientation.Vertical else Orientation.Horizontal
-		new SplitPane(orient, wl.head, render(wl.tail)) {
-			peer.putClientProperty(ZUtilities.DividerKey, true)
-			oneTouchExpandable = true
-			resizeWeight = 0.5
-			continuousLayout = true
-		}
-	}
+	def render(wl: List[ZWnd]): Component =
+		ZUtilities.renderSplitTree(wl, if (rotated) Orientation.Vertical else Orientation.Horizontal)
 
 	def genWnd(p : String = "+", tag : String = ZCol.wndTagLine) = new ZWnd((if(p.contains(" ")) s"'$p'" else p) + " " + tag, "", currentDir)
 
