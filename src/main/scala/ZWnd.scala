@@ -81,6 +81,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	body.font = fontFixed
 
 	dividerSize = 2
+	peer.setMinimumSize(new java.awt.Dimension(0, 0))
 	topComponent = new swing.BorderPanel {
 		layout(tagHandle) = swing.BorderPanel.Position.West
 		layout(tag) = swing.BorderPanel.Position.Center
@@ -288,16 +289,8 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 			val dir = if (f.isDirectory) f else f.getParentFile
 			if (dir != null && dir.exists()) ZUtilities.spawnZ(dir)
 			true
-		case ZWnd.reNewZQuoted(p) =>
-			val f = new java.io.File(ZPathResolver.resolvePath(p.trim, root))
-			val dir = if (f.isDirectory) f else f.getParentFile
-			if (dir != null && dir.exists()) ZUtilities.spawnZ(dir)
-			true
-		case ZWnd.reNewZ(p) =>
-			val f = new java.io.File(ZPathResolver.resolvePath(p.trim, root))
-			val dir = if (f.isDirectory) f else f.getParentFile
-			if (dir != null && dir.exists()) ZUtilities.spawnZ(dir)
-			true
+		case ZWnd.reNewZQuoted(p) => ZUtilities.spawnZFromPath(p, root); true
+		case ZWnd.reNewZ(p)       => ZUtilities.spawnZFromPath(p, root); true
 		case _                         => false
 	}
 
@@ -436,9 +429,61 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		case _ => false
 	}
 
-	def look(txt: String, fromTag: Boolean = false) : Boolean  = {
-		if (txt == null || txt.trim.isEmpty) true
-		else txt match {
+	private def lookViaPlumbing(txt: String, fromTag: Boolean): Option[Boolean] = {
+		val wd = cmdWorkDir
+		ZPlumbing.plumb(PlumbMessage(txt, wd, src = path)) match {
+			case Some(r) if r.port == PlumbPortExec =>
+				publish(new ZPlumbExecEvent(this, r.cmd.getOrElse(""), wd)); Some(true)
+			case Some(r) =>
+				val target = r.message.data + r.message.attrs.get("addr").map(":" + _).getOrElse("")
+				Some(look(target, fromTag))
+			case None => None
+		}
+	}
+
+	private def lookViaFilePath(txt: String, fromTag: Boolean): Boolean = {
+		val (stxt, loc) = txt match {
+			case ZWnd.reFilePath(f, l)        => (f, l)
+			case ZWnd.reFilePath2(f, l)       => (f, l)
+			case ZWnd.reQuotedFilePath(f, l)  => (f, l)
+			case ZWnd.reQuotedFilePath2(f, l) => (f, l)
+			case _                            => (txt, "")
+		}
+		val sp      = ZUtilities.expandPath(stxt, root)
+		val absPath = new File(path)
+		val baseDir = if (absPath.isDirectory) path else absPath.getParent
+		val rb      = ZPathResolver.resolveBase(rawPath, stxt, fromTag, tag.text, root, baseDir)
+		val ep      = (if (ZUtilities.isFullPath(sp)) "" else (rb + ZUtilities.separator)) + sp
+
+		if (new File(ep).exists) {
+			val resolvedPath = if (!ZUtilities.isFullPath(rawPath) && ep.startsWith(root + ZUtilities.separator))
+			                       ep.substring(root.length + 1)
+			                   else ep
+			if (indBind) { path = resolvedPath; command("Get"); if (loc.nonEmpty) look(loc) }
+			else lookUpward(resolvedPath + loc)
+			true
+		} else {
+			lookViaRegex(stxt)
+		}
+	}
+
+	private def lookViaRegex(stxt: String): Boolean = {
+		val pos = body.caret.position
+		val t   = body.text.substring(pos)
+		val m   = Pattern.compile(stxt, Pattern.MULTILINE).matcher(t)
+		if (m.find() && m.end() > m.start()) {
+			body.caret.dot = pos + m.start()
+			body.caret.moveDot(pos + m.end())
+			body.requestFocus()
+		} else {
+			command(stxt)
+		}
+		true
+	}
+
+	def look(txt: String, fromTag: Boolean = false): Boolean = {
+		if (txt == null || txt.trim.isEmpty) return true
+		txt match {
 			case ZWnd.reLineNo(no) =>
 				val n = no.toInt
 				if (n >= 1 && n <= body.lineCount) {
@@ -458,66 +503,37 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 					true
 				} else false
 			case _ =>
-				// Plumbing dispatch: user-defined pattern rules, checked before built-in path resolution
-				val wdForPlumb = { val f = new File(path); if (f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath }
-				ZPlumbing.plumb(PlumbMessage(txt, wdForPlumb, src = path)) match {
-					case Some(r) if r.port == PlumbPortExec =>
-						publish(new ZPlumbExecEvent(this, r.cmd.getOrElse(""), wdForPlumb)); true
-					case Some(r) =>
-						val target = r.message.data + r.message.attrs.get("addr").map(":" + _).getOrElse("")
-						look(target, fromTag)
-					case None =>
-						// Path cases: extract file and optional location suffix
-						val (stxt, loc) = txt match {
-							case ZWnd.reFilePath(f, l)        => (f, l)
-							case ZWnd.reFilePath2(f, l)       => (f, l)
-							case ZWnd.reQuotedFilePath(f, l)  => (f, l)
-							case ZWnd.reQuotedFilePath2(f, l) => (f, l)
-							case _                            => (txt, "")
-						}
-
-						val sp      = ZUtilities.expandPath(stxt, root)
-						val absPath = new File(path)
-						val baseDir = if (absPath.isDirectory) path else absPath.getParent
-						val rb      = ZPathResolver.resolveBase(rawPath, stxt, fromTag, tag.text, root, baseDir)
-						val ep      = (if (ZUtilities.isFullPath(sp)) "" else (rb + ZUtilities.separator)) + sp
-
-						if (new File(ep).exists) {
-							val resolvedPath = if (!ZUtilities.isFullPath(rawPath) && ep.startsWith(root + ZUtilities.separator))
-							                       ep.substring(root.length + 1)
-							                   else ep
-							if (indBind) {
-								path = resolvedPath
-								command("Get")
-								if (loc.nonEmpty) look(loc)
-							} else {
-								lookUpward(resolvedPath + loc)
-							}
-							true
-						} else {
-							val pos = body.caret.position
-							val t   = body.text.substring(pos)
-							val m   = Pattern.compile(stxt, Pattern.MULTILINE).matcher(t)
-							if (m.find() && m.end() > m.start()) {
-								body.caret.dot = pos + m.start()
-								body.caret.moveDot(pos + m.end())
-								body.requestFocus()
-							} else {
-								command(stxt)
-							}
-							true
-						}
-				}
+				lookViaPlumbing(txt, fromTag).getOrElse(lookViaFilePath(txt, fromTag))
 		}
 	}
 
-	def externalCmd(op : String, cmd : String, in : Option[String] = None, insertPos : Option[Int] = None) : Option[Process] = {
+	private def cmdWorkDir: String = {
+		val f = new File(path)
+		if (f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath
+	}
+
+	private def cmdEnv(extraEnv: Map[String, String] = Map.empty): HashMap[String, String] = {
+		val localFp = path
+		val f  = new File(localFp)
+		val wd = if (f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath
+		val sel = Option(body.selected).getOrElse("")
+		(new HashMap[String, String] +
+			("Z_FILE"      -> localFp) +
+			("Z_FP"        -> f.getCanonicalPath) +
+			("Z_DIR"       -> wd) +
+			("Z_SELECTION" -> sel)) ++ extraEnv
+	}
+
+	private def cmdOnDone: () => Unit = () => SwingUtilities.invokeLater(() =>
+		tag.text = tag.text.replaceAll(ZWnd.CmdExecIndicator, "")
+	)
+
+	def externalCmd(op: String, cmd: String, in: Option[String] = None, insertPos: Option[Int] = None): Option[Process] = {
 		val resolved = cmd.trim match {
 			case ZScripts.reScript(name, args) =>
 				ZScripts.resolve(name, rootPath) match {
 					case Right(f) => f.getPath + (if (args.trim.isEmpty) "" else " " + args.trim)
 					case Left(searched) =>
-						tag.text = tag.text.replaceAll(ZWnd.CmdExecIndicator, "")
 						ZScripts.showError(name, searched)
 						return None
 				}
@@ -551,25 +567,14 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 					body.caret.dot = current + s.length
 			}
 		})
-		val onDone: () => Unit = () => SwingUtilities.invokeLater(() =>
-			tag.text = tag.text.replaceAll(ZWnd.CmdExecIndicator, "")
-		)
 
-		val localFp = path
-		val f = new File(localFp)
-		val wd  = if(f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath
-		val sel = Option(body.selected).getOrElse("")
-		val env = new HashMap[String, String] +
-			("Z_FILE"      -> localFp) +
-			("Z_FP"        -> f.getCanonicalPath) +
-			("Z_DIR"       -> wd) +
-			("Z_SELECTION" -> sel)
-
+		val wd  = cmdWorkDir
+		val env = cmdEnv()
 		tag.text = tag.text + ZWnd.CmdExecIndicator
 		try {
 			op match {
-				case "<" => ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
-				case ">" => ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, input = in, workdir = Some(wd), env = Some(env))
+				case "<" => ZUtilities.extCmd(resolved, onOutput, cmdOnDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
+				case ">" => ZUtilities.extCmd(resolved, onOutput, cmdOnDone, redirectErrStream = true, input = in, workdir = Some(wd), env = Some(env))
 				case "|" =>
 					val selStart = body.peer.getSelectionStart
 					val selEnd   = body.peer.getSelectionEnd
@@ -582,13 +587,13 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 						body.text = ""
 						content
 					}
-					ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, input = Some(input), workdir = Some(wd), env = Some(env))
+					ZUtilities.extCmd(resolved, onOutput, cmdOnDone, redirectErrStream = true, input = Some(input), workdir = Some(wd), env = Some(env))
 				case "!" =>
 					body.text = ""
-					ZUtilities.extCmd(resolved, onOutput, onDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
+					ZUtilities.extCmd(resolved, onOutput, cmdOnDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
 			}
 		} catch {
-			case e : Throwable =>
+			case e: Throwable =>
 				JOptionPane.showMessageDialog(null, e.getMessage, "External Command Error", JOptionPane.ERROR_MESSAGE)
 				tag.text = tag.text.replaceAll(ZWnd.CmdExecIndicator, "")
 				None
@@ -597,26 +602,16 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 
 	def runScript(scriptPath: String, args: String, extraEnv: Map[String, String] = Map.empty): Option[Process] = {
 		val cmd = if (args.isEmpty) scriptPath else s"$scriptPath $args"
-		val localFp = path
-		val f = new File(localFp)
-		val wd = if(f.isDirectory) f.getCanonicalPath else f.getParentFile.getCanonicalPath
-		val sel = Option(body.selected).getOrElse("")
-		val env = (new HashMap[String, String] +
-			("Z_FILE"      -> localFp) +
-			("Z_FP"        -> f.getCanonicalPath) +
-			("Z_DIR"       -> wd) +
-			("Z_SELECTION" -> sel)) ++ extraEnv
+		val wd  = cmdWorkDir
+		val env = cmdEnv(extraEnv)
 		val onOutput: String => Unit = s => SwingUtilities.invokeLater(() => {
 			val current = body.caret.dot
 			body.selected = s
 			body.caret.dot = current + s.length
 		})
-		val onDone: () => Unit = () => SwingUtilities.invokeLater(() =>
-			tag.text = tag.text.replaceAll(ZWnd.CmdExecIndicator, "")
-		)
 		tag.text = tag.text + ZWnd.CmdExecIndicator
 		try {
-			ZUtilities.extCmd(cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
+			ZUtilities.extCmd(cmd, onOutput, cmdOnDone, redirectErrStream = true, workdir = Some(wd), env = Some(env))
 		} catch {
 			case e: Throwable =>
 				JOptionPane.showMessageDialog(null, e.getMessage, "Script Error", JOptionPane.ERROR_MESSAGE)
@@ -668,7 +663,8 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 
 	def rawPath = tag.text match {
 		case ZWnd.reQuotedPath(dirty, p) => p
-		case ZWnd.rePath(dirty, p) => p
+		case ZWnd.rePath(dirty, p)       => p
+		case _                           => "+"
 	}
 
 	def dirty = tag.text match {
@@ -902,11 +898,3 @@ object ZWnd {
 	}
 }
 
-class ZScriptEvent(val source: ZWnd, val scriptPath: String, val args: String) extends Event
-class ZPlumbExecEvent(val source: ZWnd, val cmd: String, val cwd: String) extends Event
-class ZCmdEvent(val source : ZWnd, val command : String) extends Event
-class ZDiagnosticsReadyEvent(val source: ZWnd, val content: String) extends Event
-class ZPathChangedEvent(val source: ZWnd, val oldPath: String, val newPath: String) extends Event
-class ZStatusEvent(val source : ZWnd, val properties : Map[String, String]) extends Event
-class ZStatusClearEvent(val source : ZWnd) extends Event
-class ZCmdEchoEvent(val timestamp: String, val level: String, val source: String, val cmd: String) extends Event
