@@ -163,9 +163,9 @@ class ZLspSupport(
 		}
 	}
 
-	def stop(): Unit = {
+	private def detachClient(): Unit = {
 		client.foreach { c =>
-			c.didClose(currentUri)
+			try { c.didClose(currentUri) } catch { case _: Throwable => }
 			c.unregisterDiag(currentUri)
 			c.removeIndexListener(indexingCb)
 			c.removeStatusListener(statusCb)
@@ -173,6 +173,10 @@ class ZLspSupport(
 		}
 		client    = None
 		clientKey = None
+	}
+
+	def stop(): Unit = {
+		detachClient()
 		currentUri = ""
 		root      = ""
 		enabled   = false
@@ -183,15 +187,7 @@ class ZLspSupport(
 	def close(): Unit = {
 		hoverTimer.stop()
 		didChangeTimer.stop()
-		client.foreach { c =>
-			try { c.didClose(currentUri) } catch { case _: Throwable => }
-			c.unregisterDiag(currentUri)
-			c.removeIndexListener(indexingCb)
-			c.removeStatusListener(statusCb)
-			clientKey.foreach { case (rootUri, langId) => ZLspManager.release(rootUri, langId) }
-		}
-		client    = None
-		clientKey = None
+		detachClient()
 	}
 
 	def check(): Unit = client.foreach(c => c.didChange(currentUri, body.text, nextVersion()))
@@ -259,7 +255,6 @@ class ZLspSupport(
 	// we fire completionItem/resolve against the LSP server and push the returned
 	// documentation into the description window via showSummaryFor().
 	private def setupResolveListener(): Unit = {
-		listenerAdded = true
 		try {
 			val popupField = classOf[AutoCompletion].getDeclaredField("popupWindow")
 			popupField.setAccessible(true)
@@ -309,6 +304,7 @@ class ZLspSupport(
 					}
 				}
 			}
+			listenerAdded = true
 		} catch {
 			case ex: Exception =>
 				System.err.println(s"[z] resolve listener setup failed: ${ex.getMessage}")

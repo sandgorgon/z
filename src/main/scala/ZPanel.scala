@@ -30,13 +30,11 @@ import java.awt.{Color, Font}
 import javax.swing.{SwingUtilities, BorderFactory}
 import java.io.File
 
-class ZPanel(initTagText: String) extends BorderPanel {
+class ZPanel(initTagText: String) extends BorderPanel with ZDragSelect with ZCaptureMode {
 	var cols : List[ZCol] = Nil
 	var rotated = false
 
 	var tagScheme = ZColorScheme(Color.WHITE, Color.BLACK, Color.BLACK, ZColors.TagSelBack, Color.WHITE)
-	var dragSel = false
-	var dragSelMark = -1
 	var prevCmd = ""
 	var currentDir = new File(".").getCanonicalPath
 
@@ -48,29 +46,20 @@ class ZPanel(initTagText: String) extends BorderPanel {
 	layout(tag) = BorderPanel.Position.North
 	layout(render(cols)) = BorderPanel.Position.Center
 
+	protected def onDragMiddle(txt: String): Unit = command(txt)
+	protected def onDragRight(txt: String): Unit  = command(txt)
+	protected def onCaptureCommand(txt: String): Unit = cols.foreach(_.command(txt))
+	protected def onCaptureLook(txt: String): Unit    = cols.foreach(_.look(txt))
+
 	deafTo(this)
-	listenTo(tag.mouse.moves, tag.mouse.clicks)
+	listenTo(tag.mouse.clicks)
+	wireDragSelect(tag)
+	wireCaptureMode(tag)
+
 	reactions += {
 		case e : MouseEntered =>
 			e.source.requestFocus()
 			publish(new ZPanelStatusEvent(this, properties))
-		case e : MousePressed => if(SwingUtilities.isMiddleMouseButton(e.peer) || SwingUtilities.isRightMouseButton(e.peer))
-			dragSelMark = tag.peer.viewToModel2D(e.point).toInt
-		case e : MouseDragged => if(SwingUtilities.isMiddleMouseButton(e.peer) || SwingUtilities.isRightMouseButton(e.peer)) {
-			dragSel = true
-			if(dragSelMark != -1) {
-				tag.peer.setCaretPosition(dragSelMark)
-				dragSelMark = -1
-			}
-
-			tag.peer.moveCaretPosition(tag.peer.viewToModel2D(e.point).toInt)
-		}
-		case e : MouseReleased =>
-			if(dragSel) {
-				if(SwingUtilities.isMiddleMouseButton(e.peer) || SwingUtilities.isRightMouseButton(e.peer))  command(ZUtilities.selectedText(tag, e))
-			}
-			dragSel = false
-			dragSelMark = -1
 		case e : MouseClicked =>
 			if(SwingUtilities.isRightMouseButton(e.peer))  {
 				try {
@@ -118,39 +107,11 @@ class ZPanel(initTagText: String) extends BorderPanel {
 		case e : ZCmdEchoEvent     => publish(e)
 	}
 
-	var captureActive = false
-
 	listenTo(tag.keys)
 	reactions += {
-		case e : KeyPressed if((e.key == Key.P) && e.peer.isControlDown()) =>
+		case e : KeyPressed if e.key == Key.P && e.peer.isControlDown() =>
 			val q = ZUtilities.selectedText(tag, tag.caret.dot)
 			ZFuzzyPicker.show(currentDir, tag.peer, q).foreach(look)
-		case e : KeyReleased =>
-			if (e.key == Key.Enter && e.peer.isControlDown()) {
-				if (captureActive) {
-					val txt = tag.endCapture().trim
-					captureActive = false
-					if (txt.nonEmpty) cols.foreach(_.command(txt))
-				} else {
-					val sel = Option(tag.selected).getOrElse("").trim
-					if (sel.nonEmpty) cols.foreach(_.command(sel))
-					else { captureActive = true; tag.startCapture() }
-				}
-			}
-			if (e.key == Key.F && e.peer.isControlDown() && !e.peer.isShiftDown()) {
-				if (captureActive) {
-					val txt = tag.endCapture().trim
-					captureActive = false
-					if (txt.nonEmpty) cols.foreach(_.look(txt))
-				} else {
-					val sel = Option(tag.selected).getOrElse("").trim
-					if (sel.nonEmpty) cols.foreach(_.look(sel))
-				}
-			}
-			if (e.key == Key.Escape) {
-				tag.abortCapture()
-				captureActive = false
-			}
 	}
 
 	def command(cmds : String) = if(cmds != null && !cmds.trim.isEmpty) {
@@ -220,16 +181,9 @@ class ZPanel(initTagText: String) extends BorderPanel {
 							cols.last.command("! " + fullCmd)
 						case Left(searched) => ZScripts.showError(name, searched)
 					}
-				case "NewZ" =>
-					ZUtilities.spawnZ(new File(currentDir))
-				case ZWnd.reNewZQuoted(p) =>
-					val f = new File(ZPathResolver.resolvePath(p.trim, currentDir))
-					val dir = if (f.isDirectory) f else f.getParentFile
-					if (dir != null && dir.exists()) ZUtilities.spawnZ(dir)
-				case ZWnd.reNewZ(p) =>
-					val f = new File(ZPathResolver.resolvePath(p.trim, currentDir))
-					val dir = if (f.isDirectory) f else f.getParentFile
-					if (dir != null && dir.exists()) ZUtilities.spawnZ(dir)
+				case "NewZ"               => ZUtilities.spawnZ(new File(currentDir))
+				case ZWnd.reNewZQuoted(p) => ZUtilities.spawnZFromPath(p, currentDir)
+				case ZWnd.reNewZ(p)       => ZUtilities.spawnZFromPath(p, currentDir)
 				case c => cols.foreach(_.command(c))
 			}
 
@@ -279,17 +233,19 @@ class ZPanel(initTagText: String) extends BorderPanel {
 		col
 	}
 
-	def refresh = {
-		val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
+	private def centerComponent: java.awt.Component =
+		peer.getLayout.asInstanceOf[java.awt.BorderLayout]
 			.getLayoutComponent(java.awt.BorderLayout.CENTER)
+
+	def refresh = {
+		val center   = centerComponent
 		val dividers = if (center != null) ZUtilities.collectDividers(center) else Nil
+		if (center != null) peer.remove(center)
 		val newCenter = render(cols)
 		layout(newCenter) = BorderPanel.Position.Center
 		revalidate()
-		if (dividers.nonEmpty) {
-			val centerPeer = newCenter.peer
-			SwingUtilities.invokeLater(() => ZUtilities.applyDividers(centerPeer, dividers))
-		}
+		val centerPeer = newCenter.peer
+		SwingUtilities.invokeLater(() => ZUtilities.applyDividersWithFallback(centerPeer, dividers))
 	}
 
 	def -=(col : ZCol):ZCol = {
@@ -300,18 +256,8 @@ class ZPanel(initTagText: String) extends BorderPanel {
 	}
 
 
-	def render(l : List[ZCol] = Nil) : Component = {
-		if(l == Nil) return new BorderPanel
-		if(l.size == 1) return l.head
-
-		val orient = if(rotated) Orientation.Horizontal else Orientation.Vertical
-		new SplitPane(orient, l.head, render(l.tail)) {
-			peer.putClientProperty(ZPanel.DividerKey, true)
-			oneTouchExpandable = true
-			resizeWeight = 0.5
-			continuousLayout = true
-		}
-	}	
+	def render(l: List[ZCol] = Nil): Component =
+		ZUtilities.renderSplitTree(l, if (rotated) Orientation.Horizontal else Orientation.Vertical)	
 
 	def nextCol(col : ZCol) : Option[ZCol] =
 		cols.dropWhile(_ != col).drop(1).headOption
@@ -439,10 +385,12 @@ class ZPanel(initTagText: String) extends BorderPanel {
 				val divLocs = (0 until divCount).flatMap(i =>
 					p.get(s"col.divider.$i").flatMap(_.toIntOption)).toList
 				SwingUtilities.invokeLater(() => {
-					val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
-						.getLayoutComponent(java.awt.BorderLayout.CENTER)
-					if (center != null) ZUtilities.applyDividers(center, divLocs)
+					val c = centerComponent
+					if (c != null) ZUtilities.applyDividers(c, divLocs)
 				})
+			} else {
+				val center = centerComponent
+				if (center != null) ZUtilities.applyProportionalDividers(center)
 			}
 
 			def intProp(key: String, default: Int): Int = p.get(key).flatMap(_.toIntOption).getOrElse(default)
@@ -478,8 +426,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 		val colEntries = cols.zipWithIndex.flatMap { case (c, i) =>
 			c.dump.map { case (k, v) => s"column.${i+1}.$k" -> v }
 		}
-		val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
-			.getLayoutComponent(java.awt.BorderLayout.CENTER)
+		val center = centerComponent
 		val divs = if (center != null) ZUtilities.collectDividers(center) else Nil
 		val divEntries = divs.zipWithIndex.map { case (loc, idx) => s"col.divider.$idx" -> loc.toString }
 		val p = properties ++ colEntries ++ Map("col.divider.count" -> divs.length.toString) ++ divEntries
@@ -488,9 +435,7 @@ class ZPanel(initTagText: String) extends BorderPanel {
 }
 
 object ZPanel {
-	val DividerKey = "z.divider"
 	val reLoad = """Load\s+(.+)""".r
 	val reDump = """Dump\s+(.+)""".r
 }
 
-class ZPanelStatusEvent(val source : ZPanel, val properties : Map[String, String]) extends Event

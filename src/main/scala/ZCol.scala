@@ -30,7 +30,7 @@ import java.io.File
 import java.awt.{Color, Font}
 import javax.swing.{JOptionPane, SwingUtilities, BorderFactory}
 
-class ZCol(currDir : String) extends BorderPanel {
+class ZCol(currDir : String) extends BorderPanel with ZDragSelect with ZCaptureMode {
 	val wnd = genWnd(_ : String)
 	val cmdWnd = genWnd(_ : String, ZCol.cmdTagLine)
 
@@ -44,8 +44,6 @@ class ZCol(currDir : String) extends BorderPanel {
 	var tagScheme = ZColorScheme(Color.WHITE, Color.BLACK, Color.BLACK, ZColors.TagSelBack, Color.WHITE)
 	var prevCmd = ""
 	var currentDir = new File(currDir).getCanonicalPath
-	var dragSel = false
-	var dragSelMark = -1
 
 	val tag = new ZTextArea(ZCol.colTagLine)
 	tagScheme.applyTo(tag)
@@ -59,35 +57,24 @@ class ZCol(currDir : String) extends BorderPanel {
 		layout(tag) = BorderPanel.Position.Center
 	}
 
-	val body : Panel = new BorderPanel
-
 	layout(tagRow) = BorderPanel.Position.North
-	layout(body) = BorderPanel.Position.Center
+	layout(new BorderPanel) = BorderPanel.Position.Center
+	peer.setMinimumSize(new java.awt.Dimension(0, 0))
+
+	protected def onDragMiddle(txt: String): Unit = command(txt)
+	protected def onDragRight(txt: String): Unit  = look(txt)
+	protected def onCaptureCommand(txt: String): Unit = wnds.foreach(_.command(txt))
+	protected def onCaptureLook(txt: String): Unit    = look(txt)
 
 	deafTo(this)
-	listenTo(tag.mouse.moves, tag.mouse.clicks) 
+	listenTo(tag.mouse.clicks)
+	wireDragSelect(tag)
+	wireCaptureMode(tag)
+
 	reactions += {
 		case e : MouseEntered =>
 			e.source.requestFocus()
 			publish(new ZColStatusEvent(this, properties))
-		case e : MousePressed => if(SwingUtilities.isMiddleMouseButton(e.peer) || SwingUtilities.isRightMouseButton(e.peer))
-			dragSelMark = tag.peer.viewToModel2D(e.point).toInt
-		case e : MouseDragged => if(SwingUtilities.isMiddleMouseButton(e.peer) || SwingUtilities.isRightMouseButton(e.peer)) {
-			dragSel = true
-			if(dragSelMark != -1) {
-				tag.peer.setCaretPosition(dragSelMark)
-				dragSelMark = -1
-			}
-
-			tag.peer.moveCaretPosition(tag.peer.viewToModel2D(e.point).toInt)
-		}
-		case e : MouseReleased =>
-			if(dragSel) {
-				if(SwingUtilities.isMiddleMouseButton(e.peer))  command(ZUtilities.selectedText(tag, e))
-				else if(SwingUtilities.isRightMouseButton(e.peer))  look(ZUtilities.selectedText(tag, e))
-			}
-			dragSel = false
-			dragSelMark = -1
 		case e : MouseClicked =>
 			if(SwingUtilities.isRightMouseButton(e.peer)) {
 				try {
@@ -101,172 +88,89 @@ class ZCol(currDir : String) extends BorderPanel {
 			}
 
 			publish(new ZColStatusEvent(this, properties))
-		case e : ZCmdEvent =>
-			val src = e.source
-			e.command match {
-				case "Up" if(wnds.contains(src) && wnds.length > 1) => 
-					wnds.indexOf(src) match {
-						case 0 =>
-							wnds = wnds.tail :+ wnds.head
-							refresh
-						case i => 
-							wnds = wnds.filterNot(_ == src)
-							wnds = wnds.patch(i-1, src :: Nil, 0)
-							refresh
-					}
-				case "Dn" if(wnds.contains(src) && wnds.length > 1) => 
-					val i = wnds.indexOf(src) 
-					if((i+1) == wnds.length) {
-						wnds = wnds.last :: wnds.init
-						refresh
-					} else {
-						wnds = wnds.filterNot(_ == src)
-						wnds = wnds.patch(i+1, src :: Nil, 0)
-						refresh
-					}
-				case "Lt" =>
-					this -= src
-					publish(new ZMoveWndEvent("Lt", this, src))
-				case "Rt" => 
-					this -= src
-					publish(new ZMoveWndEvent("Rt", this, src))
-				case "Close" => closeWnd(src)
-				case "CLOSE" => this -= src
-				case "Zerox" =>
-					val w = wnd(src.rawPath + "+Zerox")
-					this += w
-					w.body.text = src.body.text
-					w.root = src.root
-				case "Mark" =>
-					val n = src.rawPath + "+Mark"
-					val w = rawPathWindow(n).getOrElse {
-						val nw = wnd(n)
-						this += nw
-						nw.root = src.root
-						nw.body.text = ""
-						nw
-					}
-					val rawP = src.rawPath
-					val baseName = if(rawP.lastIndexOf(ZUtilities.separator) != -1)
-						rawP.substring(rawP.lastIndexOf(ZUtilities.separator) + 1)
-					else rawP
-
-					w.body.text = w.body.text + baseName + ":" + (src.body.currLineNo + 1) + " " + src.body.line()
-				case ZCol.reExternalCmd(op, cmd) if(op.equals(">")) =>
-					val n = src.rawPath + "+Results"
-					val w = rawPathWindow(n).getOrElse {
-						val nw = wnd(n)
-						this += nw
-						nw
-					}
-					w.root = src.root
-					w.externalCmd(">", cmd, Some(Option(src.body.selected).getOrElse(src.body.text)))
-				case ZCol.reExternalCmd(op, cmd) if(op.equals("!")) => command("! " + cmd)
-				case "Props" =>
-					val n = src.rawPath + "+Props"
-					val w = rawPathWindow(n).getOrElse {
-						val nw = wnd(n)
-						this += nw
-						nw
-					}
-					w.root = src.root
-					w.body.text = src.properties.toSeq.sortBy(_._1)
-						.map { case (k, v) => s"$k = $v" }
-						.mkString(util.Properties.lineSeparator)
-					w.dirty = false
-				case cmd =>
-					val n = src.rawPath + "+Results"
-					val w = rawPathWindow(n).getOrElse {
-						val nw = cmdWnd(n)
-						nw.command("Scroll")
-						this += nw
-						nw
-					}
-					if(w.tag.text.indexOf(cmd) == -1)  w.tag.text += " ! " + cmd
-					w.root = src.root
-					w.command("< " + cmd)
-			}
-		case e : ZScriptEvent =>
-			val w = resultsWindowFor(e.source)
-			w.runScript(e.scriptPath, e.args, Map(
-				"Z_FILE"      -> e.source.path,
-				"Z_DIR"       -> e.source.rootPath,
-				"Z_SELECTION" -> Option(e.source.body.selected).getOrElse("")))
-		case e : ZPlumbExecEvent =>
-			val w = rawPathWindow("+plumb").getOrElse {
-				val nw = cmdWnd("+plumb")
-				nw.command("Scroll")
-				this += nw
-				nw
-			}
-			w.root = e.source.root
-			w.tag.text = w.tag.text + ZWnd.CmdExecIndicator
-			val onOutput: String => Unit = s => SwingUtilities.invokeLater(() => {
-				val current = w.body.caret.dot
-				w.body.selected = s
-				w.body.caret.dot = current + s.length
-			})
-			val onDone: () => Unit = () => SwingUtilities.invokeLater(() =>
-				w.tag.text = w.tag.text.replaceAll(ZWnd.CmdExecIndicator, ""))
-			val fp  = new File(e.source.path)
-			val env = new HashMap[String, String] +
-				("Z_FILE"      -> e.source.path) +
-				("Z_FP"        -> fp.getCanonicalPath) +
-				("Z_DIR"       -> e.cwd) +
-				("Z_SELECTION" -> Option(e.source.body.selected).getOrElse(""))
-			ZUtilities.extCmd(e.cmd, onOutput, onDone, redirectErrStream = true, workdir = Some(e.cwd), env = Some(env))
-		case e : ZDiagnosticsReadyEvent =>
-			val src = e.source
-			val n   = src.rawPath + "+Diagnostics"
-			val w   = rawPathWindow(n).getOrElse {
-				val nw = wnd(n)
-				this += nw
-				nw
-			}
-			w.root = src.root
-			w.body.text = e.content
+		case e : ZCmdEvent              => handleWindowCmd(e.source, e.command)
+		case e : ZScriptEvent           => handleScriptEvent(e)
+		case e : ZPlumbExecEvent        => handlePlumbExec(e)
+		case e : ZDiagnosticsReadyEvent => handleDiagnostics(e)
 		case e : ZPathChangedEvent =>
-			if (wndIndex.contains(e.oldPath)) {
+			if (wndIndex.contains(e.oldPath))
 				wndIndex = wndIndex - e.oldPath + (e.newPath -> e.source)
-			}
 		case e : ZStatusEvent      => publish(new ZStatusEvent(e.source, e.properties))
 		case e : ZStatusClearEvent => publish(e)
 		case e : ZCmdEchoEvent     => publish(e)
 	}
 
-	var captureActive = false
+	private def handleWindowCmd(src: ZWnd, cmd: String): Unit = cmd match {
+		case "Up" if wnds.contains(src) && wnds.length > 1 =>
+			wnds.indexOf(src) match {
+				case 0 => wnds = wnds.tail :+ wnds.head; refresh
+				case i => wnds = wnds.filterNot(_ == src); wnds = wnds.patch(i - 1, src :: Nil, 0); refresh
+			}
+		case "Dn" if wnds.contains(src) && wnds.length > 1 =>
+			val i = wnds.indexOf(src)
+			if ((i + 1) == wnds.length) { wnds = wnds.last :: wnds.init; refresh }
+			else { wnds = wnds.filterNot(_ == src); wnds = wnds.patch(i + 1, src :: Nil, 0); refresh }
+		case "Lt"    => this -= src; publish(new ZMoveWndEvent("Lt", this, src))
+		case "Rt"    => this -= src; publish(new ZMoveWndEvent("Rt", this, src))
+		case "Close" => closeWnd(src)
+		case "CLOSE" => this -= src
+		case "Zerox" =>
+			val w = wnd(src.rawPath + "+Zerox")
+			this += w; w.body.text = src.body.text; w.root = src.root
+		case "Mark" =>
+			val n = src.rawPath + "+Mark"
+			val w = rawPathWindow(n).getOrElse { val nw = wnd(n); this += nw; nw.root = src.root; nw.body.text = ""; nw }
+			val rawP     = src.rawPath
+			val baseName = if (rawP.lastIndexOf(ZUtilities.separator) != -1) rawP.substring(rawP.lastIndexOf(ZUtilities.separator) + 1) else rawP
+			w.body.text = w.body.text + baseName + ":" + (src.body.currLineNo + 1) + " " + src.body.line()
+		case ZCol.reExternalCmd(op, c) if op == ">" =>
+			val w = rawPathWindow(src.rawPath + "+Results").getOrElse { val nw = wnd(src.rawPath + "+Results"); this += nw; nw }
+			w.root = src.root
+			w.externalCmd(">", c, Some(Option(src.body.selected).getOrElse(src.body.text)))
+		case ZCol.reExternalCmd(op, c) if op == "!" => command("! " + c)
+		case "Props" =>
+			val w = rawPathWindow(src.rawPath + "+Props").getOrElse { val nw = wnd(src.rawPath + "+Props"); this += nw; nw }
+			w.root = src.root
+			w.body.text = src.properties.toSeq.sortBy(_._1).map { case (k, v) => s"$k = $v" }.mkString(util.Properties.lineSeparator)
+			w.dirty = false
+		case c =>
+			val w = rawPathWindow(src.rawPath + "+Results").getOrElse {
+				val nw = cmdWnd(src.rawPath + "+Results"); nw.command("Scroll"); this += nw; nw
+			}
+			if (w.tag.text.indexOf(c) == -1) w.tag.text += " ! " + c
+			w.root = src.root; w.command("< " + c)
+	}
+
+	private def handleScriptEvent(e: ZScriptEvent): Unit = {
+		val w = resultsWindowFor(e.source)
+		w.runScript(e.scriptPath, e.args, Map(
+			"Z_FILE"      -> e.source.path,
+			"Z_DIR"       -> e.source.root,
+			"Z_SELECTION" -> Option(e.source.body.selected).getOrElse("")))
+	}
+
+	private def handlePlumbExec(e: ZPlumbExecEvent): Unit = {
+		val w = rawPathWindow("+plumb").getOrElse { val nw = cmdWnd("+plumb"); nw.command("Scroll"); this += nw; nw }
+		w.root = e.source.root
+		w.runScript(e.cmd, "", Map(
+			"Z_FILE"      -> e.source.path,
+			"Z_FP"        -> new File(e.source.path).getCanonicalPath,
+			"Z_DIR"       -> e.cwd,
+			"Z_SELECTION" -> Option(e.source.body.selected).getOrElse("")))
+	}
+
+	private def handleDiagnostics(e: ZDiagnosticsReadyEvent): Unit = {
+		val n = e.source.rawPath + "+Diagnostics"
+		val w = rawPathWindow(n).getOrElse { val nw = wnd(n); this += nw; nw }
+		w.root = e.source.root
+		w.body.text = e.content
+	}
 
 	listenTo(tag.keys)
 	reactions += {
-		case e : KeyPressed if((e.key == Key.P) && e.peer.isControlDown()) =>
+		case e : KeyPressed if e.key == Key.P && e.peer.isControlDown() =>
 			val q = ZUtilities.selectedText(tag, tag.caret.dot)
 			ZFuzzyPicker.show(currentDir, tag.peer, q).foreach(look(_))
-		case e : KeyReleased =>
-			if (e.key == Key.Enter && e.peer.isControlDown()) {
-				if (captureActive) {
-					val txt = tag.endCapture().trim
-					captureActive = false
-					if (txt.nonEmpty) wnds.foreach(_.command(txt))
-				} else {
-					val sel = Option(tag.selected).getOrElse("").trim
-					if (sel.nonEmpty) wnds.foreach(_.command(sel))
-					else { captureActive = true; tag.startCapture() }
-				}
-			}
-			if (e.key == Key.F && e.peer.isControlDown() && !e.peer.isShiftDown()) {
-				if (captureActive) {
-					val txt = tag.endCapture().trim
-					captureActive = false
-					if (txt.nonEmpty) look(txt)
-				} else {
-					val sel = Option(tag.selected).getOrElse("").trim
-					if (sel.nonEmpty) look(sel)
-				}
-			}
-			if (e.key == Key.Escape) {
-				tag.abortCapture()
-				captureActive = false
-			}
 	}
 
 	def command(cmds : String) = {
@@ -344,16 +248,9 @@ class ZCol(currDir : String) extends BorderPanel {
 					wnds.foreach(_.command(cmd))
 				case ZWnd.reColorAll(_, _, _, _) => // non-T: just propagate to windows
 					wnds.foreach(_.command(cmd))
-				case "NewZ" =>
-					ZUtilities.spawnZ(new File(currentDir))
-				case ZWnd.reNewZQuoted(p) =>
-					val f = new File(ZPathResolver.resolvePath(p.trim, currentDir))
-					val dir = if (f.isDirectory) f else f.getParentFile
-					if (dir != null && dir.exists()) ZUtilities.spawnZ(dir)
-				case ZWnd.reNewZ(p) =>
-					val f = new File(ZPathResolver.resolvePath(p.trim, currentDir))
-					val dir = if (f.isDirectory) f else f.getParentFile
-					if (dir != null && dir.exists()) ZUtilities.spawnZ(dir)
+				case "NewZ"               => ZUtilities.spawnZ(new File(currentDir))
+				case ZWnd.reNewZQuoted(p) => ZUtilities.spawnZFromPath(p, currentDir)
+				case ZWnd.reNewZ(p)       => ZUtilities.spawnZFromPath(p, currentDir)
 				case c =>
 					if(!look(c, false)) wnds.foreach((w) => if(!w.look(c)) w.command(c))
 			}
@@ -371,7 +268,7 @@ class ZCol(currDir : String) extends BorderPanel {
 				case ZCol.reFileLoc(f, loc) => fileLook(f, loc); true
 				case s =>
 					val expanded = ZUtilities.expandPath(s, currentDir)
-					val f = if (ZUtilities.isFullPath(expanded)) expanded else (currDir + ZUtilities.separator + expanded)
+					val f = if (ZUtilities.isFullPath(expanded)) expanded else (currentDir + ZUtilities.separator + expanded)
 					if (new File(f).exists) {
 						val o = rawPathWindow(f).orElse(pathWindow(expanded))
 						if (o.isEmpty) {
@@ -409,7 +306,7 @@ class ZCol(currDir : String) extends BorderPanel {
 		wnds.foreach { src =>
 			resultsWindowFor(src).runScript(scriptPath, args, Map(
 				"Z_FILE"      -> src.path,
-				"Z_DIR"       -> src.rootPath,
+				"Z_DIR"       -> src.root,
 				"Z_SELECTION" -> Option(src.body.selected).getOrElse("")))
 		}
 
@@ -425,24 +322,26 @@ class ZCol(currDir : String) extends BorderPanel {
 		w
 	}
 
-	def refresh = {
-		val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
+	private def centerComponent: java.awt.Component =
+		peer.getLayout.asInstanceOf[java.awt.BorderLayout]
 			.getLayoutComponent(java.awt.BorderLayout.CENTER)
-		val dividers    = if (center != null) ZUtilities.collectDividers(center) else Nil
+
+	def refresh = {
+		val center   = centerComponent
+		val dividers = if (center != null) ZUtilities.collectDividers(center) else Nil
 		val tagDividers = wnds.flatMap { w =>
 			val loc = w.peer.getDividerLocation
 			if (loc > 0) Some(w -> loc) else None
 		}
+		if (center != null) peer.remove(center)
 		val newCenter = render(wnds)
 		layout(newCenter) = BorderPanel.Position.Center
 		revalidate()
-		SwingUtilities.invokeLater(() => {
-			if (dividers.nonEmpty) {
-				val centerPeer = newCenter.peer
-				ZUtilities.applyDividers(centerPeer, dividers)
-			}
+		val centerPeer = newCenter.peer
+		SwingUtilities.invokeLater(() => ZUtilities.applyDividersWithFallback(centerPeer, dividers))
+		SwingUtilities.invokeLater(() =>
 			tagDividers.foreach { case (w, loc) => w.peer.setDividerLocation(loc) }
-		})
+		)
 	}
 
 	def -=(w : ZWnd)  = {
@@ -452,18 +351,8 @@ class ZCol(currDir : String) extends BorderPanel {
 		refresh
 	}
 
-	def render( wl : List[ZWnd]) : Component = {
-		if(wl.isEmpty) return new BorderPanel
-		if(wl.size == 1) return wl.head
-
-		val orient = if(rotated) Orientation.Vertical else Orientation.Horizontal
-		new SplitPane(orient, wl.head, render(wl.tail)) {
-			peer.putClientProperty(ZCol.DividerKey, true)
-			oneTouchExpandable = true
-			resizeWeight = 0.5
-			continuousLayout = true
-		}
-	}
+	def render(wl: List[ZWnd]): Component =
+		ZUtilities.renderSplitTree(wl, if (rotated) Orientation.Vertical else Orientation.Horizontal)
 
 	def genWnd(p : String = "+", tag : String = ZCol.wndTagLine) = new ZWnd((if(p.contains(" ")) s"'$p'" else p) + " " + tag, "", currentDir)
 
@@ -516,8 +405,7 @@ class ZCol(currDir : String) extends BorderPanel {
 		val wndEntries = wnds.zipWithIndex.flatMap { case (w, i) =>
 			w.dump.map { case (k, v) => s"window.${i+1}.$k" -> v }
 		}
-		val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
-			.getLayoutComponent(java.awt.BorderLayout.CENTER)
+		val center = centerComponent
 		val divs = if (center != null) ZUtilities.collectDividers(center) else Nil
 		val divEntries = divs.zipWithIndex.map { case (loc, idx) => s"wnd.divider.$idx" -> loc.toString }
 		properties ++ wndEntries ++
@@ -558,17 +446,17 @@ class ZCol(currDir : String) extends BorderPanel {
 			val divLocs = (0 until divCount).flatMap(i =>
 				p.get(prefix + s"wnd.divider.$i").flatMap(_.toIntOption)).toList
 			SwingUtilities.invokeLater(() => {
-				val center = peer.getLayout.asInstanceOf[java.awt.BorderLayout]
-					.getLayoutComponent(java.awt.BorderLayout.CENTER)
-				if (center != null) ZUtilities.applyDividers(center, divLocs)
+				val c = centerComponent
+				if (c != null) ZUtilities.applyDividers(c, divLocs)
 			})
+		} else {
+			val center = centerComponent
+			if (center != null) ZUtilities.applyProportionalDividers(center)
 		}
 	}
 }
 
 object ZCol {
-	val DividerKey = "z.divider"
-
 	var colTagLine = "CloseCol Close New Sort "
 	var wndTagLine = "Get Put Zerox Close | Undo Redo Wrap Ln Indent Mark Bind "
 	var cmdTagLine = "Close | Undo Redo Wrap Kill Clear Font Scroll Input "
@@ -578,7 +466,3 @@ object ZCol {
 	val reFilteredExec = """(?s)\s*(X|Y)\s+'([^']+)'\s+(.+)\s*$""".r
 }
 
-class ZCmdCloseColEvent(val source : ZCol) extends Event
-class ZMoveWndEvent(val dir : String, val source : ZCol, val wnd : ZWnd) extends Event
-class ZMoveColEvent(val dir : String, val source : ZCol) extends Event
-class ZColStatusEvent(val source : ZCol, val properties : Map[String, String]) extends Event

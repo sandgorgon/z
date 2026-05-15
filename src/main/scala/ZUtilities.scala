@@ -23,7 +23,7 @@ import util.Properties
 import scala.util.boundary
 import boundary.break
 import scala.jdk.CollectionConverters._
-import swing.TextArea
+import swing.{BorderPanel, Component, Orientation, SplitPane, TextArea}
 import swing.event.MouseEvent
 import collection.immutable.HashMap
 import java.io.{File, BufferedReader, BufferedWriter, OutputStreamWriter, InputStreamReader}
@@ -40,6 +40,18 @@ object ZUtilities {
 
 	val DividerKey = "z.divider"
 
+	def renderSplitTree(items: List[Component], orient: Orientation.Value): Component = items match {
+		case Nil      => new BorderPanel
+		case h :: Nil => h
+		case h :: t   =>
+			new SplitPane(orient, h, renderSplitTree(t, orient)) {
+				peer.putClientProperty(DividerKey, true)
+				oneTouchExpandable = true
+				resizeWeight = 0.5
+				continuousLayout = true
+			}
+	}
+
 	def separator = File.separator
 	def isFullPath(s: String) = (new File(s)).isAbsolute
 
@@ -54,6 +66,37 @@ object ZUtilities {
 		case (sp: javax.swing.JSplitPane, loc :: rest) =>
 			sp.setDividerLocation(loc)
 			applyDividers(sp.getRightComponent, rest)
+		case _ =>
+	}
+
+	def applyDividersWithFallback(c: java.awt.Component, locs: List[Int]): Unit = c match {
+		case sp: javax.swing.JSplitPane
+			if sp.getClientProperty(DividerKey) == java.lang.Boolean.TRUE =>
+			locs match {
+				case loc :: rest if loc > 0 =>
+					sp.setDividerLocation(loc)
+					applyDividersWithFallback(sp.getRightComponent, rest)
+				case _ =>
+					applyProportionalDividers(sp)
+			}
+		case _ =>
+	}
+
+	def applyProportionalDividers(c: java.awt.Component): Unit = c match {
+		case sp: javax.swing.JSplitPane
+			if sp.getClientProperty(DividerKey) == java.lang.Boolean.TRUE =>
+			if (sp.getWidth > 0 && sp.getHeight > 0) {
+				sp.setDividerLocation(0.5)
+			} else {
+				sp.addComponentListener(new java.awt.event.ComponentAdapter {
+					override def componentResized(e: java.awt.event.ComponentEvent): Unit =
+						if (sp.getWidth > 0 && sp.getHeight > 0) {
+							sp.removeComponentListener(this)
+							sp.setDividerLocation(0.5)
+						}
+				})
+			}
+			applyProportionalDividers(sp.getRightComponent)
 		case _ =>
 	}
 
@@ -193,6 +236,12 @@ object ZUtilities {
 		val selStart = if(move == 1) init else init + 1
 		ta.caret.position = selStart
 		ta.caret.moveDot(mark)
+	}
+
+	def spawnZFromPath(p: String, root: String): Unit = {
+		val f   = new File(ZPathResolver.resolvePath(p.trim, root))
+		val dir = if (f.isDirectory) f else f.getParentFile
+		if (dir != null && dir.exists()) spawnZ(dir)
 	}
 
 	def spawnZ(dir: File): Unit = {
