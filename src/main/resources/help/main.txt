@@ -115,8 +115,7 @@ FILE COMMANDS
     Dump [fname]     Save the full editor state to fname (default: z.dump in working dir)
                      App tag line only.
     Load [fname]     Restore a previously saved editor state (default: z.dump in working dir)
-                     App tag line only. Note: syntax highlighting (Hilite) is not
-                     automatically re-applied on load — run Hilite again if needed.
+                     App tag line only.
 
     Help             Open this help text (app tag line only)
     History          Open (or refresh) a +History scratch buffer in the last column,
@@ -394,10 +393,14 @@ APPEARANCE
                       From a window tag line: same as Color (windows are leaf nodes).
                       Body-colour variants (ColorAllBack, etc.) are not supported.
 
-    Hilite            Enable syntax highlighting, auto-detecting language from the file extension
+    Hilite            Enable syntax highlighting, auto-detecting language from the file extension.
+                      Note: syntax highlighting is applied automatically on Get for all files with
+                      a known extension (.scala, .py, .go, .md, etc.) — Hilite is only needed to
+                      force it on for unrecognised extensions or to re-enable after Hilite off.
+                      Markdown (.md, .markdown) files also auto-enable word-wrap on Get.
     Hilite [lang]     Enable syntax highlighting for a specific language
                       (e.g.  Hilite scala   Hilite go   Hilite python)
-    Hilite off        Disable syntax highlighting
+    Hilite off        Disable syntax highlighting (Get will re-enable if extension is known)
     Theme [name]      Apply a colour theme to the highlighted body
                       Available themes: z  dark  druid  eclipse  idea  monokai  vs
                       The built-in 'z' theme matches the editor's default colour scheme.

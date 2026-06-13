@@ -140,6 +140,9 @@ class ZPanel(initTagText: String) extends BorderPanel with ZDragSelect with ZCap
 					ZFonts.defaultTag = new Font(font, Font.PLAIN, pt.toInt)
 					tag.font = ZFonts.defaultTag
 					cols.foreach(_.command(cmd))
+				case ZUtilities.reMdFont(element, family, size) =>
+					ZMarkdownTheme.setFont(element, family, size.toInt)
+					cols.foreach(_.command("Color z"))
 				case "Fonts" => fonts
 				case "Help" => help
 				case "Props" => props

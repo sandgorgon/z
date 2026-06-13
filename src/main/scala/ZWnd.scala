@@ -449,8 +449,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		case _                            => (txt, "")
 	}
 
-	private def lookViaFilePath(txt: String, fromTag: Boolean): Option[Boolean] = {
-		val (stxt, loc) = parseLookPath(txt)
+	private def lookViaFilePath(stxt: String, loc: String, fromTag: Boolean): Option[Boolean] = {
 		val sp      = ZUtilities.expandPath(stxt, root)
 		val absPath = new File(path)
 		val baseDir = if (absPath.isDirectory) path else absPath.getParent
@@ -467,8 +466,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	}
 
 	// Catch-all: try txt as a regex in the body, then fall back to dispatching as a command.
-	private def lookViaRegex(txt: String): Boolean = {
-		val stxt = parseLookPath(txt)._1
+	private def lookViaRegex(stxt: String): Boolean = {
 		val pos  = body.caret.position
 		val t    = body.text.substring(pos)
 		val m    = Pattern.compile(stxt, Pattern.MULTILINE).matcher(t)
@@ -504,9 +502,10 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 					true
 				} else false
 			case _ =>
+				val (stxt, loc) = parseLookPath(txt)
 				lookViaPlumbing(txt, fromTag)
-					.orElse(lookViaFilePath(txt, fromTag))
-					.getOrElse(lookViaRegex(txt))
+					.orElse(lookViaFilePath(stxt, loc, fromTag))
+					.getOrElse(lookViaRegex(stxt))
 		}
 	}
 
@@ -708,7 +707,17 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 				}
 				body.text = content
 				body.caret.position = 0
-				if (indHilite) body.hilite(ZLangRegistry.forPath(f))
+				val style = ZLangRegistry.forPath(f)
+				if (!indHilite && style != SyntaxConstants.SYNTAX_STYLE_NONE) {
+					indHilite = true
+					body.hilite(style)
+					ZTheme("z", body)
+				} else if (indHilite) {
+					body.hilite(style)
+				}
+				if (!body.lineWrap && ZLangRegistry.autoWrapExts.contains(ZLangRegistry.extOf(f))) {
+					body.lineWrap = true
+				}
 				true
 			case Left(msg) =>
 				JOptionPane.showMessageDialog(null, s"$f $msg", "Get Error", JOptionPane.ERROR_MESSAGE)
@@ -743,10 +752,12 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	}
 
 	// Hot path — emitted on every keystroke via ZStatusEvent.
-	def statusProperties: Map[String, String] = Map(
-		"line.current"            -> (body.currLineNo + 1).toString,
+	def statusProperties: Map[String, String] = {
+		val (lineNo, col) = body.currLineAndColumn
+		Map(
+		"line.current"            -> (lineNo + 1).toString,
 		"lines"                   -> body.lineCount.toString,
-		"column.current"          -> body.currColumn.toString,
+		"column.current"          -> col.toString,
 		"tab.size"                -> body.tabSize.toString,
 		"line.wrap"               -> body.lineWrap.toString,
 		"indent.auto"             -> indIndent.toString,
@@ -761,7 +772,8 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		"hilite"                  -> indHilite.toString,
 		"interactive"             -> indInteractive.toString,
 		"interactive.prompt"      -> rePrompt.pattern.pattern(),
-	)
+		)
+	}
 
 	def properties: Map[String, String] = statusProperties ++ Map(
 		"path"                    -> path,

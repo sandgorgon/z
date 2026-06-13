@@ -20,8 +20,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import org.fife.ui.rsyntaxtextarea.{Theme, TokenTypes, SyntaxScheme}
-import java.awt.Color
+import org.fife.ui.rsyntaxtextarea.{Theme, TokenTypes, SyntaxScheme, SyntaxConstants}
+import java.awt.{Color, Font}
 
 object ZTheme {
 
@@ -29,9 +29,13 @@ object ZTheme {
 	// Built-in names map directly to /org/fife/ui/rsyntaxtextarea/themes/<name>.xml
 	val available: Seq[String] = Seq("z", "dark", "druid", "eclipse", "idea", "monokai", "vs")
 
-	def apply(name: String, ta: ZTextArea): Unit = name.toLowerCase match {
-		case "z" | "default" => applyZ(ta)
-		case n               => loadBuiltin(n, ta)
+	def apply(name: String, ta: ZTextArea): Unit = {
+		name.toLowerCase match {
+			case "z" | "default" => applyZ(ta)
+			case n               => loadBuiltin(n, ta)
+		}
+		if (ta.peer.getSyntaxEditingStyle == SyntaxConstants.SYNTAX_STYLE_MARKDOWN)
+			applyMarkdownOverrides(ta)
 	}
 
 	// z theme — tokens tuned for z's pale-yellow body background (#FFFFE0)
@@ -81,5 +85,47 @@ object ZTheme {
 			try { Theme.load(is).apply(ta.peer) }
 			finally { is.close() }
 		}
+	}
+
+	// Layered on top of any base theme when the textarea contains Markdown.
+	// Colors come from the base theme; fonts and underline come from ZMarkdownTheme.
+	private def applyMarkdownOverrides(ta: ZTextArea): Unit = {
+		val scheme = ta.peer.getSyntaxScheme  // mutate in place — base theme already set it
+		val base   = ta.peer.getFont
+		val sz     = base.getSize.toFloat
+
+		def md(ttype: Int, font: Font, color: Color = null): Unit = {
+			val s = scheme.getStyle(ttype)
+			if (s != null) {
+				s.font = font
+				if (color != null) s.foreground = color
+			}
+		}
+
+		// Heading levels — Vera Serif for a typographic hierarchy distinct from prose
+		md(TokenTypes.RESERVED_WORD,   ZMarkdownTheme.h1Font)
+		md(TokenTypes.RESERVED_WORD_2, ZMarkdownTheme.h2Font)
+		md(TokenTypes.DATA_TYPE,       ZMarkdownTheme.h3Font)
+
+		// Emphasis — same typeface as body, font-style only; colors from the active theme
+		md(TokenTypes.FUNCTION,        if (ZMarkdownTheme.boldFont != null) ZMarkdownTheme.boldFont else base.deriveFont(Font.BOLD))
+		md(TokenTypes.VARIABLE,        if (ZMarkdownTheme.emFont != null) ZMarkdownTheme.emFont else base.deriveFont(Font.ITALIC))
+		md(TokenTypes.COMMENT_KEYWORD, if (ZMarkdownTheme.boldItalFont != null) ZMarkdownTheme.boldItalFont else base.deriveFont(Font.BOLD | Font.ITALIC))
+
+		// Code — Hack at body size so code blocks don't shift line height
+		val codeF = ZMarkdownTheme.codeFont.deriveFont(Font.PLAIN, sz)
+		md(TokenTypes.PREPROCESSOR,                codeF)  // `inline code`
+		md(TokenTypes.LITERAL_BACKQUOTE,           codeF)  // fenced code body
+		md(TokenTypes.LITERAL_STRING_DOUBLE_QUOTE, codeF)  // ``` fence delimiter
+		md(TokenTypes.LITERAL_CHAR,                codeF)  // lang specifier
+
+		// Blockquote — italic, color from theme
+		md(TokenTypes.COMMENT_EOL, if (ZMarkdownTheme.quoteFont != null) ZMarkdownTheme.quoteFont else base.deriveFont(Font.ITALIC))
+
+		// Link text — underline, color from theme
+		val ls = scheme.getStyle(TokenTypes.REGEX)
+		if (ls != null) ls.underline = true
+
+		ta.peer.setSyntaxScheme(scheme)
 	}
 }

@@ -108,7 +108,8 @@ class ZTextArea(txt : String = "", wrap : Boolean = false) extends TextArea(txt)
 	def lineEnd(line : Int)                   = peer.getLineEndOffset(line)
 	def lineStart(line : Int)                 = peer.getLineStartOffset(line)
 	def currLineNo                            = lineNo(caret.dot)
-	def currColumn                            = caret.dot - lineStart(lineNo(caret.dot)) + 1
+	def currColumn                            = caret.dot - lineStart(currLineNo) + 1
+	def currLineAndColumn: (Int, Int)         = { val ln = currLineNo; (ln, caret.dot - lineStart(ln) + 1) }
 	def getTextRange(oStart : Int, oEnd : Int) = peer.getText(oStart, oEnd - oStart)
 	def line(line: Int = currLineNo)          = getTextRange(lineStart(line), lineEnd(line))
 	def lineSet(line: Int, s: String)         = peer.replaceRange(s, lineStart(line), lineEnd(line))

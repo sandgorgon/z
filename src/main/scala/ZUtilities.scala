@@ -105,6 +105,7 @@ object ZUtilities {
 	val reFont      = """Font\s+'(.+)'\s+([0-9]+)""".r
 	val reFONT      = """FONT\s+'(.+)'\s+([0-9]+)""".r
 	val reTagFont   = """TagFont\s+'(.+)'\s+([0-9]+)""".r
+	val reMdFont    = """MdFont\s+(\S+)\s+'(.+)'\s+([0-9]+)""".r
 
 	def expandPath(s: String, root: String): String = {
 		if (s == null || s.isBlank) s
