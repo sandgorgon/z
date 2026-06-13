@@ -404,6 +404,12 @@ APPEARANCE
     Theme [name]      Apply a colour theme to the highlighted body
                       Available themes: z  dark  druid  eclipse  idea  monokai  vs
                       The built-in 'z' theme matches the editor's default colour scheme.
+    MdFont elem 'name' pt   Set the font for a specific Markdown element (app tag line only).
+                      Elements: h1  h2  h3  bold  em  bolditalic  code  quote
+                      Example:  MdFont h1 'Bitstream Vera Serif' 20
+                      Defaults: headings → Bitstream Vera Serif Bold (18/15/14pt),
+                                code → Hack, emphasis → derived from body font.
+                      Persisted across sessions in ~/.z/settings as md.font.* keys.
     CLine             Toggle current-line highlight
     Ln                Toggle line numbers in the body gutter
 
