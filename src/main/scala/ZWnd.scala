@@ -715,7 +715,7 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 				} else if (indHilite) {
 					body.hilite(style)
 				}
-				if (!body.lineWrap && ZLangRegistry.autoWrapExts.contains(ZLangRegistry.extOf(f))) {
+				if (!body.lineWrap && ZLangRegistry.autoWrap(f)) {
 					body.lineWrap = true
 				}
 				true

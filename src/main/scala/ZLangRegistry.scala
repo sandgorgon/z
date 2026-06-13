@@ -78,10 +78,12 @@ object ZLangRegistry {
 		"markdown"   -> SyntaxConstants.SYNTAX_STYLE_MARKDOWN,
 	)
 
-	def extOf(path: String): String =
+	private def extOf(path: String): String =
 		path.split('.').lastOption.map(_.toLowerCase).getOrElse("")
 
-	val autoWrapExts: Set[String] = Set("md", "markdown")
+	private val autoWrapExts: Set[String] = Set("md", "markdown")
+
+	def autoWrap(path: String): Boolean = autoWrapExts.contains(extOf(path))
 
 	def forPath(path: String): String =
 		byExt.getOrElse(extOf(path), SyntaxConstants.SYNTAX_STYLE_NONE)

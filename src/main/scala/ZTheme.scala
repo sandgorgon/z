@@ -102,15 +102,17 @@ object ZTheme {
 			}
 		}
 
+		def orDerived(slot: Font, style: Int): Font = if (slot != null) slot else base.deriveFont(style)
+
 		// Heading levels — Vera Serif for a typographic hierarchy distinct from prose
 		md(TokenTypes.RESERVED_WORD,   ZMarkdownTheme.h1Font)
 		md(TokenTypes.RESERVED_WORD_2, ZMarkdownTheme.h2Font)
 		md(TokenTypes.DATA_TYPE,       ZMarkdownTheme.h3Font)
 
 		// Emphasis — same typeface as body, font-style only; colors from the active theme
-		md(TokenTypes.FUNCTION,        if (ZMarkdownTheme.boldFont != null) ZMarkdownTheme.boldFont else base.deriveFont(Font.BOLD))
-		md(TokenTypes.VARIABLE,        if (ZMarkdownTheme.emFont != null) ZMarkdownTheme.emFont else base.deriveFont(Font.ITALIC))
-		md(TokenTypes.COMMENT_KEYWORD, if (ZMarkdownTheme.boldItalFont != null) ZMarkdownTheme.boldItalFont else base.deriveFont(Font.BOLD | Font.ITALIC))
+		md(TokenTypes.FUNCTION,        orDerived(ZMarkdownTheme.boldFont,     Font.BOLD))
+		md(TokenTypes.VARIABLE,        orDerived(ZMarkdownTheme.emFont,       Font.ITALIC))
+		md(TokenTypes.COMMENT_KEYWORD, orDerived(ZMarkdownTheme.boldItalFont, Font.BOLD | Font.ITALIC))
 
 		// Code — Hack at body size so code blocks don't shift line height
 		val codeF = ZMarkdownTheme.codeFont.deriveFont(Font.PLAIN, sz)
@@ -120,7 +122,7 @@ object ZTheme {
 		md(TokenTypes.LITERAL_CHAR,                codeF)  // lang specifier
 
 		// Blockquote — italic, color from theme
-		md(TokenTypes.COMMENT_EOL, if (ZMarkdownTheme.quoteFont != null) ZMarkdownTheme.quoteFont else base.deriveFont(Font.ITALIC))
+		md(TokenTypes.COMMENT_EOL, orDerived(ZMarkdownTheme.quoteFont, Font.ITALIC))
 
 		// Link text — underline, color from theme
 		val ls = scheme.getStyle(TokenTypes.REGEX)

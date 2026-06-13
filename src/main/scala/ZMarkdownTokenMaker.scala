@@ -34,18 +34,19 @@ class ZMarkdownTokenMaker extends MarkdownTokenMaker {
         first
     }
 
+    // MarkdownTokenMaker.INTERNAL_IN_SYNTAX_HIGHLIGHTING is private; value verified against RSTA 3.4.0
+    private val InFencedBlock = -11
+
     private def refine(first: Token, initialTokenType: Int): Unit = {
-        // -11 == MarkdownTokenMaker.INTERNAL_IN_SYNTAX_HIGHLIGHTING (private constant)
-        val inFencedBlock = initialTokenType == -11
+        val inFencedBlock = initialTokenType == InFencedBlock
         var t = first
         while (t != null && t.isPaintable) {
             t.getType match {
                 case TokenTypes.RESERVED_WORD =>
                     val level = t.getLexeme.takeWhile(_ == '#').length
-                    t.setType(
-                        if (level == 1) TokenTypes.RESERVED_WORD
-                        else if (level == 2) TokenTypes.RESERVED_WORD_2
-                        else TokenTypes.DATA_TYPE)
+                    // level == 1 is already RESERVED_WORD; only retype H2+ to free those slots
+                    if (level == 2) t.setType(TokenTypes.RESERVED_WORD_2)
+                    else if (level > 2) t.setType(TokenTypes.DATA_TYPE)
 
                 case TokenTypes.RESERVED_WORD_2 =>
                     t.setType(TokenTypes.FUNCTION)         // **bold** freed from H2 slot

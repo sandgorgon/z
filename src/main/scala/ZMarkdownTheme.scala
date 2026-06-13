@@ -35,18 +35,29 @@ object ZMarkdownTheme {
     var codeFont:     Font = ZFonts.SANS_SERIF_MONO
     var quoteFont:    Font = null   // null → derive italic from body font
 
-    def setFont(element: String, family: String, size: Int): Unit = {
-        val f = new Font(family, Font.PLAIN, size)
-        element match {
-            case "h1"         => h1Font       = f.deriveFont(Font.BOLD)
-            case "h2"         => h2Font       = f.deriveFont(Font.BOLD)
-            case "h3"         => h3Font       = f.deriveFont(Font.BOLD)
-            case "bold"       => boldFont     = f.deriveFont(Font.BOLD)
-            case "em"         => emFont       = f.deriveFont(Font.ITALIC)
-            case "bolditalic" => boldItalFont = f.deriveFont(Font.BOLD | Font.ITALIC)
-            case "code"       => codeFont     = f
-            case "quote"      => quoteFont    = f.deriveFont(Font.ITALIC)
-            case _            =>
-        }
+    val elements: Seq[String] = Seq("h1", "h2", "h3", "bold", "em", "bolditalic", "code", "quote")
+
+    def fontFor(element: String): Font = element match {
+        case "h1"         => h1Font
+        case "h2"         => h2Font
+        case "h3"         => h3Font
+        case "bold"       => boldFont
+        case "em"         => emFont
+        case "bolditalic" => boldItalFont
+        case "code"       => codeFont
+        case "quote"      => quoteFont
+        case _            => null
+    }
+
+    def setFont(element: String, family: String, size: Int): Unit = element match {
+        case "h1"         => h1Font       = new Font(family, Font.BOLD,               size)
+        case "h2"         => h2Font       = new Font(family, Font.BOLD,               size)
+        case "h3"         => h3Font       = new Font(family, Font.BOLD,               size)
+        case "bold"       => boldFont     = new Font(family, Font.BOLD,               size)
+        case "em"         => emFont       = new Font(family, Font.ITALIC,             size)
+        case "bolditalic" => boldItalFont = new Font(family, Font.BOLD | Font.ITALIC, size)
+        case "code"       => codeFont     = new Font(family, Font.PLAIN,              size)
+        case "quote"      => quoteFont    = new Font(family, Font.ITALIC,             size)
+        case _            =>
     }
 }

@@ -102,18 +102,13 @@ object z extends SwingApplication {
 			p += "app.width"   -> size.getWidth.toInt.toString
 			p += "app.height"  -> size.getHeight.toInt.toString
 			p += "view.rotated" -> mainPanel.rotated.toString
-			def saveMdFont(elem: String, font: java.awt.Font): Unit = if (font != null) {
-				p += s"md.font.$elem"      -> font.getFamily
-				p += s"md.font.$elem.size" -> font.getSize.toString
+			for (elem <- ZMarkdownTheme.elements) {
+				val font = ZMarkdownTheme.fontFor(elem)
+				if (font != null) {
+					p += s"md.font.$elem"      -> font.getFamily
+					p += s"md.font.$elem.size" -> font.getSize.toString
+				}
 			}
-			saveMdFont("h1",         ZMarkdownTheme.h1Font)
-			saveMdFont("h2",         ZMarkdownTheme.h2Font)
-			saveMdFont("h3",         ZMarkdownTheme.h3Font)
-			saveMdFont("bold",       ZMarkdownTheme.boldFont)
-			saveMdFont("em",         ZMarkdownTheme.emFont)
-			saveMdFont("bolditalic", ZMarkdownTheme.boldItalFont)
-			saveMdFont("code",       ZMarkdownTheme.codeFont)
-			saveMdFont("quote",      ZMarkdownTheme.quoteFont)
 			ZSettings.dump(p, settings, "Z Global Settings")
 			ZLspManager.shutdown()
 			System.exit(0)
@@ -148,7 +143,7 @@ object z extends SwingApplication {
 
 		// Restore per-element Markdown fonts (only if both family and size keys exist)
 		for {
-			elem   <- Seq("h1","h2","h3","bold","em","bolditalic","code","quote")
+			elem   <- ZMarkdownTheme.elements
 			family <- p.get(s"md.font.$elem")
 			size   <- p.get(s"md.font.$elem.size").flatMap(_.toIntOption)
 		} ZMarkdownTheme.setFont(elem, family, size)
