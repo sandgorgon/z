@@ -648,10 +648,10 @@ ColorTSelFore 255 255 255 ← Tag selection foreground
 
 ### Enabling Highlighting
 
-`Hilite` enables syntax highlighting, detecting the language from the file extension:
+For files with a known extension (`.scala`, `.go`, `.py`, `.md`, and many others), highlighting turns on automatically when you open the file — no command needed. For files with unrecognised extensions, or to switch languages, use `Hilite`:
 
 ```
-Hilite             ← Auto-detect from extension
+Hilite             ← Auto-detect from extension (or re-enable after Hilite off)
 Hilite scala       ← Force Scala highlighting
 Hilite go
 Hilite python
@@ -672,9 +672,28 @@ Theme druid
 Theme vs
 ```
 
+### Markdown
+
+Markdown files (`.md`, `.markdown`) get enhanced typography automatically:
+
+- **H1 / H2 / H3** headings render in Bitstream Vera Serif Bold at 18 / 15 / 14pt — visually distinct from body prose.
+- **Bold** and *italic* text use font-weight and font-style changes rather than just colour.
+- Code spans and fenced code blocks switch to Hack monospace.
+- Blockquotes render in italic; link text is underlined.
+
+To adjust fonts per element, use `MdFont` from the app tag line:
+
+```
+MdFont h1 'Bitstream Vera Serif' 20
+MdFont code 'Hack' 13
+MdFont bold 'Bitstream Vera Sans' 14
+```
+
+Elements: `h1  h2  h3  bold  em  bolditalic  code  quote`. Settings persist across sessions.
+
 ### After Loading a Session
 
-When you restore a session with `Load`, the highlighting state is restored — but the actual colouring is *not* automatically reapplied. If your files were highlighted before the dump, re-run `Hilite` after loading to bring the colours back.
+When you restore a session with `Load`, the highlighting state is restored. For files with known extensions, the colouring is re-applied automatically on the next `Get`. Files without a known extension that were manually highlighted will need `Hilite` re-run after loading.
 
 ---
 
@@ -1169,7 +1188,7 @@ From the app tag line:
 Load ~/myapp/session
 ```
 
-Everything is back: every window, every scratch buffer, every colour setting. Re-run `Hilite scala` on any window that needs its colours restored.
+Everything is back: every window, every scratch buffer, every colour setting. For files with known extensions the highlighting re-activates automatically on the next `Get`; for files with unrecognised extensions, re-run `Hilite` manually.
 
 ---
 

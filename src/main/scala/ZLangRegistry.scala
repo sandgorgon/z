@@ -55,6 +55,7 @@ object ZLangRegistry {
 		"rb"         -> SyntaxConstants.SYNTAX_STYLE_RUBY,
 		"rs"         -> SyntaxConstants.SYNTAX_STYLE_RUST,
 		"md"         -> SyntaxConstants.SYNTAX_STYLE_MARKDOWN,
+		"markdown"   -> SyntaxConstants.SYNTAX_STYLE_MARKDOWN,
 		"properties" -> SyntaxConstants.SYNTAX_STYLE_PROPERTIES_FILE,
 		"groovy"     -> SyntaxConstants.SYNTAX_STYLE_GROOVY,
 		"lua"        -> SyntaxConstants.SYNTAX_STYLE_LUA,
@@ -79,6 +80,10 @@ object ZLangRegistry {
 
 	private def extOf(path: String): String =
 		path.split('.').lastOption.map(_.toLowerCase).getOrElse("")
+
+	private val autoWrapExts: Set[String] = Set("md", "markdown")
+
+	def autoWrap(path: String): Boolean = autoWrapExts.contains(extOf(path))
 
 	def forPath(path: String): String =
 		byExt.getOrElse(extOf(path), SyntaxConstants.SYNTAX_STYLE_NONE)

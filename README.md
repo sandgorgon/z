@@ -53,7 +53,8 @@ sbt test
 ## Features
 
 - **Acme-style mouse chording** — B3 (right-click) to look/navigate/execute, B2-drag to execute selected text; **keyboard capture mode** (Ctrl+Enter) lets you type a command with the keyboard, see it highlighted as you go, then execute as a command (Ctrl+Enter) or look/navigate (Ctrl+F)
-- **Syntax highlighting** — powered by RSyntaxTextArea; use `Hilite` to enable, `Hilite [lang]` for a specific language, `Theme [name]` to switch colour themes
+- **Syntax highlighting** — powered by RSyntaxTextArea; auto-enabled on `Get` for any file with a known extension (no manual command needed); use `Hilite [lang]` to override, `Hilite off` to disable, `Theme [name]` to switch colour themes
+  - **Markdown typography** — Markdown files get per-level heading fonts (Vera Serif Bold at 18/15/14pt for H1/H2/H3), distinct bold/italic/bold-italic rendering, Hack monospace for inline and fenced code, italic blockquotes, and underlined link text — all overlaid on top of whatever colour theme is active; use `MdFont <elem> '<family>' <size>` (app tag line) to restyle any element (`h1 h2 h3 bold em bolditalic code quote`); settings persist across sessions in `~/.z/settings` as `md.font.*`
 - **Language Server Protocol (LSP)** — use `Lsp` to start a language server for the current file:
   - Squiggly underlines for errors and warnings
   - Hover tooltips with type information and documentation
