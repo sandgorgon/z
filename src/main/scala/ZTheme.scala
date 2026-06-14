@@ -114,8 +114,8 @@ object ZTheme {
 		md(TokenTypes.VARIABLE,        orDerived(ZMarkdownTheme.emFont,       Font.ITALIC))
 		md(TokenTypes.COMMENT_KEYWORD, orDerived(ZMarkdownTheme.boldItalFont, Font.BOLD | Font.ITALIC))
 
-		// Code — Hack at body size so code blocks don't shift line height
-		val codeF = ZMarkdownTheme.codeFont.deriveFont(Font.PLAIN, sz)
+		// Code — force PLAIN style; size comes from ZMarkdownTheme.codeFont (user-settable via MdFont code)
+		val codeF = ZMarkdownTheme.codeFont.deriveFont(Font.PLAIN)
 		md(TokenTypes.PREPROCESSOR,                codeF)  // `inline code`
 		md(TokenTypes.LITERAL_BACKQUOTE,           codeF)  // fenced code body
 		md(TokenTypes.LITERAL_STRING_DOUBLE_QUOTE, codeF)  // ``` fence delimiter

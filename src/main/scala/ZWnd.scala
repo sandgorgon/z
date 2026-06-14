@@ -40,8 +40,10 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 	var indScroll = true
 	var indInteractive = false
 	var indBind = false
-	var indHilite   = false
-	var indLineNums = false
+	var indHilite         = false
+	var indHiliteOff      = false  // true when user explicitly ran Hilite off; suppresses auto-enable on Get
+	var indTheme          = "z"
+	var indLineNums       = false
 
 	var bodyScheme = ZColorScheme(
 		ZColors.BodyBack,
@@ -305,21 +307,21 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 			true
 		case "Hilite"  =>
 			val first = !indHilite
-			indHilite = true
+			indHilite = true; indHiliteOff = false
 			body.hilite(ZLangRegistry.forPath(path))
-			if (first) ZTheme("z", body)
+			if (first) ZTheme(indTheme, body)
 			true
 		case ZWnd.reHilite("off")           =>
-			indHilite = false
+			indHilite = false; indHiliteOff = true
 			body.hilite(SyntaxConstants.SYNTAX_STYLE_NONE)
 			true
 		case ZWnd.reHilite(lang)            =>
 			val first = !indHilite
-			indHilite = true
+			indHilite = true; indHiliteOff = false
 			body.hilite(ZLangRegistry.forLang(lang))
-			if (first) ZTheme("z", body)
+			if (first) ZTheme(indTheme, body)
 			true
-		case ZWnd.reTheme(theme)            => ZTheme(theme, body); true
+		case ZWnd.reTheme(theme)            => indTheme = theme; ZTheme(theme, body); true
 		case "Indent"                       => indIndent = !indIndent; true
 		case "Bind"                         => indBind = !indBind; true
 		case ZUtilities.reFont(font, pt)    =>
@@ -708,12 +710,13 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 				body.text = content
 				body.caret.position = 0
 				val style = ZLangRegistry.forPath(f)
-				if (!indHilite && style != SyntaxConstants.SYNTAX_STYLE_NONE) {
+				if (!indHilite && !indHiliteOff && style != SyntaxConstants.SYNTAX_STYLE_NONE) {
 					indHilite = true
 					body.hilite(style)
-					ZTheme("z", body)
+					ZTheme(indTheme, body)
 				} else if (indHilite) {
 					body.hilite(style)
+					ZTheme(indTheme, body)
 				}
 				if (!body.lineWrap && ZLangRegistry.autoWrap(f)) {
 					body.lineWrap = true
@@ -770,6 +773,8 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		"lsp.status"              -> lsp.status,
 		"lsp.indexing"            -> lsp.indexing.toString,
 		"hilite"                  -> indHilite.toString,
+		"hilite.explicit.off"     -> indHiliteOff.toString,
+		"theme"                   -> indTheme,
 		"interactive"             -> indInteractive.toString,
 		"interactive.prompt"      -> rePrompt.pattern.pattern(),
 		)
@@ -847,8 +852,10 @@ class ZWnd(initTagText : String, initBodyText : String = "", currDir : String = 
 		dirty          = p.getOrElse(prefix + "dirty",        "false") == "true"
 		scroll         = p.getOrElse(prefix + "scroll",       "false") == "true"
 
-		indHilite   = p.getOrElse(prefix + "hilite",       "false") == "true"
-		indLineNums = p.getOrElse(prefix + "line.numbers", "false") == "true"
+		indHilite    = p.getOrElse(prefix + "hilite",             "false") == "true"
+		indHiliteOff = p.getOrElse(prefix + "hilite.explicit.off", "false") == "true"
+		indTheme     = p.getOrElse(prefix + "theme",               "z")
+		indLineNums  = p.getOrElse(prefix + "line.numbers",        "false") == "true"
 		if(indLineNums) bodyScroll.setLineNumbersEnabled(true)
 		styleGutter()
 		// indHilite must be set before Get so the highlighting is applied when the file loads.
